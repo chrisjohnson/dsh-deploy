@@ -1,0 +1,70 @@
+# Patch layer for the web profile, applied after every bundle layer.
+# dsh-web-search-searxng ships its OWN patch layer (activates on inclusion
+# in `bundles` above — switches ctx.web's search provider to searxng and
+# mounts the plugin row) via its `dsh.bundle.patch` package.json field, so
+# no hand-written insert is needed for that.
+
+# Redirects the settings document off the single-file bind mount that used
+# to sit at $DSH_HOME/settings.yaml (M-122). dsh-atomic-write's own
+# contract (see its README) commits every settings write via a
+# same-directory temp file + rename — and a rename can never replace an
+# active bind-mount point, which a single-file `docker-compose.yml` mount
+# always is. Confirmed live: acknowledging dsh's own onboarding banner
+# (a settings.mutate call) failed with `EBUSY: resource busy or locked,
+# rename '/dsh-home/settings.yaml.<tmp>' -> '/dsh-home/settings.yaml'`.
+# Fix: settings.yaml now lives inside `/dsh-home-seed`, a DIRECTORY-level
+# bind mount of the whole `dsh-home-seed/` checkout (see docker-compose.yml)
+# — the same pattern the `profiles/` mount already uses successfully,
+# since a rename entirely within a mounted directory is an ordinary
+# filesystem operation, not a mount-point replacement.
+- id: settings
+  config:
+    path: /dsh-home-seed/settings.yaml
+
+# Host-plane auto-continue watcher (2026-08-21, Chris's first dsh plugin).
+# DSH equivalent of local-ai-machine's pi-web-session-watcher (M-111), but
+# in-process rather than an external poller - dsh's session/agent registries
+# are directly reachable from host-plane plugin code, so no separate service
+# or REST polling is needed the way pi-web (a closed prebuilt image) required.
+#
+# v3 (2026-08-24), driven by the Orchestrator session miss (spotify-tracker
+# session-5239b866: medium-moe burned its full 8192-token budget on pure
+# reasoning, ended turn/end { kind: 'max-tokens' }, nobody watching, and v2
+# matched only 'interrupted' - so the exact halt case this plugin exists for
+# was an explicit non-match even when Chris reopened the session). Two
+# triggers now feed one shared decision function:
+#
+#   - agent/created tail inspection (v2's trigger, widened condition) -
+#     still the path for crash recovery ('interrupted' markers are
+#     synthesized during session load and never publish live) and for
+#     reopen-after-the-fact cases.
+#   - NEW live watcher per agent on agent.ctx 'session/event': 'max-tokens'
+#     IS a real streamed finish reason (unlike interrupted), and unattended
+#     halts have no reopen event to lean on. Schedules a delayed
+#     re-analysis of the same tail guards rather than acting on the raw
+#     event.
+#
+# Kick conditions: unresolved 'interrupted' boundary (as v2), or any
+# 'max-tokens' boundary (v4: no content-shape check on the final message -
+# kind === 'max-tokens' is always a budget-cut generation, never a
+# model-chosen stop). Deliberately does NOT fire on 'completed', 'aborted',
+# 'error', tails already followed by a user/assistant message (recovered
+# manually or otherwise), subagent sessions by default (auto-kicking a
+# delegated child fights its parent orchestrator's own retry flow), or
+# after maxConsecutiveKicks consecutive kicks with no progress (runaway
+# guard against think-cap-think loops; logs loudly instead of kicking).
+# Max-tokens kicks use a reason-aware prompt forbidding re-derivation of
+# the lost reasoning. Every kick AND skip is logged with its reason - see
+# dsh/dsh-home-seed/profiles/web/plugins/continue-kicker.mjs for the full
+# rationale and history (including why v1's live listener never fired and
+# why v2's reopen-only trigger couldn't see unattended halts).
+- insert:
+    - id: continue-kicker
+      name: ./plugins/continue-kicker.mjs
+      config:
+        cooldownMs: 60000
+        liveKickDelayMs: 3000
+        maxConsecutiveKicks: 3
+        kickOnInterrupted: true
+        kickOnMaxTokens: true
+        includeSubagents: false

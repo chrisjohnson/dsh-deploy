@@ -1,0 +1,3 @@
+name: PTC mode (local-ai-machine, early compaction)
+description: Same as the shipped "PTC" preset, with compaction-basic's thresholdRatio lowered to 0.6 (from 0.8) so context is freed before the compaction call itself can be crowded out by the live conversation. See dsh-home-seed/agent-presets/code-local/agent.cordis.yml's own comment for the incident this fixes.
+order: 2

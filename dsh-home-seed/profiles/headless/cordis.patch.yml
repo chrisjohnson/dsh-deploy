@@ -1,0 +1,10 @@
+# Patch layer for the headless profile, applied after every bundle layer.
+
+# Same settings-path redirect as the web profile's own cordis.patch.yml —
+# see that file's comment for the full EBUSY/atomic-rename explanation.
+# Both profiles share the one mounted settings.yaml, so both need the
+# override; a fix applied to only one profile would leave the other
+# profile's settings.mutate calls silently broken.
+- id: settings
+  config:
+    path: /dsh-home-seed/settings.yaml

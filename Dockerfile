@@ -77,6 +77,14 @@ RUN npm ci --omit=dev
 ENV PATH="/app/node_modules/.bin:${PATH}"
 ENV DSH_HOME=/dsh-home
 
+# Baked-in defaults for $DSH_HOME's config-as-code paths (M-132, 2026-08-26)
+# — seed-copied into place on first boot only by docker-entrypoint.sh, never
+# overwriting an existing (possibly agent-edited) file. Previously bind-
+# mounted live from this repo's own git checkout on the host (local-ai-
+# machine); now baked in since dsh-deploy is a pulled image with no
+# checkout on the box. See docker-entrypoint.sh for the full reasoning.
+COPY dsh-home-seed /app/dsh-home-seed
+
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

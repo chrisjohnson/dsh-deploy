@@ -1,13 +1,49 @@
 #!/bin/sh
 set -e
 
-# Unlike jmfederico-pi-web, there is no seed-once file copy here: settings.yaml
-# and profiles/ are bind-mounted DIRECTLY from the git-tracked dsh-home-seed/
-# in this repo (see docker-compose.yml), not copied into a separate runtime
-# location. An edit under those paths — by a human, or by dsh's own agent in
-# a session — IS an edit to the checked-out git working tree on the host,
-# ready to `git add`/commit. That is the whole point (M-122: dsh "creator
-# mode" compatibility) and it must not be undone by copying seeds elsewhere.
+# Seed-once file copy (M-132, 2026-08-26), same pattern jmfederico-pi-web/
+# oh-my-pi already use: dsh-home-seed/ ships baked into the image (COPY'd
+# to /app/dsh-home-seed in the Dockerfile) and gets copied into place here
+# on first boot ONLY — every check below is guarded so an existing
+# (possibly agent-edited) file/dir is never overwritten by a restart.
+#
+# Previously (pre-M-132) these paths were bind-mounted DIRECTLY from a live
+# git checkout of local-ai-machine on the host, so any edit was immediately
+# a commit-ready change to that checkout — dsh-deploy is now a pulled
+# image with no checkout on the box, so that specific property (instant
+# git-trackability) is gone. What it doesn't affect: dsh's own "creator
+# mode" is a built-in @deepseek-ai/dsh capability (plain filesystem writes
+# to wherever its config directory is mounted), not something this repo
+# implemented or is redesigning — dsh still gets a writable, durable
+# directory to self-edit here, exactly as before, it's just no longer
+# automatically a live git working tree underneath it.
+mkdir -p "$DSH_HOME/profiles"
+if [ -z "$(ls -A "$DSH_HOME/profiles" 2>/dev/null)" ]; then
+  cp -r /app/dsh-home-seed/profiles/. "$DSH_HOME/profiles/"
+fi
+if [ ! -f "$DSH_HOME/AGENTS.md" ]; then
+  cp /app/dsh-home-seed/AGENTS.md "$DSH_HOME/AGENTS.md"
+fi
+mkdir -p "$DSH_HOME/.agent-presets"
+if [ -z "$(ls -A "$DSH_HOME/.agent-presets" 2>/dev/null)" ]; then
+  cp -r /app/dsh-home-seed/agent-presets/. "$DSH_HOME/.agent-presets/"
+fi
+# /dsh-home-seed: the whole dsh-home-seed tree, at this separate top-level
+# path specifically because dsh's own settings-file plugin (each profile's
+# cordis.patch.yml, `id: settings`, config.path) points at
+# /dsh-home-seed/settings.yaml instead of the default $DSH_HOME/
+# settings.yaml — a real requirement, not cosmetic: dsh-atomic-write saves
+# settings via a same-directory temp file + rename, and a single-file bind
+# mount previously made that rename fail with EBUSY (a rename can never
+# replace an active bind-mount point). That constraint doesn't actually
+# apply to an ordinary seed-copied directory the way it did to a per-file
+# mount, but the path itself is left exactly where dsh's own
+# cordis.patch.yml files already expect it — not "cleaned up," since
+# touching that config is out of scope for a deployment-mechanism change.
+mkdir -p /dsh-home-seed
+if [ -z "$(ls -A /dsh-home-seed 2>/dev/null)" ]; then
+  cp -r /app/dsh-home-seed/. /dsh-home-seed/
+fi
 
 if [ -z "$LOCAL_AI_MACHINE_API_KEY" ]; then
   echo "LOCAL_AI_MACHINE_API_KEY is not set - refusing to start with no way to authenticate to litellm." >&2
@@ -26,9 +62,10 @@ fi
 # resolvable node_modules entry right at the profile directory
 # (/dsh-home/profiles/web/) — neither alone was sufficient, only both
 # together produced a clean boot. That directory is bind-mounted from
-# docker-compose.yml's dedicated (non-git) profile-node-modules mount — NOT
-# from dsh-home-seed/profiles/ itself, which is the git working tree on the
-# host and must never get stray generated files written into it.
+# docker-compose.yml's dedicated profile-node-modules mount — NOT the same
+# path this file's seed-copy above populates, which must never get stray
+# generated files written into it (it's still the seed-once destination
+# dsh itself edits via "creator mode", not a scratch/build directory).
 # Idempotent: safe to re-run every boot.
 mkdir -p "$DSH_HOME/profiles/web/node_modules"
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"

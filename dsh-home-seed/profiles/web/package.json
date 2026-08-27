@@ -1,0 +1,16 @@
+{
+  "name": "dsh-profile-web",
+  "private": true,
+  "dependencies": {
+    "dsh-web-search-searxng": "git+https://github.com/d3cker/dsh-web-search-searxng.git#cbf7071c362de71ff12bc3c5295392384f1d517f"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "dsh-web-search-searxng"
+      ]
+    }
+  }
+}
