@@ -105,8 +105,17 @@ ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_mo
 #    into a session, not the token itself.
 if [ -n "$GITHUB_APP_ID" ]; then
   git config --global credential.helper "/app/github-app-git-credential-helper.mjs"
+  # url.<base>.insteadOf is multi-valued in git, but plain `git config
+  # <key> <value>` (no --add) REPLACES rather than appends when the key
+  # already has a value — confirmed live during M-134's validation of the
+  # same copy-pasted template: the second call below was silently
+  # overwriting the first, so only ssh://git@github.com/ remotes got
+  # rewritten and plain SCP-style git@github.com:owner/repo remotes (the
+  # more common clone form) fell through with no credential at all, since
+  # the SSH key mount this replaced is gone. --add on the second call
+  # fixes it.
   git config --global url."https://github.com/".insteadOf "git@github.com:"
-  git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+  git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/"
 
   (
     while true; do
