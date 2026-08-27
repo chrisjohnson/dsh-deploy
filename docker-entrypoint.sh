@@ -1,11 +1,27 @@
 #!/bin/sh
 set -e
 
-# Seed-once file copy (M-132, 2026-08-26), same pattern jmfederico-pi-web/
-# oh-my-pi already use: dsh-home-seed/ ships baked into the image (COPY'd
-# to /app/dsh-home-seed in the Dockerfile) and gets copied into place here
-# on first boot ONLY — every check below is guarded so an existing
-# (possibly agent-edited) file/dir is never overwritten by a restart.
+# Seed file copy (M-132, 2026-08-26 — revised same day after a live bug),
+# same intent as jmfederico-pi-web/oh-my-pi's seed-once pattern:
+# dsh-home-seed/ ships baked into the image (COPY'd to /app/dsh-home-seed
+# in the Dockerfile) and gets copied into place here, never overwriting an
+# existing (possibly agent-edited) file.
+#
+# Uses `cp -rn` (no-clobber, recurse into existing directories rather than
+# skip them) instead of an "is the destination directory empty" guard —
+# the original version used the latter and it was a real bug, not just
+# theoretically fragile: Docker itself pre-creates profiles/web (as a
+# mount-point ancestor for the separate profile-node-modules/web nested
+# mount, see below) BEFORE this script ever runs, so profiles/ was never
+# actually empty by the time the guard checked it — the entire profiles
+# seed-copy silently no-op'd from the very first boot, and
+# cordis.patch.yml / plugins/continue-kicker.mjs were simply never seeded
+# at all (confirmed live, not hypothetical: this broke dsh's own model
+# picker, since cordis.patch.yml is what points settings at
+# /dsh-home-seed/settings.yaml in the first place). `cp -rn` walks into
+# already-existing directories and copies whatever's actually missing,
+# file by file, so a partially-pre-populated destination (like this one)
+# can never cause a whole subtree to be silently skipped again.
 #
 # Previously (pre-M-132) these paths were bind-mounted DIRECTLY from a live
 # git checkout of local-ai-machine on the host, so any edit was immediately
@@ -18,16 +34,12 @@ set -e
 # directory to self-edit here, exactly as before, it's just no longer
 # automatically a live git working tree underneath it.
 mkdir -p "$DSH_HOME/profiles"
-if [ -z "$(ls -A "$DSH_HOME/profiles" 2>/dev/null)" ]; then
-  cp -r /app/dsh-home-seed/profiles/. "$DSH_HOME/profiles/"
-fi
+cp -rn /app/dsh-home-seed/profiles/. "$DSH_HOME/profiles/"
 if [ ! -f "$DSH_HOME/AGENTS.md" ]; then
   cp /app/dsh-home-seed/AGENTS.md "$DSH_HOME/AGENTS.md"
 fi
 mkdir -p "$DSH_HOME/.agent-presets"
-if [ -z "$(ls -A "$DSH_HOME/.agent-presets" 2>/dev/null)" ]; then
-  cp -r /app/dsh-home-seed/agent-presets/. "$DSH_HOME/.agent-presets/"
-fi
+cp -rn /app/dsh-home-seed/agent-presets/. "$DSH_HOME/.agent-presets/"
 # /dsh-home-seed: the whole dsh-home-seed tree, at this separate top-level
 # path specifically because dsh's own settings-file plugin (each profile's
 # cordis.patch.yml, `id: settings`, config.path) points at
@@ -41,9 +53,7 @@ fi
 # cordis.patch.yml files already expect it — not "cleaned up," since
 # touching that config is out of scope for a deployment-mechanism change.
 mkdir -p /dsh-home-seed
-if [ -z "$(ls -A /dsh-home-seed 2>/dev/null)" ]; then
-  cp -r /app/dsh-home-seed/. /dsh-home-seed/
-fi
+cp -rn /app/dsh-home-seed/. /dsh-home-seed/
 
 if [ -z "$LOCAL_AI_MACHINE_API_KEY" ]; then
   echo "LOCAL_AI_MACHINE_API_KEY is not set - refusing to start with no way to authenticate to litellm." >&2
