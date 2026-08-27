@@ -70,24 +70,43 @@ fi
 mkdir -p "$DSH_HOME/profiles/web/node_modules"
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"
 
-# Persist GH_TOKEN into gh's own config file (M-122), not just process.env.
-# dsh's subprocess layer (dsh-subprocess's scrubbedParentEnv) strips any env
-# var matching /KEY|PASSWORD|SECRET|TOKEN/i - including GH_TOKEN itself -
-# before spawning a sandboxed bash tool call, by hardcoded design (no
-# allowlist config exists yet; its own README notes this as "future work").
-# So GH_TOKEN alone authenticates a direct `docker exec dsh gh ...` but is
-# invisible to a session's own bash tool, confirmed live: `gh auth status`
-# succeeded outside a session and failed with no token found inside one.
-# `gh auth login` writes to ~/.config/gh/hosts.yml instead - a FILE, not an
-# env var, so the scrub never touches it (the same reason SSH-key git auth
-# already worked fine inside sessions: key files, not env vars). This
-# survives container recreates since /home/node is its own durable mount
-# (see the volumes entry above). Idempotent (skips if already authenticated,
-# e.g. from a previous boot) and safe to re-run every boot; `gh auth login`
-# itself refuses to persist while GH_TOKEN is still in ITS OWN environment,
-# hence the `env -u`.
-if [ -n "$GH_TOKEN" ] && ! env -u GH_TOKEN gh auth status >/dev/null 2>&1; then
-  echo "$GH_TOKEN" | env -u GH_TOKEN gh auth login --with-token
+# GitHub App credential (M-132, replaces the old raw chris_github_key SSH
+# mount + a separate GH_TOKEN PAT with one mechanism, both for git and gh):
+#
+# 1. git: a credential.helper backed by github-app-git-credential-helper.mjs
+#    mints a genuinely fresh installation token PER git operation — no
+#    caching, no refresh logic needed, git just asks again next time.
+#    credential.helper only applies to HTTPS remotes, never SSH, so a
+#    URL-rewrite rule transparently maps any git@github.com:/ssh://
+#    style clone/push to https://github.com/ first — otherwise a session
+#    that happens to use an SSH-style URL would silently bypass the
+#    helper entirely and just fail with no credential at all.
+# 2. gh CLI: unlike git, `gh` does NOT consult git's credential.helper for
+#    its own API calls (pr create, etc.) — it reads its own persisted
+#    token from ~/.config/gh/hosts.yml via `gh auth login`. Since that
+#    token is a snapshot, not minted fresh per call like git's, it has to
+#    be refreshed proactively before the ~1h installation-token lifetime
+#    (a non-configurable GitHub limit) runs out — a background loop
+#    re-authenticates every 45 minutes, comfortably inside that window.
+#    Same scrubbedParentEnv reasoning as before (M-122): dsh's subprocess
+#    layer strips any env var matching /KEY|PASSWORD|SECRET|TOKEN/i before
+#    spawning a session's bash tool, so a file-backed `gh auth login`
+#    (writes to hosts.yml, not process.env) is what actually survives
+#    into a session, not the token itself.
+if [ -n "$GITHUB_APP_ID" ]; then
+  git config --global credential.helper "/app/github-app-git-credential-helper.mjs"
+  git config --global url."https://github.com/".insteadOf "git@github.com:"
+  git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
+  (
+    while true; do
+      token="$(node /app/github-app-token.mjs 2>/dev/null)" || true
+      if [ -n "$token" ]; then
+        echo "$token" | env -u GH_TOKEN gh auth login --with-token >/dev/null 2>&1 || true
+      fi
+      sleep 2700
+    done
+  ) &
 fi
 
 exec "$@"

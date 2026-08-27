@@ -85,6 +85,15 @@ ENV DSH_HOME=/dsh-home
 # checkout on the box. See docker-entrypoint.sh for the full reasoning.
 COPY dsh-home-seed /app/dsh-home-seed
 
+# GitHub App credential helper (M-132, replaces the raw chris_github_key
+# SSH-key mount) — lives under /app so Node's own node_modules resolution
+# finds @octokit/auth-app from the tree `npm ci` above already installed,
+# same reasoning the flat-tree comment above gives for the dsh plugins.
+# Executable: git invokes credential.helper by direct path (`<path> get`),
+# not via `node <path>`.
+COPY github-app-token.mjs github-app-git-credential-helper.mjs /app/
+RUN chmod +x /app/github-app-git-credential-helper.mjs
+
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
