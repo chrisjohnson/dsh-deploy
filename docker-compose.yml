@@ -1,0 +1,81 @@
+name: docker
+
+# dsh's own compose service definition (M-132). This repo owns the
+# structure (image, volumes, environment) — the including compose file
+# (local-ai-machine's docker/docker-compose.yml) supplies only the
+# machine-specific VALUES referenced below via env vars, through its own
+# .env. Changing dsh's own mount topology (a new durable path, a renamed
+# env var) is a self-contained change here, not a coordinated edit across
+# two repos.
+#
+# `name: docker` matches local-ai-machine's own project name so an
+# `include:`'d service shares that project's default network/volume
+# namespace rather than getting its own separate one.
+services:
+  dsh:
+    image: ghcr.io/chrisjohnson/dsh-deploy:${DSH_DEPLOY_TAG:-latest}
+    container_name: dsh
+    restart: unless-stopped
+    labels:
+      com.local-ai-machine.always-up: "true"
+    network_mode: host
+    volumes:
+      # Durable but NOT git-tracked: sessions, storages, and anything else
+      # dsh writes under $DSH_HOME at runtime. A real host bind mount (not
+      # a Docker-managed named volume) so it's directly
+      # inspectable/backupable on the host.
+      - ${DSH_HOME_DIR}:/dsh-home
+      # dsh-home-seed's config-as-code content — dsh-deploy's own
+      # entrypoint seed-copies its image-baked defaults into
+      # $DSH_HOME/{profiles,AGENTS.md,.agent-presets} directly (no separate
+      # mount needed there, they ride along on the DSH_HOME_DIR mount
+      # above) and into this one dedicated durable directory for
+      # /dsh-home-seed specifically — a separate top-level path because
+      # dsh's own settings-file plugin (each profile's cordis.patch.yml)
+      # points at /dsh-home-seed/settings.yaml.
+      - ${DSH_HOME_SEED_DIR}:/dsh-home-seed
+      # Third-party (non-@deepseek-ai-scoped) bundle packages need BOTH a
+      # `dependencies` declaration in the profile's own package.json AND a
+      # physically resolvable node_modules entry right here (confirmed
+      # empirically, M-122) — nested under $DSH_HOME/profiles but backed by
+      # a SEPARATE, non-seed host directory, since docker-entrypoint.sh
+      # writes a generated symlink here every boot and it must never touch
+      # dsh's own creator-mode-editable config.
+      - ${DSH_PROFILE_NODE_MODULES_WEB_DIR}:/dsh-home/profiles/web/node_modules
+      # Shared project workspace across agent tools (dsh, pi-web, oh-my-pi
+      # once they adopt this same pattern) — one host directory, not a
+      # per-tool duplicate.
+      - ${SHARED_WORKSPACE_DIR}:/work
+      # dsh's own $HOME — durable, NOT the same thing as $DSH_HOME above or
+      # /work. A session that clones a project into $HOME instead of /work
+      # (an easy habit) has nothing else protecting it: `docker compose up
+      # -d dsh` is a full container recreate, which destroys the writable
+      # container layer.
+      - ${DSH_NODE_HOME_DIR}:/home/node
+      # GitHub App private key (M-132) — read-only, consumed by
+      # docker-entrypoint.sh's credential-helper setup.
+      - ${GITHUB_APP_PRIVATE_KEY_HOST_PATH}:/run/secrets/github-app-agent-key.pem:ro
+      - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-131}"
+    environment:
+      # Reuses the same litellm master key pi-web authenticates with — one
+      # secret for the one gateway, not a second credential to manage.
+      - LOCAL_AI_MACHINE_API_KEY=${LITELLM_MASTER_KEY}
+      # App ID and installation ID aren't secrets, safe as plain values
+      # (resolved from the including file's .env); only the private key
+      # itself is secret, mounted separately above.
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_APP_INSTALLATION_ID=${GITHUB_APP_INSTALLATION_ID}
+      - GITHUB_APP_PRIVATE_KEY_PATH=/run/secrets/github-app-agent-key.pem
+      - SEARXNG_BASE_URL=${DSH_SEARXNG_BASE_URL:-http://127.0.0.1:8091}
+      # Real host-absolute path backing this container's own /work — a
+      # session spawning a sibling container via the mounted docker socket
+      # needs this to translate a /work/... path into something the HOST
+      # daemon can resolve. Must always equal SHARED_WORKSPACE_DIR above;
+      # both read from the same .env value so they can't drift.
+      - HOST_WORK_DIR=${SHARED_WORKSPACE_DIR}
+    command: ["dsh", "web", "--host", "127.0.0.1", "--port", "3080", "--trusted-host", "localhost", "--trusted-host", "127.0.0.1"]
+    depends_on:
+      - litellm
+      - searxng
