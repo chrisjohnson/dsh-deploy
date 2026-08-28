@@ -1,6 +1,6 @@
 name: docker
 
-# dsh's own compose service definition (M-132). This repo owns the
+# dsh's own compose service definition. This repo owns the
 # structure (image, volumes, environment) — the including compose file
 # (local-ai-machine's docker/docker-compose.yml) supplies only the
 # machine-specific VALUES referenced below via env vars, through its own
@@ -37,7 +37,7 @@ services:
       # Third-party (non-@deepseek-ai-scoped) bundle packages need BOTH a
       # `dependencies` declaration in the profile's own package.json AND a
       # physically resolvable node_modules entry right here (confirmed
-      # empirically, M-122) — nested under $DSH_HOME/profiles but backed by
+      # empirically) — nested under $DSH_HOME/profiles but backed by
       # a SEPARATE, non-seed host directory, since docker-entrypoint.sh
       # writes a generated symlink here every boot and it must never touch
       # dsh's own creator-mode-editable config.
@@ -52,7 +52,7 @@ services:
       # -d dsh` is a full container recreate, which destroys the writable
       # container layer.
       - ${DSH_NODE_HOME_DIR}:/home/node
-      # GitHub App private key (M-132) — read-only, consumed by
+      # GitHub App private key — read-only, consumed by
       # docker-entrypoint.sh's credential-helper setup.
       - ${GITHUB_APP_PRIVATE_KEY_HOST_PATH}:/run/secrets/github-app-agent-key.pem:ro
       - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:/var/run/docker.sock

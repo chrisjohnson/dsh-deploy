@@ -2,11 +2,10 @@ llm-pi-ai:
   providers:
     # Two providers, but as of 2026-08-21 BOTH talk directly to litellm
     # (:4000), not through litellm-queue-haproxy-strix-apu/-r9700-egpu-dock.
-    # Those two haproxy instances were added 2026-08-20 (M-125) on the
-    # assumption that concurrent GPU access was worse than serialized
-    # single-request-at-a-time access - a real A/B test that same day
-    # (see M-126) found the opposite: 2 simultaneous requests against one
-    # GPU genuinely parallelized (higher aggregate throughput, not worse),
+    # Those two haproxy instances were added on the assumption that
+    # concurrent GPU access was worse than serialized single-request-at-a-time
+    # access - a real A/B test found the opposite: 2 simultaneous requests
+    # against one GPU genuinely parallelized (higher aggregate throughput, not worse),
     # so the forced serialization was net-negative, not protective. The
     # haproxy containers are left defined/running for now (not torn down)
     # in case this needs revisiting, but nothing routes through them.
@@ -32,7 +31,7 @@ llm-pi-ai:
       apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
       api: openai-completions
       # Reached via 127.0.0.1, not a container DNS name or host.docker.internal:
-      # dsh itself is network_mode: host (M-122 — see docker-compose.yml's dsh
+      # dsh itself is network_mode: host (see docker-compose.yml's dsh
       # service comment), so it shares the host's own network namespace directly,
       # same as litellm (also network_mode: host, bound straight to the host's
       # :4000) - direct, no haproxy queue in between (see header above).
@@ -49,7 +48,7 @@ llm-pi-ai:
       # grepping each build's docker-compose.yaml directly) while dsh's own
       # UI reported the session only ~50% full - it was computing that
       # percentage against the wrong 262144 denominator. This is also why
-      # compaction-basic's thresholdRatio: 0.6 fix (M-122) never actually
+      # compaction-basic's thresholdRatio: 0.6 fix never actually
       # fired here: 60% of the WRONG 262144 (157,286) is past the point
       # where the REAL backend runs out of room at 131072, so the session
       # ran all the way to a native cutoff before compaction ever got a
@@ -113,7 +112,7 @@ agent-default-model:
   provider: local-ai-machine
   model: medium-moe
 # Local variants of the shipped "standard" and "code" (PTC mode) presets
-# with compaction-basic's thresholdRatio lowered 0.8 -> 0.6 (M-122) — a
+# with compaction-basic's thresholdRatio lowered 0.8 -> 0.6 — a
 # session got permanently stuck when compaction never got a chance to run
 # before the live conversation itself filled the context window; see
 # dsh-home-seed/agent-presets/{standard,code}-local/agent.cordis.yml for

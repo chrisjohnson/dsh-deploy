@@ -144,20 +144,19 @@
     - id: compaction-basic
       name: '@deepseek-ai/dsh-compaction-basic'
       config:
-        # Lowered from the package default (0.8) — M-122, local-ai-machine.
-        # The compaction summarization call itself replays the conversation
-        # prefix as its own input (see the package's own README), competing
-        # for the SAME context budget as the live conversation. At the
-        # default 0.8 threshold this box hit a real, confirmed dead end: a
-        # session grew past the trigger point in large single-turn jumps
-        # (bulk tool-result pastes), and by the time compaction was
-        # attempted — auto or manual — the summarization call's own input
-        # already exceeded the model's context window
-        # (ContextWindowExceededError), leaving the session permanently
-        # stuck with no recovery path. 0.6 leaves roughly 40% of the
-        # window as headroom at trigger time, comfortably covering the
-        # compaction call's own replay + its maxTokens output even after
-        # a large single-turn jump.
+        # Lowered from the package default (0.8). The compaction
+        # summarization call itself replays the conversation prefix as its
+        # own input (see the package's own README), competing for the SAME
+        # context budget as the live conversation. At the default 0.8
+        # threshold, a session that grows past the trigger point in large
+        # single-turn jumps (bulk tool-result pastes) can hit a real dead
+        # end: by the time compaction is attempted — auto or manual — the
+        # summarization call's own input already exceeds the model's
+        # context window (ContextWindowExceededError), leaving the session
+        # permanently stuck with no recovery path. 0.6 leaves roughly 40%
+        # of the window as headroom at trigger time, comfortably covering
+        # the compaction call's own replay + its maxTokens output even
+        # after a large single-turn jump.
         thresholdRatio: 0.6
 
     - id: command-compact

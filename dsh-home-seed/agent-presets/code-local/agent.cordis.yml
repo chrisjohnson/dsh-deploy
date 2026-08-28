@@ -151,13 +151,14 @@
     - id: compaction-basic
       name: '@deepseek-ai/dsh-compaction-basic'
       config:
-        # Lowered from the package default (0.8) — M-122, local-ai-machine.
-        # Same fix as standard-local's own copy of this row; see that
-        # file's comment for the full incident. This preset (PTC mode,
-        # config/agent-presets/code/ shipped id) needed the identical
-        # patch — confirmed live: the session that hit the original
-        # dead-end was running PTC mode, not standard, so patching only
-        # standard would have left the actual affected preset unfixed.
+        # Lowered from the package default (0.8), same reasoning and value
+        # as standard-local's own copy of this row (see that file's
+        # comment for the full explanation): the compaction summarization
+        # call replays the conversation prefix as its own input, and at
+        # the default threshold a session can hit a genuine dead end with
+        # no recovery path. This preset (PTC mode) needs the identical fix
+        # — the affected session was running PTC mode, not standard, so
+        # patching only standard would leave this preset unfixed.
         thresholdRatio: 0.6
 
     - id: command-compact

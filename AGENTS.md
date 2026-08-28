@@ -42,7 +42,7 @@ working).
 
 `dsh`, `oh-my-pi`, and `pi-web` share one GitHub App installation for
 this. `GITHUB_APP_ID`/`GITHUB_APP_INSTALLATION_ID` are plain (non-secret)
-env vars — real values live on `local-ai-machine`'s M-131 board card —
+env vars — real values live on `local-ai-machine`'s board —
 plus a private key file mounted read-only at
 `GITHUB_APP_PRIVATE_KEY_HOST_PATH` (`/home/chris/.secrets/github-app-agent-key.pem`
 on the box), never committed. Permissions: Contents/Pull requests/Actions/

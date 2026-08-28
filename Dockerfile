@@ -4,8 +4,8 @@
 # durable state bind-mounted from the host, never baked into the image).
 FROM node:22-bookworm-slim
 
-# No Caddy/TLS here (M-122 tried it, then removed it — see git history for
-# the full story). dsh's frontend needs a secure browser context
+# No Caddy/TLS here — tried and removed (see git history for the full
+# story). dsh's frontend needs a secure browser context
 # (crypto.randomUUID etc.) AND hard-pins its configuration plane
 # (settings.*, credentials.*) to a literal localhost/127.0.0.1 Host header,
 # which no proxy topology can ever satisfy for a real LAN hostname anyway
@@ -17,10 +17,10 @@ FROM node:22-bookworm-slim
 # other unauthenticated local service (vLLM, llama.cpp — see
 # docker-compose.yml's top-of-file port-allocation comment: "reach via SSH
 # tunnel"). Revisit if/when a real auth-gateway story exists — see
-# docs/adding-tools-to-dsh.md and the M-122 board card for that decision.
+# docs/adding-tools-to-dsh.md for more on that decision.
 
 # Common CLI tools for dsh's own bash tool to actually use inside sessions
-# (M-122) — apt where Debian packages them cleanly, matching
+# — apt where Debian packages them cleanly, matching
 # jmfederico-pi-web's Dockerfile conventions exactly. docker.io gives the
 # `docker` CLI (socket access + group membership is a compose-level
 # concern, see docker-compose.yml's group_add, not baked in here — same
@@ -67,7 +67,7 @@ RUN curl -fsSL -o /tmp/gh.tar.gz \
 # plugin's `@deepseek-ai/dsh-*` peer dependencies resolve at all. (Confirmed
 # during development: a plugin installed standalone outside this app's own
 # node_modules cannot resolve those peers via Node's upward node_modules
-# walk — see the M-122 card's decision log for the full incident.) Do not
+# walk.) Do not
 # split this into two separate `npm install` calls or two node_modules
 # trees; that reintroduces the exact failure this avoids.
 WORKDIR /app
@@ -77,18 +77,17 @@ RUN npm ci --omit=dev
 ENV PATH="/app/node_modules/.bin:${PATH}"
 ENV DSH_HOME=/dsh-home
 
-# Baked-in defaults for $DSH_HOME's config-as-code paths (M-132, 2026-08-26)
-# — seed-copied into place on first boot only by docker-entrypoint.sh, never
-# overwriting an existing (possibly agent-edited) file. Previously bind-
-# mounted live from this repo's own git checkout on the host (local-ai-
-# machine); now baked in since dsh-deploy is a pulled image with no
-# checkout on the box. See docker-entrypoint.sh for the full reasoning.
+# Baked-in defaults for $DSH_HOME's config-as-code paths — seed-copied
+# into place on first boot only by docker-entrypoint.sh, never
+# overwriting an existing (possibly agent-edited) file. Not bind-mounted
+# live from a git checkout on the host: dsh-deploy is a pulled image with
+# no checkout on the box. See docker-entrypoint.sh for the full reasoning.
 COPY dsh-home-seed /app/dsh-home-seed
 
-# GitHub App credential helper (M-132, replaces the raw chris_github_key
-# SSH-key mount) — lives under /app so Node's own node_modules resolution
-# finds @octokit/auth-app from the tree `npm ci` above already installed,
-# same reasoning the flat-tree comment above gives for the dsh plugins.
+# GitHub App credential helper — lives under /app so Node's own
+# node_modules resolution finds @octokit/auth-app from the tree `npm ci`
+# above already installed, same reasoning the flat-tree comment above
+# gives for the dsh plugins.
 # Executable: git invokes credential.helper by direct path (`<path> get`),
 # not via `node <path>`.
 COPY github-app-token.mjs github-app-git-credential-helper.mjs /app/

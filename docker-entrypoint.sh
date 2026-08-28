@@ -1,38 +1,34 @@
 #!/bin/sh
 set -e
 
-# Seed file copy (M-132, 2026-08-26 — revised same day after a live bug),
-# same intent as jmfederico-pi-web/oh-my-pi's seed-once pattern:
-# dsh-home-seed/ ships baked into the image (COPY'd to /app/dsh-home-seed
+# Seed file copy, same intent as jmfederico-pi-web/oh-my-pi's seed-once
+# pattern: dsh-home-seed/ ships baked into the image (COPY'd to /app/dsh-home-seed
 # in the Dockerfile) and gets copied into place here, never overwriting an
 # existing (possibly agent-edited) file.
 #
 # Uses `cp -rn` (no-clobber, recurse into existing directories rather than
 # skip them) instead of an "is the destination directory empty" guard —
-# the original version used the latter and it was a real bug, not just
-# theoretically fragile: Docker itself pre-creates profiles/web (as a
-# mount-point ancestor for the separate profile-node-modules/web nested
-# mount, see below) BEFORE this script ever runs, so profiles/ was never
-# actually empty by the time the guard checked it — the entire profiles
-# seed-copy silently no-op'd from the very first boot, and
-# cordis.patch.yml / plugins/continue-kicker.mjs were simply never seeded
-# at all (confirmed live, not hypothetical: this broke dsh's own model
-# picker, since cordis.patch.yml is what points settings at
-# /dsh-home-seed/settings.yaml in the first place). `cp -rn` walks into
-# already-existing directories and copies whatever's actually missing,
-# file by file, so a partially-pre-populated destination (like this one)
-# can never cause a whole subtree to be silently skipped again.
+# an empty-directory guard is not reliable here: Docker itself pre-creates
+# profiles/web (as a mount-point ancestor for the separate
+# profile-node-modules/web nested mount, see below) BEFORE this script
+# ever runs, so profiles/ is never actually empty by the time such a guard
+# would check it — an empty-dir guard would silently no-op the entire
+# profiles seed-copy from the very first boot, leaving cordis.patch.yml /
+# plugins/continue-kicker.mjs unseeded (confirmed live, not hypothetical:
+# this broke dsh's own model picker, since cordis.patch.yml is what points
+# settings at /dsh-home-seed/settings.yaml in the first place). `cp -rn`
+# walks into already-existing directories and copies whatever's actually
+# missing, file by file, so a partially-pre-populated destination (like
+# this one) can never cause a whole subtree to be silently skipped.
 #
-# Previously (pre-M-132) these paths were bind-mounted DIRECTLY from a live
-# git checkout of local-ai-machine on the host, so any edit was immediately
-# a commit-ready change to that checkout — dsh-deploy is now a pulled
-# image with no checkout on the box, so that specific property (instant
-# git-trackability) is gone. What it doesn't affect: dsh's own "creator
-# mode" is a built-in @deepseek-ai/dsh capability (plain filesystem writes
-# to wherever its config directory is mounted), not something this repo
-# implemented or is redesigning — dsh still gets a writable, durable
-# directory to self-edit here, exactly as before, it's just no longer
-# automatically a live git working tree underneath it.
+# These paths are NOT bind-mounted directly from a live git checkout on
+# the host — dsh-deploy is a pulled image with no checkout on the box, so
+# edits here aren't automatically a commit-ready change to any repo. What
+# this doesn't affect: dsh's own "creator mode" is a built-in
+# @deepseek-ai/dsh capability (plain filesystem writes to wherever its
+# config directory is mounted), not something this repo implements — dsh
+# still gets a writable, durable directory to self-edit here, it's just
+# not automatically a live git working tree underneath it.
 mkdir -p "$DSH_HOME/profiles"
 cp -rn /app/dsh-home-seed/profiles/. "$DSH_HOME/profiles/"
 if [ ! -f "$DSH_HOME/AGENTS.md" ]; then
@@ -66,8 +62,8 @@ fi
 # here.
 
 # Third-party (non-@deepseek-ai-scoped) bundle packages need BOTH of these
-# together, confirmed empirically (M-122, two failed single-fix attempts
-# before this): a `dependencies` declaration in the profile's own
+# together, confirmed empirically (a single fix alone is not sufficient):
+# a `dependencies` declaration in the profile's own
 # package.json (dsh-home-seed/profiles/web/package.json) AND a physically
 # resolvable node_modules entry right at the profile directory
 # (/dsh-home/profiles/web/) — neither alone was sufficient, only both
@@ -80,8 +76,7 @@ fi
 mkdir -p "$DSH_HOME/profiles/web/node_modules"
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"
 
-# GitHub App credential (M-132, replaces the old raw chris_github_key SSH
-# mount + a separate GH_TOKEN PAT with one mechanism, both for git and gh):
+# GitHub App credential — one mechanism covering both git and gh:
 #
 # 1. git: a credential.helper backed by github-app-git-credential-helper.mjs
 #    mints a genuinely fresh installation token PER git operation — no
@@ -98,7 +93,7 @@ ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_mo
 #    be refreshed proactively before the ~1h installation-token lifetime
 #    (a non-configurable GitHub limit) runs out — a background loop
 #    re-authenticates every 45 minutes, comfortably inside that window.
-#    Same scrubbedParentEnv reasoning as before (M-122): dsh's subprocess
+#    Same scrubbedParentEnv reasoning applies here: dsh's subprocess
 #    layer strips any env var matching /KEY|PASSWORD|SECRET|TOKEN/i before
 #    spawning a session's bash tool, so a file-backed `gh auth login`
 #    (writes to hosts.yml, not process.env) is what actually survives
