@@ -66,14 +66,31 @@ llm-pi-ai:
       # rather than guessed - pi-ai's 32,768 route default comfortably fits
       # under both real context windows either way, so leaving it unset is
       # safe here, unlike contextWindow which was actively wrong.
+      # input: [text, image] (2026-09-02): pi-ai's own Model type has no
+      # auto-detection for hand-declared routes (same root cause as the
+      # contextWindow/maxTokens bug above) - `input` defaults to text-only
+      # unless a route explicitly lists "image", regardless of what the
+      # real backend actually supports. Confirmed via pi-ai's own
+      # transform-messages.js: any model whose `input` doesn't include
+      # "image" gets every image silently replaced with a text placeholder
+      # ("(image omitted: model does not support images)") BEFORE the
+      # request ever reaches the backend - this is why pasting a
+      # screenshot failed even after the backend itself was confirmed
+      # working via a real, correct multimodal completion (both directly
+      # against the llama-server container and through litellm using the
+      # exact role name). small-dense (qwen2.5-vl-7b-instruct) was ALSO
+      # missing this the whole time - it's a real vision model, this was
+      # never applied when the route was added.
       models:
         - id: small-moe
           contextWindow: 65536
         - id: small-dense
           contextWindow: 32768
+          input: [text, image]
         - id: medium-moe
           contextWindow: 131072
           maxTokens: 8192
+          input: [text, image]
         - id: big-moe
           contextWindow: 131072
           maxTokens: 8192
@@ -104,10 +121,14 @@ llm-pi-ai:
       # (Q6_K_L, full native context, q4_0 KV cache - see that build's
       # build.yaml), which really runs -c 262144, not 131072. maxTokens
       # unchanged (still -n 8192 on the new build too).
+      # See the local-ai-machine provider's `input: [text, image]` comment
+      # above - same fix, same root cause (missing capability declaration
+      # on a hand-declared route, not a real backend gap).
       models:
         - id: medium-dense
           contextWindow: 262144
           maxTokens: 8192
+          input: [text, image]
 agent-default-model:
   provider: local-ai-machine
   model: medium-moe
