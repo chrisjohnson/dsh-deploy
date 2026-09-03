@@ -196,17 +196,72 @@ importers:
 
   .:
     dependencies:
+      '@anthropic-ai/claude-code':
+        specifier: 2.1.259
+        version: 2.1.259
       '@deepseek-ai/dsh':
         specifier: 0.1.0-rc.8
         version: 0.1.0-rc.8(3522a6379e3fb96ae495910698c29949)
       '@octokit/auth-app':
         specifier: ^7.1.5
         version: 7.2.2
+      dsh-claude-cli:
+        specifier: git+https://github.com/katsos/dsh-claude-cli.git#3a3a57f22a3e748c9720a1b96ce64e015f0f9643
+        version: https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-attachment@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-timeout@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2))))
       dsh-web-search-searxng:
         specifier: git+https://github.com/d3cker/dsh-web-search-searxng.git#cbf7071c362de71ff12bc3c5295392384f1d517f
         version: https://codeload.github.com/d3cker/dsh-web-search-searxng/tar.gz/cbf7071c362de71ff12bc3c5295392384f1d517f(4d744ec5d0b5bc261805d32734d1a88a)
 
 packages:
+
+  '@anthropic-ai/claude-code-darwin-arm64@2.1.259':
+    resolution: {integrity: sha512-yAMbgvi5pVt2fBO0Sg9n+2WJ0vJTd6ykafaRq1DL/8/hb314zDwyJuP7OewFBgHthYm3szTPi7CSe0vmeTxz3g==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@anthropic-ai/claude-code-darwin-x64@2.1.259':
+    resolution: {integrity: sha512-Q70pOwpAmbuRFmEh+L3FPU3BHYcGf9nr8COtJDewjjnK8w9RZK8vs9k6TGvujhRjaQGAdKOwL5lgVI69xW4VEw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@anthropic-ai/claude-code-linux-arm64-musl@2.1.259':
+    resolution: {integrity: sha512-kJia3BfDa1Tbfr3nLqinsE72Q9Pt6ovFMamKHkkircGW/xrZIlOtk4tXr6egEx07isp3ERhggYauRD6e+tgb7A==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@anthropic-ai/claude-code-linux-arm64@2.1.259':
+    resolution: {integrity: sha512-9NzlP79GXZcnaHmVbZO8pIPPafRTJzfSRAZeHbDyCAHnsMQWmkIbW2kOsDl1KpV93za+3Kdn6RuKIs+JRp0rag==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@anthropic-ai/claude-code-linux-x64-musl@2.1.259':
+    resolution: {integrity: sha512-zZSsED8WvQqH1JV7/8YkNRi8ZT7jZSQ1JWPQljDZTb1+Gf956fx8VT2JeD/r/nklScLoU8vVH+som11faSnRJQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@anthropic-ai/claude-code-linux-x64@2.1.259':
+    resolution: {integrity: sha512-Uh2OEu5DVvndwosVXfjUpahQVjNqxZeCO7ehrG0JBd+xo/iWz38LfwCGsbgPiGNI+ZioIl3vwenD+6BjpOi8nQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@anthropic-ai/claude-code-win32-arm64@2.1.259':
+    resolution: {integrity: sha512-VOuejZqTPuZyIYZP1LNqcZrlV/KYaj5Uinp3yQ2UNcyRye12oJiaV9EHqU2oySBAtQ+3apxzvs4rBajO8aMNsQ==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@anthropic-ai/claude-code-win32-x64@2.1.259':
+    resolution: {integrity: sha512-NybMrZjP/AZTpxZtes5VDi6NeEt6PRxYR2A4+pdwl1id5R9jSWmpm9POXasdgMhwPKCYUCBIMbtwsU0Jx3PeDw==}
+    cpu: [x64]
+    os: [win32]
+
+  '@anthropic-ai/claude-code@2.1.259':
+    resolution: {integrity: sha512-kzhz+R36GgL5aouAkeMO9nI1BEIVaRx1NGu0wTTn/H315l61uiLRo13yvva7H10Pfv0PGgzqJ4m+EKv9BzIRXQ==}
+    engines: {node: '>=22.0.0'}
+    hasBin: true
 
   '@anthropic-ai/sdk@0.91.1':
     resolution: {integrity: sha512-LAmu761tSN9r66ixvmciswUj/ZC+1Q4iAfpedTfSVLeswRwnY3n2Nb6Tsk+cLPP28aLOPWeMgIuTuCcMC6W/iw==}
@@ -2981,6 +3036,14 @@ packages:
     resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
     engines: {node: '>=0.3.1'}
 
+  dsh-claude-cli@https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643:
+    resolution: {gitHosted: true, integrity: sha512-inXGeRMy2PLdhItRCy4gBNgG38VT7kkKFjffzuRQNFuPVnDA3ilB0tjghhtxhOeJ9GYw72m3lI7q9OChDd+Bvg==, tarball: https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643}
+    version: 0.1.0
+    engines: {node: ^22.19 || >=24}
+    peerDependencies:
+      '@deepseek-ai/cordis': ^4.0.0
+      '@deepseek-ai/dsh-llm': 0.1.0-rc.8
+
   dsh-web-search-searxng@https://codeload.github.com/d3cker/dsh-web-search-searxng/tar.gz/cbf7071c362de71ff12bc3c5295392384f1d517f:
     resolution: {gitHosted: true, tarball: https://codeload.github.com/d3cker/dsh-web-search-searxng/tar.gz/cbf7071c362de71ff12bc3c5295392384f1d517f}
     version: 0.2.0
@@ -3595,6 +3658,41 @@ packages:
         optional: true
 
 snapshots:
+
+  '@anthropic-ai/claude-code-darwin-arm64@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-darwin-x64@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-arm64-musl@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-arm64@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-x64-musl@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-linux-x64@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-win32-arm64@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code-win32-x64@2.1.259':
+    optional: true
+
+  '@anthropic-ai/claude-code@2.1.259':
+    optionalDependencies:
+      '@anthropic-ai/claude-code-darwin-arm64': 2.1.259
+      '@anthropic-ai/claude-code-darwin-x64': 2.1.259
+      '@anthropic-ai/claude-code-linux-arm64': 2.1.259
+      '@anthropic-ai/claude-code-linux-arm64-musl': 2.1.259
+      '@anthropic-ai/claude-code-linux-x64': 2.1.259
+      '@anthropic-ai/claude-code-linux-x64-musl': 2.1.259
+      '@anthropic-ai/claude-code-win32-arm64': 2.1.259
+      '@anthropic-ai/claude-code-win32-x64': 2.1.259
 
   '@anthropic-ai/sdk@0.91.1(zod@4.5.4)':
     dependencies:
@@ -6802,6 +6900,12 @@ snapshots:
   detect-libc@2.1.2: {}
 
   diff@9.0.0: {}
+
+  dsh-claude-cli@https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-attachment@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-timeout@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))):
+    dependencies:
+      '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
+      '@deepseek-ai/dsh-llm': 0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-attachment@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-timeout@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))
+      '@deepseek-ai/schemastery': 3.18.2
 
   dsh-web-search-searxng@https://codeload.github.com/d3cker/dsh-web-search-searxng/tar.gz/cbf7071c362de71ff12bc3c5295392384f1d517f(4d744ec5d0b5bc261805d32734d1a88a):
     dependencies:

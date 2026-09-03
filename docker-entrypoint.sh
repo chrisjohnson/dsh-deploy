@@ -75,6 +75,7 @@ fi
 # Idempotent: safe to re-run every boot.
 mkdir -p "$DSH_HOME/profiles/web/node_modules"
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"
+ln -sfn /app/node_modules/dsh-claude-cli "$DSH_HOME/profiles/web/node_modules/dsh-claude-cli"
 
 # GitHub App credential — one mechanism covering both git and gh:
 #

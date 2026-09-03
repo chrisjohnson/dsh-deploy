@@ -5,6 +5,8 @@ allowBuilds:
   koffi: true
   node-pty: true
   protobufjs: true
+  'dsh-claude-cli@https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643': true
+  '@anthropic-ai/claude-code': true
 overrides:
   '@deepseek-ai/dsh-agent': '0.1.0-rc.8'
   '@deepseek-ai/dsh-agent-default-model': '0.1.0-rc.8'
@@ -192,3 +194,13 @@ overrides:
   '@deepseek-ai/dsh-workflow': '0.1.0-rc.8'
   '@deepseek-ai/dsh-workflow-worker-thread': '0.1.0-rc.8'
   '@deepseek-ai/dsh-workspace': '0.1.0-rc.8'
+minimumReleaseAgeExclude:
+  - '@anthropic-ai/claude-code-darwin-arm64@2.1.259'
+  - '@anthropic-ai/claude-code-darwin-x64@2.1.259'
+  - '@anthropic-ai/claude-code-linux-arm64-musl@2.1.259'
+  - '@anthropic-ai/claude-code-linux-arm64@2.1.259'
+  - '@anthropic-ai/claude-code-linux-x64-musl@2.1.259'
+  - '@anthropic-ai/claude-code-linux-x64@2.1.259'
+  - '@anthropic-ai/claude-code-win32-arm64@2.1.259'
+  - '@anthropic-ai/claude-code-win32-x64@2.1.259'
+  - '@anthropic-ai/claude-code@2.1.259'

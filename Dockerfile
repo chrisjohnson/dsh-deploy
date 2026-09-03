@@ -94,6 +94,17 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
+# @anthropic-ai/claude-code (package.json, above) puts `claude` in
+# node_modules/.bin like any other pnpm dependency — exact-pinned and
+# integrity-checked via pnpm-lock.yaml, same as everything else in this
+# tree, rather than a separate unpinned `npm install -g` step. Bundled at
+# build time so dsh-claude-cli (the LLM-provider plugin wired in below)
+# has it from the very first container start. Auth is a one-time
+# interactive `claude login` inside the running container — not something
+# a Dockerfile step can do — and its resulting credentials land under the
+# `node` user's $HOME (~/.claude/), which is already a durable bind mount
+# (docker-compose.yml's DSH_NODE_HOME_DIR), so no separate credential
+# volume is needed.
 ENV PATH="/app/node_modules/.bin:${PATH}"
 ENV DSH_HOME=/dsh-home
 
