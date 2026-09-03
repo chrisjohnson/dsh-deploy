@@ -31,6 +31,21 @@ set -e
 # not automatically a live git working tree underneath it.
 mkdir -p "$DSH_HOME/profiles"
 cp -rn /app/dsh-home-seed/profiles/. "$DSH_HOME/profiles/"
+# Exception to the no-clobber rule above: a profile's package.json is a
+# pure build manifest we own via git (bundle deps + the `dsh.profile.
+# bundles` list) — dsh's own creator mode has no reason to hand-edit raw
+# npm dependency declarations, unlike cordis.patch.yml/settings.yaml/
+# AGENTS.md, which it legitimately can. Always overwriting it means a new
+# bundle dependency (e.g. adding dsh-claude-cli) actually reaches an
+# already-seeded persistent host directory on the next deploy instead of
+# silently no-op'ing forever — confirmed live: cp -rn's no-clobber
+# behavior left an already-provisioned box on the OLD profiles/web/
+# package.json after a dsh-claude-cli-adding image shipped, since the
+# file already existed on disk from an earlier deploy.
+find /app/dsh-home-seed/profiles -mindepth 2 -maxdepth 2 -name package.json | while IFS= read -r src; do
+  rel=${src#/app/dsh-home-seed/profiles/}
+  cp "$src" "$DSH_HOME/profiles/$rel"
+done
 if [ ! -f "$DSH_HOME/AGENTS.md" ]; then
   cp /app/dsh-home-seed/AGENTS.md "$DSH_HOME/AGENTS.md"
 fi
