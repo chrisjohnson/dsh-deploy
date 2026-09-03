@@ -62,17 +62,37 @@ RUN curl -fsSL -o /tmp/gh.tar.gz \
     && mv /tmp/gh_2.97.0_linux_amd64/bin/gh /usr/local/bin/gh \
     && rm -rf /tmp/gh.tar.gz /tmp/gh_2.97.0_linux_amd64
 
-# `npm install` here pins @deepseek-ai/dsh AND the searxng search plugin
-# into ONE flat node_modules tree as real siblings — this is what makes the
-# plugin's `@deepseek-ai/dsh-*` peer dependencies resolve at all. (Confirmed
-# during development: a plugin installed standalone outside this app's own
-# node_modules cannot resolve those peers via Node's upward node_modules
-# walk.) Do not
-# split this into two separate `npm install` calls or two node_modules
-# trees; that reintroduces the exact failure this avoids.
+# pnpm, not npm: dsh's internal package graph has genuine cyclic peer
+# dependencies (confirmed upstream, e.g. cordis <-> cordis-plugin-loader
+# <-> cordis-plugin-include) that send npm's Arborist resolver into
+# exponential backtracking — real, reproducible 25+ minute hangs / OOM,
+# not a local misconfiguration. pnpm's resolver doesn't hit the same
+# pathological case (same tree resolves in ~10-20s). corepack ships with
+# node:22 and reads the pinned version from package.json's
+# "packageManager" field.
+#
+# nodeLinker: hoisted (pnpm-workspace.yaml) reproduces npm's classic flat
+# node_modules layout — this is what makes the searxng plugin's
+# `@deepseek-ai/dsh-*` peer dependencies resolve at all. (Confirmed during
+# development: pnpm's default isolated/symlinked layout, or a plugin
+# installed standalone outside this app's own node_modules, cannot resolve
+# those peers via Node's upward node_modules walk.) Do not switch back to
+# pnpm's default linker or split this into two separate installs/trees;
+# that reintroduces the exact failure this avoids.
+#
+# overrides + allowBuilds in pnpm-workspace.yaml are also load-bearing, not
+# incidental: several dsh-internal packages declare a bare (non-prerelease-
+# tagged) version range on their own sibling packages that no published
+# version can satisfy under strict semver — overrides pins every
+# @deepseek-ai/dsh-* package to the exact synced release version instead of
+# trusting each consumer's (sometimes-wrong) declared range. allowBuilds
+# pre-approves native postinstall scripts (node-pty, koffi, etc.) that pnpm
+# otherwise blocks by default — without it those modules silently end up
+# unbuilt rather than failing loudly.
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile --prod
 
 ENV PATH="/app/node_modules/.bin:${PATH}"
 ENV DSH_HOME=/dsh-home
