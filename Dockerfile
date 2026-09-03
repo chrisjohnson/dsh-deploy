@@ -72,7 +72,17 @@ RUN curl -fsSL -o /tmp/gh.tar.gz \
 # trees; that reintroduces the exact failure this avoids.
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+# --legacy-peer-deps (2026-09-03, dsh 0.1.1-rc.2 upgrade): the lockfile
+# itself was generated with this same flag - a plain `npm install
+# --package-lock-only` hit real, reproducible catastrophic backtracking
+# (28+ minutes at ~100% CPU, zero progress, confirmed alive via real CPU/
+# network activity, not hung) resolving this package's own peer-dependency
+# graph. The resulting lockfile's shape (e.g. two coexisting React majors
+# for different consumers) then fails `npm ci`'s strict peer-dep
+# validation without the same flag - confirmed live via a real failed CI
+# build ("Missing: react@18.3.1/19.2.8 from lock file" etc.) before this
+# was added.
+RUN npm ci --omit=dev --legacy-peer-deps
 
 ENV PATH="/app/node_modules/.bin:${PATH}"
 ENV DSH_HOME=/dsh-home
