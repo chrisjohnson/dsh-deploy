@@ -1,0 +1,39 @@
+diff --git a/lib/models.js b/lib/models.js
+index be2d703764e07ffa9a4829bd6ea1f02ba6326fe4..8c8c123009db6cb7f182c4b77e8e21e344ae943a 100644
+--- a/lib/models.js
++++ b/lib/models.js
+@@ -15,34 +15,8 @@ import { ReasoningEffortId } from '@deepseek-ai/dsh-llm';
+  * fixed model, so no fixed number is true of it.
+  */
+ const CATALOG = [
+-    { id: 'fable', name: 'Fable (latest)', description: 'Alias for the latest Fable release.' },
+     { id: 'opus', name: 'Opus (latest)', description: 'Alias for the latest Opus release.' },
+     { id: 'sonnet', name: 'Sonnet (latest)', description: 'Alias for the latest Sonnet release.' },
+-    { id: 'haiku', name: 'Haiku (latest)', description: 'Alias for the latest Haiku release.' },
+-    {
+-        id: 'claude-fable-5',
+-        name: 'Claude Fable 5',
+-        description: 'Highest-capability tier.',
+-        contextWindow: 200_000,
+-    },
+-    {
+-        id: 'claude-opus-5',
+-        name: 'Claude Opus 5',
+-        description: 'High-capability tier.',
+-        contextWindow: 200_000,
+-    },
+-    {
+-        id: 'claude-sonnet-5',
+-        name: 'Claude Sonnet 5',
+-        description: 'Balanced tier with a long context window.',
+-        contextWindow: 1_000_000,
+-    },
+-    {
+-        id: 'claude-haiku-4-5',
+-        name: 'Claude Haiku 4.5',
+-        description: 'Fastest tier.',
+-        contextWindow: 200_000,
+-    },
+ ];
+ /**
+  * Reasoning efforts the CLI's `--effort` flag accepts, in increasing order.

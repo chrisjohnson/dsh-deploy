@@ -92,6 +92,15 @@ RUN curl -fsSL -o /tmp/gh.tar.gz \
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# patches/: dsh-claude-cli's model catalog (lib/models.js) is a hardcoded
+# list with no config knob to trim it — dsh itself has no allowlist
+# mechanism for a plugin-provided catalog either. `pnpm patch` applies a
+# small diff to the installed package (trims the picker down to just
+# Opus/Sonnet latest-aliases) without forking the upstream repo. Keyed by
+# the package's own version (0.1.0), not our git commit pin — re-verify
+# this patch still applies cleanly (`pnpm install` will error loudly if
+# not) when bumping the dsh-claude-cli pin.
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile --prod
 
 # @anthropic-ai/claude-code (package.json, above) puts `claude` in
