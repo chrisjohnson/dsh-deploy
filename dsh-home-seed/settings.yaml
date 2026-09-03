@@ -81,6 +81,19 @@ llm-pi-ai:
       # exact role name). small-dense (qwen2.5-vl-7b-instruct) was ALSO
       # missing this the whole time - it's a real vision model, this was
       # never applied when the route was added.
+      # medium-moe contextWindow (2026-09-03): 131072 was the real -c value
+      # for the earlier single-slot (np=1) ornith-1.0 build. Ornith v8
+      # (ornith-1.5-35b-a3b-mtp-q4--llamacpp-vulkan-radv-strix-apu-v8,
+      # promoted standing this session) launches with -c 262144 -np 3 for
+      # throughput — llama.cpp divides total context across parallel
+      # slots, so a single request's real usable window is ~1/3 of that,
+      # not the full -c value. Confirmed via the server's own /props
+      # (n_ctx: 87552, not derivable from -c/-np alone due to llama.cpp's
+      # internal rounding) after a real session hit litellm's
+      # ContextWindowExceededError at 128067 requested tokens against an
+      # 87552 real limit — the stale 131072 declaration let dsh's own
+      # compaction threshold (thresholdRatio 0.6, ~78k trigger point)
+      # compute safety margin against the wrong, too-large ceiling.
       models:
         - id: small-moe
           contextWindow: 65536
@@ -88,7 +101,7 @@ llm-pi-ai:
           contextWindow: 32768
           input: [text, image]
         - id: medium-moe
-          contextWindow: 131072
+          contextWindow: 87552
           maxTokens: 8192
           input: [text, image]
         - id: big-moe
