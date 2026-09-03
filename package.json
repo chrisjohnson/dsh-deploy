@@ -3,7 +3,7 @@
   "private": true,
   "description": "Build-time dependency set for the dockerized dsh (DeepSeek Harness) service. Not a dsh profile itself — see dsh-home-seed/ for that.",
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.1-rc.2",
+    "@deepseek-ai/dsh": "0.1.0-rc.7",
     "@octokit/auth-app": "^7.1.5",
     "dsh-web-search-searxng": "git+https://github.com/d3cker/dsh-web-search-searxng.git#cbf7071c362de71ff12bc3c5295392384f1d517f"
   }
