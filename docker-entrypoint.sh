@@ -76,7 +76,9 @@ fi
 # first boot; dsh creates what it needs under it at runtime. Nothing to seed
 # here.
 
-# Third-party (non-@deepseek-ai-scoped) bundle packages need BOTH of these
+# Optional Profile Bundle packages — anything installed the same way as a
+# user `dsh plugin --profile <name> add <package>` (not baked into
+# @deepseek-ai/dsh's own core dependency tree) — need BOTH of these
 # together, confirmed empirically (a single fix alone is not sufficient):
 # a `dependencies` declaration in the profile's own
 # package.json (dsh-home-seed/profiles/web/package.json) AND a physically
@@ -87,10 +89,15 @@ fi
 # path this file's seed-copy above populates, which must never get stray
 # generated files written into it (it's still the seed-once destination
 # dsh itself edits via "creator mode", not a scratch/build directory).
+# This applies regardless of npm scope — @deepseek-ai/dsh-subagent-claude-code
+# needs it too, confirmed live (ERR_MODULE_NOT_FOUND from /dsh-home/profiles/web/
+# even though it's an @deepseek-ai-scoped package): what matters is "optional
+# Bundle" vs "core dsh dependency", not the package name's scope.
 # Idempotent: safe to re-run every boot.
-mkdir -p "$DSH_HOME/profiles/web/node_modules"
+mkdir -p "$DSH_HOME/profiles/web/node_modules" "$DSH_HOME/profiles/web/node_modules/@deepseek-ai"
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"
 ln -sfn /app/node_modules/dsh-claude-cli "$DSH_HOME/profiles/web/node_modules/dsh-claude-cli"
+ln -sfn /app/node_modules/@deepseek-ai/dsh-subagent-claude-code "$DSH_HOME/profiles/web/node_modules/@deepseek-ai/dsh-subagent-claude-code"
 
 # GitHub App credential — one mechanism covering both git and gh:
 #

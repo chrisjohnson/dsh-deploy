@@ -2,6 +2,7 @@
   "name": "dsh-profile-web",
   "private": true,
   "dependencies": {
+    "@deepseek-ai/dsh-subagent-claude-code": "0.1.0-rc.8",
     "dsh-claude-cli": "git+https://github.com/katsos/dsh-claude-cli.git#3a3a57f22a3e748c9720a1b96ce64e015f0f9643",
     "dsh-web-search-searxng": "git+https://github.com/d3cker/dsh-web-search-searxng.git#cbf7071c362de71ff12bc3c5295392384f1d517f"
   },
@@ -10,6 +11,7 @@
       "bundles": [
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
+        "@deepseek-ai/dsh-subagent-claude-code",
         "dsh-claude-cli",
         "dsh-web-search-searxng"
       ]
