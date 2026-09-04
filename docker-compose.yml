@@ -75,6 +75,15 @@ services:
       # daemon can resolve. Must always equal SHARED_WORKSPACE_DIR above;
       # both read from the same .env value so they can't drift.
       - HOST_WORK_DIR=${SHARED_WORKSPACE_DIR}
+      # Space-separated extra --trusted-host authorities (docker-entrypoint.sh
+      # turns these into repeated --trusted-host flags before exec). Additive
+      # to the base localhost/127.0.0.1 pair below - does NOT loosen the
+      # separately loopback-pinned settings/credentials plane (see
+      # dsh-client-connection's PRIVILEGED_METHODS), only the general API
+      # fence. A reverse proxy fronting this under a real hostname still
+      # needs the Host/Origin rewrite trick for that privileged plane until
+      # dsh has real authentication - this is additive, not a replacement.
+      - DSH_EXTRA_TRUSTED_HOSTS=${DSH_EXTRA_TRUSTED_HOSTS:-}
     command: ["dsh", "web", "--host", "127.0.0.1", "--port", "3080", "--trusted-host", "localhost", "--trusted-host", "127.0.0.1"]
     depends_on:
       - litellm

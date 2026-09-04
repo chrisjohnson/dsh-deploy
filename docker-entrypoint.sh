@@ -149,4 +149,16 @@ if [ -n "$GITHUB_APP_ID" ]; then
   ) &
 fi
 
+# DSH_EXTRA_TRUSTED_HOSTS: space-separated extra authorities for dsh's
+# --trusted-host flag (dsh-client-connection's isTrustedApiRequest fence,
+# and the client-side settings-mirror check that reads the same list -
+# both need the real hostname a reverse proxy puts here, not a spoofed
+# Host header). The base command in docker-compose.yml already declares
+# localhost/127.0.0.1; this appends whatever a deployment's own reverse
+# proxy fronts it as (e.g. a real domain name) without hand-editing the
+# compose command array per deployment.
+for host in $DSH_EXTRA_TRUSTED_HOSTS; do
+  set -- "$@" --trusted-host "$host"
+done
+
 exec "$@"
