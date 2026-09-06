@@ -66,7 +66,22 @@ invocation via `@octokit/auth-app`; it never caches anything to disk.
 `github-app-git-credential-helper.mjs` wraps it as a git
 `credential.helper` (`get` reads a token and prints
 `username=x-access-token` / `password=<token>`; `store`/`erase` are
-no-ops since there's nothing cached to manage). Because
+no-ops since there's nothing cached to manage). It answers only for
+`host=github.com` — the token belongs to one specific installation, and
+handing it to any other host would be a leak — and it never crashes on
+failure: if minting is unavailable it falls back to `gh auth token`
+(kept fresh by the loop below), and if even that fails it exits 0 with
+empty output (git's "no credential available") with diagnostics on
+stderr. That fallback chain exists because dsh's subprocess layer scrubs
+env var names matching `/KEY|PASSWORD|SECRET|TOKEN/i` from every session
+shell: `GITHUB_APP_PRIVATE_KEY_PATH` (contains "KEY") is present in the
+entrypoint process but absent where git invokes the helper, so
+`mintInstallationToken` falls back to the fixed
+`/run/secrets/github-app-agent-key.pem` mount path this repo's own
+`docker-compose.yml` always uses (the env var remains the override for
+mounting elsewhere). A boot smoke test in `docker-entrypoint.sh` runs the
+helper under exactly those scrubbed conditions so a regression shows up
+in the container log instead of mid-push. Because
 `credential.helper` only applies to HTTPS remotes, `docker-entrypoint.sh`
 also rewrites `git@github.com:`/`ssh://git@github.com/` URLs to
 `https://github.com/` so an SSH-style clone/push can't silently bypass the

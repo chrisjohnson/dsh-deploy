@@ -138,6 +138,31 @@ if [ -n "$GITHUB_APP_ID" ]; then
   git config --global --add url."https://github.com/".insteadOf "git@github.com:"
   git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/"
 
+  # Boot smoke test for the git credential helper, run the way an agent
+  # session will actually see it: dsh's subprocess layer (dsh-subprocess
+  # scrubbedParentEnv, /KEY|PASSWORD|SECRET|TOKEN/i) strips
+  # GITHUB_APP_PRIVATE_KEY_PATH from every session shell — present in
+  # THIS entrypoint process (which is why the gh refresh loop below
+  # works) but absent where git invokes the helper. The helper
+  # compensates (fixed-mount-path mint fallback, then gh-token
+  # fallback); unsetting the var here reproduces the session conditions,
+  # so a regression in either path surfaces in the container log at boot
+  # rather than as a mid-session git push crash. Checks for a real
+  # installation token (ghs_ prefix, from either source) rather than
+  # just exit status: per git's credential protocol the helper exits 0
+  # with empty output when it has nothing to give, so a bare exit-code
+  # check would pass on total failure. Non-fatal by design: gh itself
+  # never consults git's credential helper, and a failing mint still
+  # leaves the gh fallback.
+  cred_out="$(printf 'protocol=https\nhost=github.com\n\n' | \
+    env -u GITHUB_APP_PRIVATE_KEY_PATH node /app/github-app-git-credential-helper.mjs get 2>/dev/null)" || cred_out=""
+  case "$cred_out" in
+    *"password=ghs_"*) ;;
+    *)
+      echo "warning: git credential helper boot smoke test produced no installation token — git pushes may be broken (gh unaffected)" >&2
+      ;;
+  esac
+
   (
     while true; do
       token="$(node /app/github-app-token.mjs 2>/dev/null)" || true
