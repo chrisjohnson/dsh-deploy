@@ -21,11 +21,11 @@ translation.
 Verify from inside the spawned container (`docker exec ...`) — a wrong
 mount or unreachable network still exits 0.
 
-## Cross-repo work: escalate, don't merge workspaces
+## Cross-repo work
 
-For a task that genuinely spans repos, retry the *specific* file/bash operation with
-`sandbox_permissions: danger-full-access` and a one-sentence justification instead of
-restructuring the workspace — that retry itself raises the approval prompt, so don't
-ask in chat first. If a denial policy makes approval prompts unavailable, the denial
-is final: stop and flag it rather than improvising a workaround.
+Retry the specific op with `sandbox_permissions: danger-full-access` + a one-line
+justification instead of restructuring workspaces — the retry itself raises the
+prompt, don't ask in chat first. For a bounded multi-step chore elsewhere (edit,
+commit, push), delegate to a subagent so it absorbs its own retries under one
+approval instead of escalating call-by-call. No approver available: denial is final.
 
