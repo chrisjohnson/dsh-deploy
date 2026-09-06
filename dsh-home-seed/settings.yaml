@@ -26,6 +26,35 @@ llm-pi-ai:
     # git-tracked either), not automatically derived. If a role gets
     # reassigned to a different GPU via set-role.sh, move its entry to
     # match.
+    #
+    # reasoningEfforts (2026-09-06): pi-ai never infers reasoning support
+    # for a hand-declared route (same root cause as the contextWindow/
+    # maxTokens/input bugs above) - a model with none behaves exactly
+    # like a genuinely non-reasoning one, selector included. Every
+    # `reasoningEfforts` value below was confirmed by reading the actual
+    # backend's own chat template (via that build's llama-server /props,
+    # or the GGUF's embedded tokenizer.chat_template directly), not
+    # assumed from the model family name. Two real, different wire
+    # mechanisms are in play, and picking the wrong one is a silent
+    # no-op, not an error:
+    #   - graduated `reasoning_effort` string (medium-dense/Dirk only):
+    #     needs `compat.supportsReasoningEffort: true`.
+    #   - binary `enable_thinking` toggle (every other role below): the
+    #     template only checks true/false, there's no low/medium/high
+    #     distinction to offer. Delivered via `chat_template_kwargs`, which
+    #     needs `compat.thinkingFormat: chat-template` PLUS the
+    #     `$var: thinking.enabled` sentinel in `chatTemplateKwargs` (a
+    #     bare `chatTemplateKwargs` block with no `thinkingFormat` is
+    #     also a silent no-op - pi-ai's dispatch is gated on both).
+    #     The declared "medium" wire value is never read verbatim by
+    #     these templates, only whether it's present at all - offering
+    #     more than one non-off level here would be cosmetic, not real
+    #     control, so each one only offers off/on.
+    # RE-VERIFY THIS WHOLE BLOCK whenever a role gets reassigned via
+    # set-role.sh, same discipline as contextWindow/maxTokens/input -
+    # see dsh-home-seed/AGENTS.md's "Model list settings" section for
+    # exactly how to check a new backend before trusting either of the
+    # above.
     local-ai-machine:
       displayName: local-ai-machine
       apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
@@ -93,19 +122,79 @@ llm-pi-ai:
       models:
         - id: small-moe
           contextWindow: 65536
+          # reasoningEfforts (2026-09-06): confirmed via
+          # /var/lib/ai-models/glm-4.7-flash-awq/chat_template.jinja
+          # (vLLM-served AWQ) — binary `enable_thinking` only (`</think>`
+          # if `enable_thinking is defined and not enable_thinking` else
+          # `<think>`), no reasoning_effort. See this file's header
+          # comment for the chat-template/$var mechanism this needs.
+          reasoningEfforts:
+            "off":
+            medium: "on"
+          compat:
+            thinkingFormat: chat-template
+            chatTemplateKwargs:
+              enable_thinking:
+                $var: thinking.enabled
+                omitWhenOff: true
         - id: small-dense
           contextWindow: 32768
           input: [text, image]
+          # reasoningEfforts (2026-09-06): confirmed via
+          # /var/lib/ai-models/qwen2.5-vl-7b-instruct/chat_template.json —
+          # no reasoning_effort, enable_thinking, or <think> handling
+          # anywhere in the template. Genuinely not a reasoning model
+          # (vision-language, not a thinking variant) — explicit `false`
+          # so the selector doesn't offer a dead control.
+          reasoningEfforts: false
         - id: medium-moe
           contextWindow: 262144
           maxTokens: 8192
           input: [text, image]
+          # reasoningEfforts (2026-09-06): confirmed live via Ornith's own
+          # /props chat_template — binary `enable_thinking` only (`<think>`
+          # unless `enable_thinking is defined and enable_thinking is
+          # false`; thinking ON by default), same chat-template/$var
+          # mechanism as small-moe above, not medium-dense's bare
+          # reasoning_effort field.
+          reasoningEfforts:
+            "off":
+            medium: "on"
+          compat:
+            thinkingFormat: chat-template
+            chatTemplateKwargs:
+              enable_thinking:
+                $var: thinking.enabled
+                omitWhenOff: true
         - id: big-moe
           contextWindow: 131072
           maxTokens: 8192
+          # reasoningEfforts (2026-09-06): confirmed via the GGUF's own
+          # embedded tokenizer.chat_template ("laguna_glm_thinking_v8") —
+          # binary `enable_thinking` only (defaults true), same mechanism
+          # as medium-moe/small-moe above.
+          reasoningEfforts:
+            "off":
+            medium: "on"
+          compat:
+            thinkingFormat: chat-template
+            chatTemplateKwargs:
+              enable_thinking:
+                $var: thinking.enabled
+                omitWhenOff: true
         - id: big-moe-continue-json
           contextWindow: 131072
           maxTokens: 8192
+          # reasoningEfforts: same backend as big-moe above, see its comment.
+          reasoningEfforts:
+            "off":
+            medium: "on"
+          compat:
+            thinkingFormat: chat-template
+            chatTemplateKwargs:
+              enable_thinking:
+                $var: thinking.enabled
+                omitWhenOff: true
         - id: medium-moe-continue-json
           # Also needs to track medium-moe's real value (missed in the
           # 2026-09-03 87552 fix, caught when Ornith v9 superseded it) —
@@ -113,6 +202,16 @@ llm-pi-ai:
           # medium-moe, so the two must always agree.
           contextWindow: 262144
           maxTokens: 8192
+          # reasoningEfforts: same backend as medium-moe above, see its comment.
+          reasoningEfforts:
+            "off":
+            medium: "on"
+          compat:
+            thinkingFormat: chat-template
+            chatTemplateKwargs:
+              enable_thinking:
+                $var: thinking.enabled
+                omitWhenOff: true
     # r9700-egpu-dock roles - only roles currently pinned to a build
     # running on that GPU belong here. Today that's just medium-dense
     # (Qwen3.8-27B-MTP) - most roles (especially big-moe, Laguna-S-2.1
@@ -142,6 +241,22 @@ llm-pi-ai:
           contextWindow: 262144
           maxTokens: 8192
           input: [text, image]
+          # reasoningEfforts (2026-09-06): confirmed live via Dirk's own
+          # /props chat_template — graduated `reasoning_effort` (not the
+          # binary switch every strix-apu role above uses). Unrecognized
+          # values fall back to 'medium' safely (no error), but
+          # 'high'/'max'/'ultracode'/'extreme' are all aliases for
+          # 'xhigh' in this template, not distinct levels — only
+          # declaring the three that actually differ. This mechanism
+          # needs `compat.supportsReasoningEffort: true`, NOT the
+          # chat-template/$var block the other roles use.
+          reasoningEfforts:
+            "off":
+            low: low
+            medium: medium
+            xhigh: xhigh
+          compat:
+            supportsReasoningEffort: true
 agent-default-model:
   provider: local-ai-machine
   model: medium-moe
