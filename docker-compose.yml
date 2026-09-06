@@ -56,6 +56,12 @@ services:
       # docker-entrypoint.sh's credential-helper setup.
       - ${GITHUB_APP_PRIVATE_KEY_HOST_PATH}:/run/secrets/github-app-agent-key.pem:ro
       - ${DOCKER_SOCK_PATH:-/var/run/docker.sock}:/var/run/docker.sock
+      # Read-only view of the entire host filesystem: sessions inspecting
+      # the box (systemd units under /run, /etc, logs, other checkouts)
+      # read /host/<path> instead of spawning docker-exec shims into
+      # sibling containers for every glance. No privilege expansion -
+      # the mounted docker socket above already grants full host
+      # control; this just makes read inspection first-class.
     group_add:
       - "${DOCKER_GID:-131}"
     environment:
