@@ -98,6 +98,7 @@ mkdir -p "$DSH_HOME/profiles/web/node_modules" "$DSH_HOME/profiles/web/node_modu
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"
 ln -sfn /app/node_modules/dsh-claude-cli "$DSH_HOME/profiles/web/node_modules/dsh-claude-cli"
 ln -sfn /app/node_modules/@deepseek-ai/dsh-subagent-claude-code "$DSH_HOME/profiles/web/node_modules/@deepseek-ai/dsh-subagent-claude-code"
+ln -sfn /app/node_modules/dsh-better-sidebar "$DSH_HOME/profiles/web/node_modules/dsh-better-sidebar"
 
 # GitHub App credential — one mechanism covering both git and gh:
 #

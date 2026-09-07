@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     less \
     nano \
     tree \
+    make \
+    g++ \
     python3 \
     docker.io \
     && rm -rf /var/lib/apt/lists/*
