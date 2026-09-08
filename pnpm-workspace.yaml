@@ -210,3 +210,4 @@ minimumReleaseAgeExclude:
   - '@anthropic-ai/claude-code@2.1.259'
 patchedDependencies:
   dsh-claude-cli@0.1.0: patches/dsh-claude-cli@0.1.0.patch
+  '@deepseek-ai/dsh-attachment-local@0.1.0-rc.8': patches/@deepseek-ai/dsh-attachment-local@0.1.0.patch

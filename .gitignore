@@ -3,3 +3,4 @@ node_modules/
 .fleet/worktrees
 .research/
 .DS_Store
+pnpm-store/
