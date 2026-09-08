@@ -79,4 +79,8 @@
         autoCleanup: true
         cleanupDays: 7
         sweepIntervalMs: 3600000
-        enforceIsolation: true
+        # Isolation guard stays OFF: out-of-workspace writes already go through
+        # the sandbox escalation -> approval flow, where the user decides. A
+        # guard denial is monotonic (cannot be escalated past), so enabling it
+        # here would overrule the user. Opt in for unattended profiles only.
+        enforceIsolation: false

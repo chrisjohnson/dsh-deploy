@@ -12,10 +12,12 @@
 //   - reports the created path so a NEW session can be started with it as
 //     its workspace directory (the directory picker accepts any dir) —
 //     that session then has the worktree as its own immutable sandbox root;
-//   - registers a per-agent isolation guard for sessions whose cwd IS a dsh
-//     worktree, denying mutating tool calls that target the main checkout
-//     (the monotonic ctx.tools.guard seam — the dsh analog of Claude Code's
-//     non-disableable isolation checks);
+//   - offers an OPTIONAL per-agent isolation guard for sessions whose cwd IS
+//     a dsh worktree (enforceIsolation: true; the monotonic ctx.tools.guard
+//     seam). Off by default: the sandbox escalation -> approval flow already
+//     gives the user the decision on out-of-workspace writes, and a guard
+//     denial cannot be escalated, so a default-on guard would overrule the
+//     user; enable it where approval is disabled (fail-closed unattended).
 //   - tracks live sessions per worktree and refuses removal while any are
 //     attached (the oh-my-pi premature-delete failure class);
 //   - auto-cleans on the last session leaving (only when clean and pushed),
@@ -31,7 +33,18 @@
 //   autoCleanup       (default true)         clean worktrees on last session leave
 //   cleanupDays       (default 7)            sweep age threshold
 //   sweepIntervalMs   (default 3600000)      retention sweep period
-//   enforceIsolation  (default true)         per-agent main-checkout guard
+//   enforceIsolation  (default false)        per-agent main-checkout guard — OFF by
+//                                             default on purpose: the sandbox's own
+//                                             escalation flow (denial ->
+//                                             sandbox_permissions retry -> approval
+//                                             prompt) already lets the USER decide
+//                                             whether a worktree session may write
+//                                             outside its workspace. The guard is
+//                                             monotonic (it can never be escalated
+//                                             past), so leaving it on would strip
+//                                             that authority; opt in for unattended
+//                                             profiles (approval: never) where
+//                                             fail-closed is the desired behavior.
 
 import { isAbsolute, resolve } from "node:path";
 import z from "@deepseek-ai/schemastery";
@@ -58,7 +71,7 @@ export const Config = z.object({
   autoCleanup: z.boolean().default(true),
   cleanupDays: z.number().default(7),
   sweepIntervalMs: z.number().default(3600000),
-  enforceIsolation: z.boolean().default(true),
+  enforceIsolation: z.boolean().default(false),
 });
 
 const log = (msg) => console.log("[dsh-git-worktree] " + msg);
@@ -311,7 +324,7 @@ export function apply(ctx, config) {
       set.add(agent.id);
       if (info.mainRepo) knownRepos.add(info.mainRepo);
       log("session " + agent.id + " attached to worktree " + info.wtPath + " (branch " + (info.marker?.branch ?? "?") + ")");
-      if (cfg.enforceIsolation !== false) registerGuard(agent, info);
+      if (cfg.enforceIsolation === true) registerGuard(agent, info);
     } catch (err) {
       log("agent/created handling failed: " + (err?.message ?? err));
     }
@@ -381,7 +394,9 @@ export function apply(ctx, config) {
       "To work in a worktree: start a new session with the worktree path as its workspace directory (it becomes that session's sandbox root), " +
       "or use bash workdir=<worktree path> from here. " +
       "Never delete a worktree directory with rm -rf — removal must go through worktree_remove so locks, metadata, and shared config stay clean. " +
-      "If this session's workspace is itself a worktree, keep all writes inside it: mutating calls targeting the main checkout are denied by an isolation guard.",
+      (cfg.enforceIsolation === true
+        ? "If this session's workspace is itself a worktree, keep all writes inside it: mutating calls targeting the main checkout are denied by an isolation guard."
+        : "If this session's workspace is itself a worktree, keep all writes inside it; writes outside the workspace follow the normal sandbox escalation and user approval."),
   });
 }
 
