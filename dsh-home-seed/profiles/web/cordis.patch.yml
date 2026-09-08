@@ -61,3 +61,22 @@
         kickOnInterrupted: true
         kickOnMaxTokens: true
         includeSubagents: false
+
+# Host-plane git-worktree manager (card K-001). Gives parallel sessions
+# isolated git worktrees under <repo>/.wt/<slug> on branches wt/<slug>:
+# model-facing worktree_create/list/status/remove/prune tools, per-agent
+# isolation guard for sessions rooted IN a worktree (main-checkout writes
+# denied), live-session tracking that blocks premature removal, clean
+# auto-teardown when the last session leaves, and a retention sweep.
+# Engine + safety rationale: ./plugins/worktree-engine.mjs and
+# ./plugins/dsh-git-worktree.mjs; engine tests: scripts/worktree-smoke.mjs.
+- insert:
+    - id: git-worktree
+      name: ./plugins/dsh-git-worktree.mjs
+      config:
+        worktreeDir: .wt
+        branchPrefix: wt/
+        autoCleanup: true
+        cleanupDays: 7
+        sweepIntervalMs: 3600000
+        enforceIsolation: true
