@@ -211,3 +211,8 @@ minimumReleaseAgeExclude:
 patchedDependencies:
   dsh-claude-cli@0.1.0: patches/dsh-claude-cli@0.1.0.patch
   '@deepseek-ai/dsh-attachment-local@0.1.0-rc.8': patches/@deepseek-ai/dsh-attachment-local@0.1.0.patch
+  # dsh-better-sidebar@0.18.0: open the sidebar default split 35% -> 25% so the
+  # width the operator set in the UI is codified rather than lost on next install
+  # (the UI setting only applies to conversations created after it; new ones fall
+  # back to this default). Patches the built lib/client-registry.js after install.
+  dsh-better-sidebar@0.18.0: patches/dsh-better-sidebar@0.18.0.patch

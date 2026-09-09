@@ -1,0 +1,13 @@
+diff --git a/lib/client-registry.js b/lib/client-registry.js
+index 5c312c8994e7acd0e4f308346287612e0e56fe5b..5bfdb65557cb2b32964eafb8e0c3cdf82d06d151 100644
+--- a/lib/client-registry.js
++++ b/lib/client-registry.js
+@@ -42,7 +42,7 @@ window.__ModuleLoader__.load({
+ 		/** Fallback prefs used whenever the settings document is unreachable or malformed. */
+ 		const SIDEBAR_PREFS_DEFAULTS = {
+ 			openByDefault: false,
+-			defaultWidthPercent: 35,
++			defaultWidthPercent: 25,
+ 			autoOpenSubagent: true,
+ 			autoOpenJobs: true,
+ 			agentTerminalTools: false,

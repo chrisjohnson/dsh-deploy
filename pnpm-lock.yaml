@@ -195,6 +195,7 @@ overrides:
 
 patchedDependencies:
   '@deepseek-ai/dsh-attachment-local@0.1.0-rc.8': 9f30791d7e2022d2bd675c44f18527a91231960e61cd646f74e658c71f7f0eb0
+  dsh-better-sidebar@0.18.0: 2b9f13ce419ab114c9398dc88a87832515d82759ffe7dfccc26ce853e851ada3
   dsh-claude-cli@0.1.0: f9b7835f5ee07ed1e059086e2a6b98a0b5d26e75ec5e330478c56a5592d5aae0
 
 importers:
@@ -215,7 +216,7 @@ importers:
         version: 7.2.2
       dsh-better-sidebar:
         specifier: ^0.18.0
-        version: 0.18.0(51ec7f8a5f83e7ef383eed166552f86d)
+        version: 0.18.0(patch_hash=2b9f13ce419ab114c9398dc88a87832515d82759ffe7dfccc26ce853e851ada3)(51ec7f8a5f83e7ef383eed166552f86d)
       dsh-claude-cli:
         specifier: git+https://github.com/katsos/dsh-claude-cli.git#3a3a57f22a3e748c9720a1b96ce64e015f0f9643
         version: https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(patch_hash=f9b7835f5ee07ed1e059086e2a6b98a0b5d26e75ec5e330478c56a5592d5aae0)(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-attachment@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2))(@deepseek-ai/dsh-timeout@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.2))))
@@ -8647,7 +8648,7 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
-  dsh-better-sidebar@0.18.0(51ec7f8a5f83e7ef383eed166552f86d):
+  dsh-better-sidebar@0.18.0(patch_hash=2b9f13ce419ab114c9398dc88a87832515d82759ffe7dfccc26ce853e851ada3)(51ec7f8a5f83e7ef383eed166552f86d):
     dependencies:
       '@codemirror/commands': 6.11.0
       '@codemirror/lang-cpp': 6.0.3
