@@ -1,0 +1,3430 @@
+diff --git a/src/client/WorktreeCreateRow.tsx b/src/client/WorktreeCreateRow.tsx
+index 015d6a3..75859c6 100644
+--- a/src/client/WorktreeCreateRow.tsx
++++ b/src/client/WorktreeCreateRow.tsx
+@@ -14,6 +14,7 @@ export function WorktreeCreateRow({ block, services }: Props) {
+   const [openError, setOpenError] = useState<string | null>(null)
+   const payload = model.payload
+   const state = model.lifecycle === 'running' ? 'running' : model.lifecycle === 'ok' ? 'ok' : 'error'
++  const { t } = services
+ 
+   const openTarget = async (): Promise<void> => {
+     if (!payload || openState === 'opening') return
+@@ -28,12 +29,12 @@ export function WorktreeCreateRow({ block, services }: Props) {
+   }
+ 
+   return (
+-    <section className="dsh-wt-card" data-tool="worktree_create" data-state={state} aria-label="隔离 Session Target">
++    <section className="dsh-wt-card" data-tool="worktree_create" data-state={state} aria-label={t('createRow.ariaLabel')}>
+       <header className="dsh-wt-head">
+         <span className="dsh-wt-mark" aria-hidden />
+-        <strong className="dsh-wt-title">隔离 Session Target</strong>
++        <strong className="dsh-wt-title">{t('createRow.title')}</strong>
+         <span className="dsh-wt-subtitle">
+-          {model.lifecycle === 'running' ? '正在创建唯一 Worktree…' : payload ? '已就绪，等待打开' : '创建失败'}
++          {model.lifecycle === 'running' ? t('createRow.creating') : payload ? t('createRow.ready') : t('createRow.failed')}
+         </span>
+       </header>
+       {payload ? (
+@@ -41,18 +42,18 @@ export function WorktreeCreateRow({ block, services }: Props) {
+           <div className="dsh-wt-grid">
+             <span className="dsh-wt-label">Checkout</span>
+             <span className="dsh-wt-value dsh-wt-code">{payload.checkoutId}</span>
+-            <span className="dsh-wt-label">基线</span>
++            <span className="dsh-wt-label">{t('createRow.baseline')}</span>
+             <span className="dsh-wt-value dsh-wt-code">{payload.currentOid.slice(0, 12)}</span>
+-            <span className="dsh-wt-label">工作区</span>
++            <span className="dsh-wt-label">{t('createRow.workspace')}</span>
+             <button type="button" className="dsh-wt-value dsh-wt-code dsh-wt-path" onClick={() => void services.workspaces.openPath(payload.managedRoot)}>
+               {payload.managedRoot}
+             </button>
+           </div>
+           <div className="dsh-wt-actions">
+             <button type="button" className="dsh-wt-button dsh-wt-primary" disabled={openState === 'opening'} onClick={() => void openTarget()}>
+-              {openState === 'opening' ? '正在打开…' : openState === 'error' ? '重试打开隔离会话' : '打开隔离会话'}
++              {openState === 'opening' ? t('createRow.opening') : openState === 'error' ? t('createRow.retryOpen') : t('createRow.open')}
+             </button>
+-            <span className="dsh-wt-status">当前 Local Session 不会改绑 cwd。</span>
++            <span className="dsh-wt-status">{t('createRow.cwdNote')}</span>
+           </div>
+           {openError ? <div className="dsh-wt-error" role="alert">{openError}</div> : null}
+         </div>
+diff --git a/src/client/WorktreeReviewRow.tsx b/src/client/WorktreeReviewRow.tsx
+index 6d65529..6b42591 100644
+--- a/src/client/WorktreeReviewRow.tsx
++++ b/src/client/WorktreeReviewRow.tsx
+@@ -19,11 +19,14 @@ interface Props extends ToolCallViewPropsLike {
+ function isLocalTargetUnselected(error: string | null): boolean {
+   if (error === null) return false
+   return /(?:^|\b)target_unselected(?:\b|$)/iu.test(error)
++    // Host-side protocol match: session-checkout emits this Chinese literal
++    // (host copy is not part of the browser locale tables).
+     || error.includes('会话尚未选择 Session Target')
+ }
+ 
+ export function WorktreeReviewRow({ block, sessionId, adapter, services }: Props) {
+   const model = parseReviewTool(block)
++  const { t } = services
+   const payload = model.payload
+   const args = model.args
+   const state = model.lifecycle === 'running' ? 'running' : model.lifecycle === 'ok' ? 'ok' : 'error'
+@@ -97,13 +100,13 @@ export function WorktreeReviewRow({ block, sessionId, adapter, services }: Props
+       }
+     : undefined
+   const unavailableMessage = liveError
+-    ? `实时 Worktree Console 不可用：${liveError}`
++    ? t('reviewRow.liveUnavailable', { detail: liveError })
+     : adapter && sessionId
+-      ? '正在连接实时 Worktree Console；历史验收证据仍可查看。'
+-      : '实时 Worktree Console 未连接；连接后即可执行验收操作。'
++      ? t('reviewRow.connecting')
++      : t('reviewRow.notConnected')
+ 
+   return (
+-    <section className="dsh-wt-card" data-tool="worktree_ready_for_review" data-state={state} aria-label="Worktree 待验收">
++    <section className="dsh-wt-card" data-tool="worktree_ready_for_review" data-state={state} aria-label={t('reviewRow.ariaLabel')}>
+       {review ? (
+         <WorktreeReviewPanel
+           review={review}
+@@ -112,15 +115,16 @@ export function WorktreeReviewRow({ block, sessionId, adapter, services }: Props
+           identity={identity}
+           target={liveTarget}
+           unavailableMessage={unavailableMessage}
++          t={t}
+           onRefresh={() => setRefreshNonce(value => value + 1)}
+           onTargetChange={setLiveTarget}
+         />
+       ) : (
+         <header className="dsh-wt-head">
+           <span className="dsh-wt-mark" aria-hidden />
+-          <strong className="dsh-wt-title">Worktree 待验收</strong>
++          <strong className="dsh-wt-title">{t('reviewRow.title')}</strong>
+           <span className="dsh-wt-subtitle">
+-            {model.lifecycle === 'running' ? '正在冻结验收快照…' : '验收信息不可用'}
++            {model.lifecycle === 'running' ? t('reviewRow.freezing') : t('reviewRow.unavailable')}
+           </span>
+         </header>
+       )}
+diff --git a/src/client/actions.ts b/src/client/actions.ts
+index 06683cc..099bbb1 100644
+--- a/src/client/actions.ts
++++ b/src/client/actions.ts
+@@ -1,6 +1,7 @@
+ /** Browser-side orchestration over Harness Workspace and Session runtime faces. */
+ 
+ import type { WorktreeConsoleAdapter } from '../console-contract.js'
++import type { WorktreeTranslate } from './locales/worktree.js'
+ 
+ export interface IsolatedTargetLocation {
+   managedRoot: string
+@@ -60,6 +61,8 @@ export interface ClientWorkspaces {
+ export interface WorktreeClientServices {
+   sessions: ClientSessions
+   workspaces: ClientWorkspaces
++  /** Worktree console copy, bound to the plugin's `worktree` locale namespace. */
++  t: WorktreeTranslate
+   /** Optional public composer face used only by manual draft-prefill actions. */
+   conversation?: {
+     input: {
+@@ -114,7 +117,7 @@ export function openExistingSession(
+ }
+ 
+ async function waitForProjectedSessionPath(
+-  services: Pick<WorktreeClientServices, 'sessions'>,
++  services: Pick<WorktreeClientServices, 'sessions' | 't'>,
+   sessionId: string,
+   expectedCwd: string,
+   isActive: () => boolean,
+@@ -138,13 +141,13 @@ async function waitForProjectedSessionPath(
+       const summary = services.sessions.list.getSnapshot().byId[sessionId]
+       if (summary?.cwd === undefined) return
+       if (!samePath(summary.cwd, expectedCwd)) {
+-        settle(false, new Error(`Harness 新建 Session ${sessionId} 的 cwd 与 Host 记录不一致。`))
++        settle(false, new Error(services.t('errors.newSessionCwdMismatch', { sessionId })))
+         return
+       }
+       settle(true)
+     }
+     const timer = globalThis.setTimeout(() => {
+-      settle(false, new Error(`Harness 未投影新建 Session ${sessionId} 的可信 cwd。`))
++      settle(false, new Error(services.t('errors.newSessionCwdNotProjected', { sessionId })))
+     }, 2_000)
+     const dispose = services.sessions.list.subscribe(inspect)
+     unsubscribe = dispose
+@@ -164,21 +167,21 @@ export async function openIsolatedTarget(
+   if (existing !== undefined) {
+     if (!isActive()) return
+     if (!openExistingSession(services, payload.targetSessionId, payload.managedRoot)) {
+-      throw new Error(`Harness 现有 Session ${payload.targetSessionId} 的 cwd 与 Host 记录不一致。`)
++      throw new Error(services.t('errors.existingSessionCwdMismatch', { targetSessionId: payload.targetSessionId }))
+     }
+     return
+   }
+   const workspace = await services.workspaces.create({ path: payload.managedRoot })
+   if (!isActive()) return
+   if (workspace.path !== payload.managedRoot) {
+-    throw new Error(`Harness 注册的工作目录与 Host 记录不一致：${workspace.path}`)
++    throw new Error(services.t('errors.registeredPathMismatch', { path: workspace.path }))
+   }
+   const sessionId = await services.sessions.create({
+     workspaceId: workspace.workspaceId,
+     sessionId: payload.targetSessionId,
+   })
+   if (sessionId !== payload.targetSessionId) {
+-    throw new Error(`Harness 创建了非预期 Session ${sessionId}；应为 ${payload.targetSessionId}`)
++    throw new Error(services.t('errors.unexpectedSession', { sessionId, expectedSessionId: payload.targetSessionId }))
+   }
+   if (!await waitForProjectedSessionPath(services, sessionId, payload.managedRoot, isActive)) return
+   if (!isActive()) return
+@@ -201,14 +204,14 @@ export async function openAuthorizedWorktreeTarget(
+   if (!outcome.ok) throw new Error(`${outcome.error.code}: ${outcome.error.message}`)
+   const target = outcome.value.target
+   if (!target.capabilities.inspect || !target.capabilities.open) {
+-    throw new Error('最新 Host 状态已不允许打开该 Worktree。')
++    throw new Error(services.t('errors.hostNoLongerAllowsOpen'))
+   }
+   if (
+     target.checkoutId !== expected.checkoutId
+     || target.ownerSessionId !== expected.ownerSessionId
+     || target.targetSessionId !== expected.ownerSessionId
+-  ) throw new Error('Host 检查结果中的 Worktree 身份不一致。')
+-  if (target.managedRoot === null) throw new Error('Host 未提供可验证的 Worktree 路径。')
++  ) throw new Error(services.t('errors.inspectIdentityMismatch'))
++  if (target.managedRoot === null) throw new Error(services.t('errors.noVerifiablePath'))
+   if (!isActive()) return
+   await openIsolatedTarget(services, {
+     managedRoot: target.managedRoot,
+@@ -230,16 +233,16 @@ export function prefillSessionDraft(
+ 
+ /** Submit an exact review-card acceptance as an explicit user command. */
+ export async function finalizeCurrentSession(
+-  services: Pick<WorktreeClientServices, 'sessions'>,
++  services: Pick<WorktreeClientServices, 'sessions' | 't'>,
+   reviewId: string,
+   revision: number,
+   retention: 'cleanup' | 'retain_24h' | 'retain_3d' | 'retain_manual',
+ ): Promise<void> {
+   const sessionId = services.sessions.list.getSnapshot().current
+-  if (!sessionId) throw new Error('当前没有选中的 Session。')
++  if (!sessionId) throw new Error(services.t('errors.noSelectedSession'))
+   const binding = services.sessions.binding(sessionId)
+-  if (!binding) throw new Error('当前 Session 尚未就绪。')
++  if (!binding) throw new Error(services.t('errors.sessionNotReady'))
+   const result = await binding.session.command(`/worktree finalize ${reviewId} ${revision} ${retention}`)
+   if (!result.ok) throw new Error(`Finalize command failed: ${result.error.code}: ${result.error.message}`)
+-  if (!result.value.matched) throw new Error('Host 未识别 /worktree 命令。')
++  if (!result.value.matched) throw new Error(services.t('errors.hostUnrecognizedCommand'))
+ }
+diff --git a/src/client/console-remote/adapter.ts b/src/client/console-remote/adapter.ts
+index 6857b49..37e6998 100644
+--- a/src/client/console-remote/adapter.ts
++++ b/src/client/console-remote/adapter.ts
+@@ -15,13 +15,17 @@ import type {
+ } from '../../console-contract.js'
+ import type { GitWorktreeRemote } from '../../console-remote/remote.js'
+ import { WORKTREE_CONSOLE_DESCRIPTORS } from '../../console-remote/descriptors.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ 
+ function transport<T>(message: string): WorktreeConsoleOutcome<T> {
+   return { ok: false, error: { code: 'transport_unavailable', message } }
+ }
+ 
+-function malformed<T>(method: string): WorktreeConsoleOutcome<T> {
+-  return { ok: false, error: { code: 'malformed_response', message: `Remote ${method} 返回了不符合 strict contract 的 payload` } }
++function malformed<T>(method: string, t?: WorktreeTranslate): WorktreeConsoleOutcome<T> {
++  const message = t
++    ? t('remote.malformed', { method })
++    : `Remote ${method} 返回了不符合 strict contract 的 payload`
++  return { ok: false, error: { code: 'malformed_response', message } }
+ }
+ 
+ function messageOf(value: unknown): string {
+@@ -32,10 +36,14 @@ function messageOf(value: unknown): string {
+ 
+ function isCodecRejection(value: unknown): boolean {
+   const message = messageOf(value)
+-  return message.includes('rejected "') || message.includes('返回了不符合 strict contract')
++  // The code check keeps this locale-independent: the malformed payload message
++  // above is translated, so a literal match would break under another locale.
++  if (message.includes('rejected "')) return true
++  return typeof value === 'object' && value !== null
++    && (value as { code?: unknown }).code === 'malformed_response'
+ }
+ 
+-export function createWorktreeConsoleRemoteAdapter(remote: GitWorktreeRemote): WorktreeConsoleAdapter {
++export function createWorktreeConsoleRemoteAdapter(remote: GitWorktreeRemote, t?: WorktreeTranslate): WorktreeConsoleAdapter {
+   const descriptors = new Map(WORKTREE_CONSOLE_DESCRIPTORS.map(descriptor => [descriptor.method, descriptor]))
+ 
+   async function invoke<T>(method: string, call: () => Promise<RemoteResult<WorktreeConsoleOutcome<T>>>): Promise<WorktreeConsoleOutcome<T>> {
+@@ -43,16 +51,16 @@ export function createWorktreeConsoleRemoteAdapter(remote: GitWorktreeRemote): W
+     try {
+       carrier = await call()
+     } catch (error) {
+-      return isCodecRejection(error) ? malformed(method) : transport(messageOf(error))
++      return isCodecRejection(error) ? malformed(method, t) : transport(messageOf(error))
+     }
+-    if (typeof carrier !== 'object' || carrier === null || typeof carrier.ok !== 'boolean') return malformed(method)
+-    if (!carrier.ok) return isCodecRejection(carrier.error) ? malformed(method) : transport(carrier.error.message)
++    if (typeof carrier !== 'object' || carrier === null || typeof carrier.ok !== 'boolean') return malformed(method, t)
++    if (!carrier.ok) return isCodecRejection(carrier.error) ? malformed(method, t) : transport(carrier.error.message)
+     const descriptor = descriptors.get(method)
+-    if (descriptor?.result.mode !== 'strict') return malformed(method)
++    if (descriptor?.result.mode !== 'strict') return malformed(method, t)
+     try {
+       return descriptor.result.schema.parse(carrier.value) as WorktreeConsoleOutcome<T>
+     } catch {
+-      return malformed(method)
++      return malformed(method, t)
+     }
+   }
+ 
+diff --git a/src/client/console-remote/index.ts b/src/client/console-remote/index.ts
+index d975949..dca647b 100644
+--- a/src/client/console-remote/index.ts
++++ b/src/client/console-remote/index.ts
+@@ -31,8 +31,10 @@ export async function apply(ctx: ConsoleClientContext): Promise<void> {
+   const disposeRemote = await ctx.remote.$mount(contribution)
+   ctx.effect(() => disposeRemote)
+   const remote = ctx.get('remote.gitWorktree') as GitWorktreeRemote | undefined
+-  if (remote === undefined) throw new Error('Worktree Console Remote namespace 挂载失败')
+-  const adapter = createWorktreeConsoleRemoteAdapter(remote)
++  const locale = ctx.get('locale')
++  const t = locale ? locale.bind('worktree') : undefined
++  if (remote === undefined) throw new Error(t ? t('remote.mountFailed') : 'Worktree Console Remote namespace 挂载失败')
++  const adapter = createWorktreeConsoleRemoteAdapter(remote, t)
+   ctx.provide('worktreeConsole', adapter)
+ 
+   // Host lifecycle selects this replacement only while the plugin is active.
+diff --git a/src/client/index.tsx b/src/client/index.tsx
+index 302b4d7..bb66893 100644
+--- a/src/client/index.tsx
++++ b/src/client/index.tsx
+@@ -1,6 +1,7 @@
+ /** Browser entry: dedicated ToolViews for Worktree target handoff and review. */
+ 
+ import type { ComponentType } from 'react'
++import type { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+ import type { WorktreeConsoleAdapter } from '../console-contract.js'
+ import type { PreSessionWorktreeServices } from './actions.js'
+ import type { ToolCallViewPropsLike } from './model.js'
+@@ -8,6 +9,7 @@ import { WorktreeCreateRow } from './WorktreeCreateRow.js'
+ import { WorktreeReviewRow } from './WorktreeReviewRow.js'
+ import { WORKTREE_STYLES } from './styles.js'
+ import { registerPreSessionWorktree, type PreSessionSlotContextLike } from './pre-session/index.js'
++import { registerWorktreeLocale, type WorktreeTranslate } from './locales/worktree.js'
+ import { registerTargetConsole, type TargetConsoleContextLike } from './target-console/index.js'
+ import { TARGET_CONSOLE_STYLES } from './target-console/target-console.styles.js'
+ 
+@@ -33,17 +35,24 @@ interface ClientContextLike {
+ /** Required client services. */
+ export const inject = ['slots', 'workspaces', 'sessions', 'conversation', 'connection', 'locale']
+ 
+-function servicesOf(ctx: ClientContextLike): PreSessionWorktreeServices {
++function servicesOf(ctx: ClientContextLike, t: WorktreeTranslate): PreSessionWorktreeServices {
+   return {
+     workspaces: ctx.get('workspaces') as PreSessionWorktreeServices['workspaces'],
+     sessions: ctx.get('sessions') as PreSessionWorktreeServices['sessions'],
+     conversation: ctx.get('conversation') as PreSessionWorktreeServices['conversation'],
++    t,
+   }
+ }
+ 
+ /** Register replay-stable keyed rows and one scoped stylesheet. */
+ export function apply(ctx: ClientContextLike, adapterOverride?: WorktreeConsoleAdapter): void {
+-  const services = servicesOf(ctx)
++  // The locale service is a hard dependency of this fiber (see inject above).
++  // bind() returns a stable translate function that reads the active locale at
++  // call time; registration is disposed with the fiber.
++  const locale = ctx.get('locale') as LocaleRuntime
++  const t = locale.bind('worktree')
++  ctx.effect(() => registerWorktreeLocale(locale), 'dsh-git-worktree: locale')
++  const services = servicesOf(ctx, t)
+   // A service provided by this same plugin fiber is not visible through ctx.get
+   // until the provider effect settles. The package-owned Remote entry passes
+   // the just-created adapter explicitly; direct consumers may still inject it.
+@@ -60,11 +69,11 @@ export function apply(ctx: ClientContextLike, adapterOverride?: WorktreeConsoleA
+   const CreateRow = (props: ToolCallViewPropsLike) => <WorktreeCreateRow {...props} services={services} />
+   const ReviewRow = (props: ToolCallViewPropsLike) => <WorktreeReviewRow {...props} services={services} adapter={adapter} />
+   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(
+-    { name: 'tool.call.toolview', key: 'worktree_create' },
++    { name: 'tool.call.toolview', key: 'worktree_create', locale: 'worktree' },
+     CreateRow,
+   ))
+   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(
+-    { name: 'tool.call.toolview', key: 'worktree_ready_for_review' },
++    { name: 'tool.call.toolview', key: 'worktree_ready_for_review', locale: 'worktree' },
+     ReviewRow,
+   ))
+ 
+diff --git a/src/client/locales/worktree-locale.d.ts b/src/client/locales/worktree-locale.d.ts
+new file mode 100644
+index 0000000..0c705c9
+--- /dev/null
++++ b/src/client/locales/worktree-locale.d.ts
+@@ -0,0 +1,12 @@
++/**
++ * Claim the plugin-owned "worktree" namespace in the shared locale
++ * namespace map (dsh-client-ui-slots) so the locale framework's typed
++ * seats check against this plugin's key set wherever the full dsh type
++ * graph is present. This ambient declaration is a no-op in the plugin's
++ * standalone typecheck, where the module is not installed.
++ */
++declare module '@deepseek-ai/dsh-client-ui-slots' {
++  interface LocaleNamespaceMap {
++    worktree: import('./worktree.js').WorktreeLocaleKey
++  }
++}
+diff --git a/src/client/locales/worktree.ts b/src/client/locales/worktree.ts
+new file mode 100644
+index 0000000..e43ab2e
+--- /dev/null
++++ b/src/client/locales/worktree.ts
+@@ -0,0 +1,777 @@
++import type { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
++import type { WorktreeConsoleTargetState, WorktreeSidebarTaskState } from '../../console-contract.js'
++
++/**
++ * Browser UI copy for the Worktree plugin, registered into the dsh locale
++ * registry under the plugin-owned "worktree" namespace.
++ *
++ * The zh table is byte-identical to the strings the components previously
++ * hard-coded, so Chinese users see no behavior change; en is the translation.
++ * The lookup chain (namespace -> shared common -> key literal) is provided by
++ * the locale framework; every key here is plugin-owned on purpose.
++ *
++ * Intentionally NOT in this table:
++ * - agent-facing prompts (recovery analysis / conflict-resolution instructions
++ *   sent to sessions) - their wording is part of the recovery protocol;
++ * - host-side protocol literals the browser matches on (e.g. the
++ *   target-not-selected detection in WorktreeReviewRow).
++ */
++
++export const worktreeZh = {
++  // WorktreeCreateRow (tool view: worktree_create)
++  'createRow.ariaLabel': '隔离 Session Target',
++  'createRow.title': '隔离 Session Target',
++  'createRow.creating': '正在创建唯一 Worktree…',
++  'createRow.ready': '已就绪，等待打开',
++  'createRow.failed': '创建失败',
++  'createRow.baseline': '基线',
++  'createRow.workspace': '工作区',
++  'createRow.opening': '正在打开…',
++  'createRow.retryOpen': '重试打开隔离会话',
++  'createRow.open': '打开隔离会话',
++  'createRow.cwdNote': '当前 Local Session 不会改绑 cwd。',
++  // WorktreeReviewRow (tool view: worktree_ready_for_review)
++  'reviewRow.ariaLabel': 'Worktree 待验收',
++  'reviewRow.title': 'Worktree 待验收',
++  'reviewRow.freezing': '正在冻结验收快照…',
++  'reviewRow.unavailable': '验收信息不可用',
++  'reviewRow.liveUnavailable': '实时 Worktree Console 不可用：{detail}',
++  'reviewRow.connecting': '正在连接实时 Worktree Console；历史验收证据仍可查看。',
++  'reviewRow.notConnected': '实时 Worktree Console 未连接；连接后即可执行验收操作。',
++  // Session navigation actions
++  'errors.newSessionCwdMismatch': 'Harness 新建 Session {sessionId} 的 cwd 与 Host 记录不一致。',
++  'errors.newSessionCwdNotProjected': 'Harness 未投影新建 Session {sessionId} 的可信 cwd。',
++  'errors.existingSessionCwdMismatch': 'Harness 现有 Session {targetSessionId} 的 cwd 与 Host 记录不一致。',
++  'errors.registeredPathMismatch': 'Harness 注册的工作目录与 Host 记录不一致：{path}',
++  'errors.unexpectedSession': 'Harness 创建了非预期 Session {sessionId}；应为 {expectedSessionId}',
++  'errors.hostNoLongerAllowsOpen': '最新 Host 状态已不允许打开该 Worktree。',
++  'errors.inspectIdentityMismatch': 'Host 检查结果中的 Worktree 身份不一致。',
++  'errors.noVerifiablePath': 'Host 未提供可验证的 Worktree 路径。',
++  'errors.noSelectedSession': '当前没有选中的 Session。',
++  'errors.sessionNotReady': '当前 Session 尚未就绪。',
++  'errors.hostUnrecognizedCommand': 'Host 未识别 /worktree 命令。',
++  // Pre-session Worktree toggle + confirmation dialog
++  'preSession.attachments': '{count} 个附件',
++  'preSession.confirmDraftAndAttachments': '当前输入内容和 {attachments}将移动到新的 Worktree 会话。',
++  'preSession.confirmAttachments': '{attachments}将移动到新的 Worktree 会话。',
++  'preSession.confirmDraft': '当前输入内容将移动到新的 Worktree 会话。',
++  'preSession.confirmBlank': '将创建新的 Worktree 会话；当前 Local 会话不会收到消息。',
++  'preSession.preparing': '正在创建…',
++  'preSession.created': '已创建',
++  'preSession.awaitingConfirm': '待确认',
++  'preSession.retry': '重试',
++  'preSession.dialogTitle': '在 Worktree 中开始？',
++  'preSession.close': '关闭',
++  'preSession.cancel': '取消',
++  'preSession.createAndSwitch': '创建并切换',
++  'preSession.switchNote': 'Local 会话不会收到这条消息；切换后请在新会话中使用原生发送按钮。',
++  // Pre-session controller
++  'preSession.creatingBlock': '正在创建隔离 Worktree…',
++  'preSession.draftBusy': '当前草稿正在提交或解析，请等待输入恢复后再创建 Worktree。',
++  'preSession.unserializedRefs': '草稿包含尚未序列化的引用，请先移除引用芯片或发送后再创建 Worktree。',
++  'preSession.managedRootMismatch': 'Harness 将 managed root 注册到了不同路径：{path}',
++  'preSession.unexpectedSession': 'Harness 创建了意外的 Session {sessionId}；预期 {expectedSessionId}。',
++  'preSession.bindingMissing': '目标 Session 已创建，但 Harness 尚未提供可迁移草稿的 Session binding。',
++  'preSession.sourceChanged': '确认后 Local 草稿或附件发生了变化，已取消迁移以避免覆盖新的输入。',
++  'preSession.attachmentsRejected': '目标 Session 暂时拒绝接收草稿附件。',
++  'preSession.rollbackFailed': '{detail} Worktree 已持久化但自动回滚失败，请从 Worktree Console 打开 owner Session 继续恢复。',
++  // Delivery proof
++  'proof.ariaLabel': '交付证明',
++  'proof.validated': '验证通过',
++  'proof.failed': '验证失败',
++  'proof.partial': '部分验证',
++  'proof.notRun': '未运行验证',
++  'proof.noSummary': '无验证摘要',
++  'proof.envCleaned': '环境已清理',
++  'proof.envRetained': '环境已保留',
++  'proof.envRetainedUntil': '至 {until}',
++  'proof.commitPendingCleanup': 'Commit 已创建，环境清理待完成',
++  'proof.evidenceRecorded': '交付证据已记录',
++  'proof.noCommit': '无新增 Commit',
++  'proof.files': '{count} 个文件',
++  'proof.filesLabel': '文件',
++  'proof.validationLabel': '验证',
++  'proof.localHistoryLabel': 'Local 历史',
++  'proof.inHistory': 'Commit 仍在 Local 历史中',
++  'proof.notInHistory': 'Commit 已不在当前 Local 历史中',
++  'proof.historyUnknown': '当前无法确认',
++  // Sync preflight status
++  'preflight.ready': '同步条件已确认',
++  'preflight.localAdvanced': 'Local 已前进，可安全合并',
++  'preflight.alreadyInLocal': '本轮内容已在 Local',
++  'preflight.conflicts': '发现 {count} 个冲突文件',
++  'preflight.checking': '正在执行只读同步预检… Local 不会被修改。',
++  'preflight.failed': '预检失败：{detail}',
++  'preflight.recheck': '重新检查',
++  'preflight.readOnlyNote': '只读检查 · Local 未修改',
++  'preflight.changes': '变更',
++  'preflight.files': '{count} 个文件',
++  'preflight.conflictListAria': '冲突文件',
++  'preflight.holder': '占用任务：{checkout} · Session {session} · {state}',
++  'preflight.resolveWithAgent': '让 Agent 解决冲突',
++  'preflight.regenerateReview': '重新生成验收结果',
++  'preflight.openHolder': '打开占用任务',
++  // Review panel
++  'panel.ariaLabel': 'Worktree 验收',
++  'panel.validated': '自动验证通过',
++  'panel.failed': '自动验证失败，仍可继续验收',
++  'panel.partial': '部分验证通过',
++  'panel.notRun': '未运行自动验证',
++  'panel.testPassed': '通过',
++  'panel.testFailed': '失败',
++  'panel.testNotRun': '未运行',
++  'panel.stale': '验收结果已过期，请刷新。',
++  'panel.iterationReady': '第 {iteration} 轮修改已准备验收',
++  'panel.files': '{count} 个文件',
++  'panel.checkpointsSaved': '已保存 {count} 个阶段 · 尚未发布到 Local',
++  'panel.collapseDetails': '收起验证详情',
++  'panel.viewDetails': '查看验证详情',
++  'panel.viewDetailsWithTests': '查看验证详情（{count} 项测试）',
++  'panel.testsAria': '验证命令',
++  // Review actions
++  'review.preflightReady': '同步预检通过，正在创建可撤回的 Local Preview。',
++  'review.preflightLocalAdvanced': 'Local 已前进，但预检确认可以安全合并。',
++  'review.preflightAlreadyInLocal': '本轮内容已在 Local 中；同步将是安全空操作。',
++  'review.preflightConflict': '同步预检发现 {count} 个冲突文件；Local 未修改。',
++  'review.preflightBlocked': '同步暂时阻塞：{detail}',
++  'review.preflightDone': '同步预检完成；Local 未修改。',
++  'review.runtimeConflict': '实时写入校验发现冲突；Local 未修改。请明确让 Agent 在 managed Worktree 中解决。',
++  'review.stateChangedBeforeWrite': '状态在写入前发生变化；已停止操作，请按最新只读预检恢复。',
++  'review.conflictPreflightIncomplete': '冲突预检未完成。',
++  'review.conflictIdentityChanged': '冲突身份在恢复前已变化，请按最新预检重试。',
++  'review.resumeWorkingIdentityMismatch': '恢复编辑后 Host 返回的 Working 身份不一致。',
++  'review.resumeProofMissing': 'Host 未返回精确的冲突恢复凭证。',
++  'review.resumeWorkingAwaiting': '已安全恢复 Working，冲突解决请求正在等待精确 owner Session 空闲。Local 未修改。',
++  'review.readOnlyRecheckIncomplete': '只读复核未完成。',
++  'review.regenerateProofMissing': 'Host 未返回精确的只读验收再生成凭证。',
++  'review.regenerateAwaiting': '只读验收再生成请求正在等待精确 owner Session 空闲；不会恢复 Working 或修改文件。',
++  'review.previewSynced': '已同步为可撤回的 Local Preview；请在 Local 中验收。',
++  'review.checkpointIdentityMismatch': 'Host 返回的 Checkpoint 身份或 Working 状态不一致。',
++  'review.checkpointSaved': '已保存第 {sequence} 个 Worktree 阶段并继续修改；阶段尚未发布到 Local。',
++  'review.resumeRevisionPrompt': '请重新检查当前 Worktree 的修改，重新运行必要验证，并重新生成验收稿。',
++  'review.resumePrefilled': '已恢复编辑并预填重新验收请求；Local 未受影响。',
++  'review.resumeDone': '已恢复编辑；请重新检查、验证并生成新的验收稿。Local 未受影响。',
++  'review.detachedIdentityIncomplete': 'Detached Preview 身份不完整，请刷新。',
++  'review.recoveryPreflightIncomplete': 'Preview Recovery 预检未完成。',
++  'review.envCleaned': 'Worktree 环境已清理。',
++  'review.cleanupIncomplete': '清理仍未完成，已保留恢复信息。',
++  'review.recoveryStateChanged': '恢复条件在写入前发生变化；Preview 证据和 Worktree 已保留，请重新检查。',
++  'review.rollbackContinued': '已撤回 Local Preview，可以继续修改 Worktree。',
++  'review.rollbackReAcceptable': '已撤回 Local Preview，验收卡仍可再次同步。',
++  'review.syncPreflightIncomplete': '同步预检未完成。',
++  'review.localChangedCannotCommit': 'Local 已变化，无法可靠提交；Preview 恢复证据和 Worktree 已保留。',
++  'review.committedCleanup': '已提交到 Local，并开始清理 Worktree。',
++  'review.committedRetained': '已提交到 Local，并保留当前运行环境。',
++  'review.rollbackCannotLossless': 'Local 已变化，无法无损撤回；未删除 Worktree。',
++  'review.discardDone': '已放弃本轮 Worktree 修改，Local 未受影响。',
++  'review.analysisProofMissing': 'Host 未返回精确的 detached Recovery 分析凭证。',
++  'review.analysisRecheckFailed': '二次 Host 检查未确认 detached Recovery 分析凭证。',
++  'review.ownerPromptApiMissing': 'Owner Session 尚未提供 Harness prompt API。',
++  'review.analysisSent': '已向精确 owner Session 发送只读 Recovery 分析请求。',
++  'review.handoffIdentityMismatch': 'Host 返回的 Recovery handoff 身份不一致。',
++  'review.handoffRecheckFailed': '新 Worktree 的二次 Host/cwd 检查未通过。',
++  'review.handoffPromptApiMissing': '新 owner Session 尚未提供 Harness prompt API。',
++  'review.handoffSent': '已创建并打开基于最新 Local HEAD 的 fresh Worktree，Recovery handoff 请求已发送。',
++  'review.previewing': '同步中…',
++  'review.checking': '检查中…',
++  'review.btnPreview': '预览修改',
++  'review.btnConfirmSave': '确认并保存',
++  'review.processing': '处理中…',
++  'review.btnRollback': '恢复并撤回预览',
++  'review.btnRecheck': '重新检查',
++  'review.cleaning': '清理中…',
++  'review.btnRetryCleanup': '重试清理环境',
++  'review.ariaActions': '验收操作',
++  'review.roundRetained': '本轮已提交，运行环境暂时保留{oid}',
++  'review.roundDelivered': '本轮已交付{oid}',
++  'review.ariaMore': '更多交付操作',
++  'review.btnViewReview': '查看验收卡',
++  'review.btnCheckpoint': '保存阶段并继续',
++  'review.resuming': '恢复中…',
++  'review.btnContinue': '继续修改',
++  'review.btnSkipPreviewSave': '跳过预览并保存',
++  'review.btnWithdrawPreview': '撤回本次预览',
++  'review.btnRetryWithdraw': '重新尝试撤回',
++  'review.btnSaveChanges': '保存修改',
++  'review.btnDiscard': '放弃任务',
++  'review.checkpointTitle': '保存当前进度并继续？',
++  'review.checkpointCloseLabel': '关闭保存进度确认',
++  'review.checkpointDescPreview': '会先安全撤回当前预览，再保存本轮任务进度并继续开发；无法证明可以安全撤回时会停止。当前项目不会立即更新。',
++  'review.checkpointDesc': '保存当前任务进度并继续下一阶段；当前项目不会立即更新，最终确认时仍只会生成一次交付。',
++  'review.cancel': '取消',
++  'review.saving': '正在保存…',
++  'review.checkpointSaveBtn': '保存进度并继续',
++  'review.checkpointNoPublish': '阶段不会发布到 Local',
++  'review.checkpointCount': '已有 {count} 个阶段；最终交付仍会从原始任务基线汇总为一个 Local Commit。',
++  'review.commitTitleConfirm': '确认并保存本次修改？',
++  'review.commitTitleDetached': '保存本次修改？',
++  'review.commitTitleSkip': '跳过预览并直接保存？',
++  'review.commitCloseLabel': '关闭保存确认',
++  'review.commitDescPreview': '只会保存当前预览对应的本轮任务内容；Local 中已有或之后新增的无关修改不会进入该 Commit。',
++  'review.commitDescSkip': '将跳过 Local Preview，直接把本轮 Worktree 增量保存为一个 Commit。',
++  'review.confirmDeliverRetain': '确认交付并保留环境',
++  'review.confirmDeliverCleanup': '确认交付并清理',
++  'review.retainEnvLabel': '提交后暂时保留当前运行环境',
++  'review.retentionLabel': '保留时长',
++  'review.retain24h': '保留 24 小时',
++  'review.retain3d': '保留 3 天',
++  'review.retainManual': '手动清理',
++  'review.discardTitle': '放弃本轮任务？',
++  'review.discardCloseLabel': '关闭放弃确认',
++  'review.discardDescPreview': '会先安全撤回本次 Local Preview，再清理 Worktree；无法无损撤回时会停止，不会覆盖 Local 修改。',
++  'review.discardDesc': 'Worktree 中尚未交付的修改将被永久丢弃，Local 不受影响。',
++  'review.discarding': '正在放弃…',
++  'review.discardConfirmBtn': '确认放弃任务',
++  'review.detachedNote': 'Detached 是交付恢复状态，不是 Git detached HEAD。检查严格只读，写操作会在 Host 锁内再次验证。',
++  'review.recoveryChecking': '正在检查 Local HEAD、index、working tree、retained artifacts 与验收槽位…',
++  'review.recoveryProofAria': 'Preview Recovery 结论',
++  'review.rollbackRow': '撤回：',
++  'review.finalizeRow': '提交：',
++  'review.provenSafe': '可证明安全',
++  'review.rollbackConflict': '撤回冲突：{files}',
++  'review.finalizeConflict': '提交冲突：{files}',
++  'review.openHolderWorktree': '打开占用 Local 验收槽位的 Worktree',
++  'review.agentReadOnlyAnalysis': '让 Agent 只读分析',
++  'review.handoffToNewWorktree': '交接到新 Worktree',
++  'review.agentResolveConflict': '让 Agent 解决冲突',
++  'review.recoveryQueued': '恢复请求已排队，等待 owner Session 加载完成且停止 streaming。',
++  'review.recoverySending': '正在通过 Harness 官方 Session API 发送恢复请求…',
++  'review.recoveryResolveSent': '已交给 Agent 解决冲突；完成后必须生成新的验收卡。',
++  'review.recoveryRegenSent': '已交给 Agent 只读重新生成验收结果；不会修改 Worktree。',
++  'review.recoveryCancelled': 'Session/checkout 已切换，旧恢复请求已取消。',
++  'review.recoverySendFailed': '恢复请求发送失败：{detail}',
++  'review.btnResend': '重新发送',
++  'review.workingNote': '正在处理 Worktree，请稍候…',
++  'review.errorRecoveryHint': '{message}（{category}；恢复方式：{recovery}）',
++  // Target status capsule (session target chip)
++  'target.local': 'Local',
++  'target.creating': '创建中…',
++  'target.working': '修改中',
++  'target.readyForReview': '待验收',
++  'target.previewActive': 'Local 验收中',
++  'target.previewDetached': '预览待恢复',
++  'target.retained': '已保留',
++  'target.cleanupPending': '清理中',
++  'target.recoveryRequired': '需要恢复',
++  'target.delivered': '已交付',
++  'target.loading': '加载中…',
++  'target.unavailable': '不可用',
++  'target.accessibleLabel': 'Session Target：{label}',
++  'target.accessibleLabelExpiry': 'Session Target：{label}，到期 {expiry}',
++  'target.sourceCwdMismatch': '来源 Session 的 cwd 无法与 Host 记录的 Local root 匹配。',
++  'target.lineage': '来源 {source} · 当前 {current} · Iteration {iteration}',
++  'target.retainedUntil': '保留至 {expiry}',
++  'target.menuReveal': '打开当前工作位置',
++  'target.menuSource': '返回来源 Session',
++  'target.menuManager': '管理关联 Worktrees',
++  'target.processing': '处理中…',
++  'target.menuRetryCleanup': '重试清理环境',
++  'target.menuDiscard': '放弃任务并清理 Worktree',
++  'target.menuTitle': 'Session Target 与关联 Worktrees',
++  'target.discardTitle': '放弃任务并清理 Worktree？',
++  'target.discardCloseLabel': '取消清理 Worktree',
++  'target.discardDescPreview': 'Host 会先安全撤回 Local Preview；无法证明可无损撤回时会停止并保留恢复现场。',
++  'target.discardDesc': 'Worktree 中尚未交付的修改会永久丢弃；Local Checkout 不会被静默覆盖。',
++  'target.cancel': '取消',
++  'target.discardConfirm': '确认清理 Worktree',
++  // Worktree console view
++  'console.loading': '正在加载 Worktree 控制台…',
++  'console.ariaLabel': 'Worktree 控制台',
++  'console.title': '关联 Worktrees',
++  'console.refreshing': '刷新中…',
++  'console.refresh': '刷新',
++  'console.currentLabel': '当前目标',
++  'console.creating': '创建中…',
++  'console.create': '创建 Worktree',
++  'console.logicalRelation': '逻辑关联',
++  'console.empty': '这个项目还没有受管 Worktree。',
++  'console.relationCurrent': '当前',
++  'console.relationSource': '来源',
++  'console.relationLinked': '关联任务',
++  'console.iteration': '第 {iteration} 轮',
++  'console.dirty': '有未提交修改',
++  'console.clean': '干净',
++  'console.checkpointsSaved': '已保存 {count} 个未交付阶段',
++  'console.retentionMode': '保留方式：{mode}',
++  'console.expiresAt': '到期时间：{when}',
++  'console.openAria': '打开 {checkout}',
++  'console.opening': '打开中…',
++  'console.open': '打开',
++  'console.discardAria': '放弃 {checkout}',
++  'console.discarding': '放弃中…',
++  'console.discard': '放弃',
++  'console.cleanupAria': '重试清理 {checkout}',
++  'console.retrying': '重试中…',
++  'console.retryCleanup': '重试清理',
++  'console.discardTitle': '放弃有修改的 Worktree？',
++  'console.discardDescLocalSource': 'Local source 将放弃预留目标 {checkoutId} 及其全部未提交修改。',
++  'console.discardDescPreview': '将先安全撤回 {checkoutId} 的 Local Preview；只有撤回成功后才会删除 Worktree。',
++  'console.discardDesc': '当前 Session 将放弃 Worktree {checkoutId} 及其全部未提交修改。',
++  'console.discardCancel': '取消',
++  'console.discardConfirm': '确认放弃修改',
++  'console.errorRecoveryRefresh': '请刷新以读取最新 Host 状态。',
++  'console.errorRecoveryConfirmDirty': '请明确确认脏 Worktree 后重试。',
++  'console.errorRecoveryOpenRecovery': '再次操作前请先查看恢复信息。',
++  'console.errorRecoveryRetry': '临时故障消失后可以重试。',
++  'console.errorRecoveryNone': '当前 Session 无权完成此操作。',
++  'console.errorFormat': '{code}: {message} {recovery}',
++  'console.hostWrongSource': 'Host 返回了属于其他 source Session 的目标。',
++  'console.hostSourceAsTarget': 'Host 错误地把 source Session 作为 isolated target Session 返回。',
++  'console.hostTargetIdentityMismatch': 'Host 返回的 target Session 身份不一致。',
++  'console.retain24h': '保留 24 小时',
++  'console.retain3d': '保留 3 天',
++  'console.retainManual': '手动清理',
++  // Composer review status dock
++  'status.recoveryAria': 'Worktree 恢复续跑',
++  'status.recoveryConflict': 'Worktree 冲突恢复续跑',
++  'status.recoveryRegen': '只读验收再生成',
++  'status.recoveryQueued': '请求已持久排队，等待精确 owner Session 加载完成且停止 streaming。',
++  'status.recoverySending': '正在通过 Harness 官方 Session API 发送恢复请求…',
++  'status.recoverySent': '恢复请求已交给 Agent。',
++  'status.recoveryCancelled': 'Session/checkout 已切换，旧恢复请求已取消。',
++  'status.recoverySendFailed': '恢复请求发送失败：{detail}',
++  'status.btnResend': '重新发送',
++  'status.nextAria': 'Worktree 下一轮',
++  'status.nextTitle': '本轮已交付，可在原会话继续下一轮修改',
++  'status.nextDesc': '将安全重建已清理的 Worktree 路径，并保留当前对话。',
++  'status.creating': '正在创建…',
++  'status.nextIteration': '开始下一轮修改',
++  'status.slotWaiting': '另一个任务正在占用 Local 验收槽位',
++  'status.readyLabel': '修改已完成，等待你预览确认',
++  'status.previewActiveLabel': '正在预览本次修改，确认后即可保存',
++  'status.driftLabel': '当前项目已有新变化，预览等待安全恢复',
++  'status.conflictLabel': '预览与 Local 发生冲突，已保留恢复现场',
++  'status.recoveryRequiredLabel': '预览需要恢复，安全记录已保留',
++  'status.cleanupPendingLabel': '修改已保存，Worktree 清理待重试',
++  'status.retainedLabel': '修改已保存，运行环境暂时保留',
++  'status.driftDetail': '同分支快进可安全重试；切分支或改写历史时不会写入。',
++  'status.conflictDetail': '自动撤回会重新检查冲突；无法证明安全时不会写入。',
++  'status.files': '{count} 个文件',
++  'status.validated': '自动验证通过',
++  'status.checkValidation': '请检查验证结果',
++  'status.detailFormat': '{files} · {validation}',
++  'status.dockAria': 'Worktree 待验收',
++  'status.notConnected': '实时 Worktree Console 未连接。',
++  // Worktree manager modal
++  'manager.title': '关联 Worktrees',
++  'manager.closeLabel': '关闭关联 Worktrees',
++  'manager.description': '由插件 registry 维护的 source/target 逻辑关联；DSH 仍按各自 cwd 显示独立 Workspace。',
++  // Workspace sidebar projection
++  'sidebar.working': '进行中',
++  'sidebar.readyForReview': '待验收',
++  'sidebar.previewActive': '预览中',
++  'sidebar.previewDetached': '待恢复',
++  'sidebar.recoveryRequired': '需要恢复',
++  'sidebar.finalized': '已完成',
++  'sidebar.discarded': '已放弃',
++  // Remote adapter diagnostics
++  'remote.malformed': 'Remote {method} 返回了不符合 strict contract 的 payload',
++  'remote.mountFailed': 'Worktree Console Remote namespace 挂载失败',
++}
++
++export const worktreeEn = {
++  // WorktreeCreateRow (tool view: worktree_create)
++  'createRow.ariaLabel': 'Isolated session target',
++  'createRow.title': 'Isolated session target',
++  'createRow.creating': 'Creating the unique worktree…',
++  'createRow.ready': 'Ready, waiting to open',
++  'createRow.failed': 'Creation failed',
++  'createRow.baseline': 'Baseline',
++  'createRow.workspace': 'Workspace',
++  'createRow.opening': 'Opening…',
++  'createRow.retryOpen': 'Retry opening the isolated session',
++  'createRow.open': 'Open the isolated session',
++  'createRow.cwdNote': 'The current Local session keeps its own cwd.',
++  // WorktreeReviewRow (tool view: worktree_ready_for_review)
++  'reviewRow.ariaLabel': 'Worktree awaiting review',
++  'reviewRow.title': 'Worktree awaiting review',
++  'reviewRow.freezing': 'Freezing the review snapshot…',
++  'reviewRow.unavailable': 'Review information unavailable',
++  'reviewRow.liveUnavailable': 'The live worktree console is unavailable: {detail}',
++  'reviewRow.connecting': 'Connecting to the live worktree console; historical delivery evidence stays visible.',
++  'reviewRow.notConnected': 'The live worktree console is not connected; connect to run acceptance actions.',
++  // Session navigation actions
++  'errors.newSessionCwdMismatch': 'The cwd of newly created Harness session {sessionId} does not match the Host record.',
++  'errors.newSessionCwdNotProjected': 'Harness did not project a trusted cwd for new session {sessionId}.',
++  'errors.existingSessionCwdMismatch': 'The cwd of existing Harness session {targetSessionId} does not match the Host record.',
++  'errors.registeredPathMismatch': 'The working directory registered by Harness does not match the Host record: {path}',
++  'errors.unexpectedSession': 'Harness created an unexpected session {sessionId}; expected {expectedSessionId}',
++  'errors.hostNoLongerAllowsOpen': 'The latest Host state no longer allows opening this worktree.',
++  'errors.inspectIdentityMismatch': 'The worktree identity in the Host inspection result is inconsistent.',
++  'errors.noVerifiablePath': 'The Host did not provide a verifiable worktree path.',
++  'errors.noSelectedSession': 'No session is currently selected.',
++  'errors.sessionNotReady': 'The current session is not ready yet.',
++  'errors.hostUnrecognizedCommand': 'The Host did not recognize the /worktree command.',
++  // Pre-session Worktree toggle + confirmation dialog
++  'preSession.attachments': '{count} attachment(s)',
++  'preSession.confirmDraftAndAttachments': 'The current input and {attachments} will move to the new worktree session.',
++  'preSession.confirmAttachments': '{attachments} will move to the new worktree session.',
++  'preSession.confirmDraft': 'The current input will move to the new worktree session.',
++  'preSession.confirmBlank': 'A new worktree session will be created; the current Local session will not receive the message.',
++  'preSession.preparing': 'Creating…',
++  'preSession.created': 'Created',
++  'preSession.awaitingConfirm': 'Awaiting confirmation',
++  'preSession.retry': 'Retry',
++  'preSession.dialogTitle': 'Start in a worktree?',
++  'preSession.close': 'Close',
++  'preSession.cancel': 'Cancel',
++  'preSession.createAndSwitch': 'Create and switch',
++  'preSession.switchNote': 'The Local session will not receive this message; after switching, use the native send button in the new session.',
++  // Pre-session controller
++  'preSession.creatingBlock': 'Creating the isolated worktree…',
++  'preSession.draftBusy': 'The current draft is being submitted or parsed; wait for the input to recover before creating the worktree.',
++  'preSession.unserializedRefs': 'The draft contains references that are not serialized yet; remove the reference chips or send first before creating the worktree.',
++  'preSession.managedRootMismatch': 'Harness registered the managed root at a different path: {path}',
++  'preSession.unexpectedSession': 'Harness created an unexpected session {sessionId}; expected {expectedSessionId}.',
++  'preSession.bindingMissing': 'The target session was created, but Harness has not provided a session binding the draft can migrate to.',
++  'preSession.sourceChanged': 'The Local draft or attachments changed after confirmation; the migration was cancelled to avoid overwriting new input.',
++  'preSession.attachmentsRejected': 'The target session currently refuses draft attachments.',
++  'preSession.rollbackFailed': '{detail} The worktree was persisted but automatic rollback failed; open the owner session from the worktree console to continue recovery.',
++  // Delivery proof
++  'proof.ariaLabel': 'Delivery proof',
++  'proof.validated': 'Validation passed',
++  'proof.failed': 'Validation failed',
++  'proof.partial': 'Partially validated',
++  'proof.notRun': 'Validation not run',
++  'proof.noSummary': 'No validation summary',
++  'proof.envCleaned': 'Environment cleaned up',
++  'proof.envRetained': 'Environment retained',
++  'proof.envRetainedUntil': ' until {until}',
++  'proof.commitPendingCleanup': 'Commit created; environment cleanup pending',
++  'proof.evidenceRecorded': 'Delivery evidence recorded',
++  'proof.noCommit': 'No new commit',
++  'proof.files': '{count} file(s)',
++  'proof.filesLabel': 'Files',
++  'proof.validationLabel': 'Validation',
++  'proof.localHistoryLabel': 'Local history',
++  'proof.inHistory': 'The commit is in the Local history',
++  'proof.notInHistory': 'The commit is no longer in the current Local history',
++  'proof.historyUnknown': 'Cannot determine right now',
++  // Sync preflight status
++  'preflight.ready': 'Sync conditions confirmed',
++  'preflight.localAdvanced': 'Local has advanced; safe to merge',
++  'preflight.alreadyInLocal': 'This round\'s content is already in Local',
++  'preflight.conflicts': 'Found {count} conflicting file(s)',
++  'preflight.checking': 'Running the read-only sync preflight… Local will not be modified.',
++  'preflight.failed': 'Preflight failed: {detail}',
++  'preflight.recheck': 'Re-check',
++  'preflight.readOnlyNote': 'Read-only check · Local untouched',
++  'preflight.changes': 'Changes',
++  'preflight.files': '{count} file(s)',
++  'preflight.conflictListAria': 'Conflicting files',
++  'preflight.holder': 'Holding task: {checkout} · Session {session} · {state}',
++  'preflight.resolveWithAgent': 'Let the Agent resolve the conflicts',
++  'preflight.regenerateReview': 'Regenerate the review result',
++  'preflight.openHolder': 'Open the holding task',
++  // Review panel
++  'panel.ariaLabel': 'Worktree review',
++  'panel.validated': 'Automatic validation passed',
++  'panel.failed': 'Automatic validation failed; acceptance can continue',
++  'panel.partial': 'Partially validated',
++  'panel.notRun': 'Automatic validation not run',
++  'panel.testPassed': 'Passed',
++  'panel.testFailed': 'Failed',
++  'panel.testNotRun': 'Not run',
++  'panel.stale': 'The review result is stale; refresh to continue.',
++  'panel.iterationReady': 'Iteration {iteration} changes are ready for acceptance',
++  'panel.files': '{count} file(s)',
++  'panel.checkpointsSaved': '{count} stage(s) saved · not yet published to Local',
++  'panel.collapseDetails': 'Hide validation details',
++  'panel.viewDetails': 'View validation details',
++  'panel.viewDetailsWithTests': 'View validation details ({count} test(s))',
++  'panel.testsAria': 'Validation commands',
++  // Review actions
++  'review.preflightReady': 'Preflight passed; creating a rollback-able Local preview.',
++  'review.preflightLocalAdvanced': 'Local has advanced, but preflight confirms a safe merge.',
++  'review.preflightAlreadyInLocal': 'This round\'s content is already in Local; the sync will be a safe no-op.',
++  'review.preflightConflict': 'Preflight found {count} conflicting file(s); Local is untouched.',
++  'review.preflightBlocked': 'The sync is temporarily blocked: {detail}',
++  'review.preflightDone': 'Preflight complete; Local is untouched.',
++  'review.runtimeConflict': 'Live write validation found a conflict; Local is untouched. Explicitly ask the Agent to resolve it in the managed worktree.',
++  'review.stateChangedBeforeWrite': 'The state changed before the write; the operation stopped. Recover from the latest read-only preflight.',
++  'review.conflictPreflightIncomplete': 'The conflict preflight did not complete.',
++  'review.conflictIdentityChanged': 'The conflict identity changed before recovery; retry from the latest preflight.',
++  'review.resumeWorkingIdentityMismatch': 'After resuming edits, the Host returned an inconsistent Working identity.',
++  'review.resumeProofMissing': 'The Host did not return an exact conflict-recovery proof.',
++  'review.resumeWorkingAwaiting': 'Working was resumed safely; the conflict-resolution request is waiting for the exact owner session to be idle. Local is untouched.',
++  'review.readOnlyRecheckIncomplete': 'The read-only re-check did not complete.',
++  'review.regenerateProofMissing': 'The Host did not return an exact read-only review-regeneration proof.',
++  'review.regenerateAwaiting': 'The read-only review-regeneration request is waiting for the exact owner session to be idle; Working will not be resumed and no files will change.',
++  'review.previewSynced': 'Synced as a rollback-able Local preview; review it in Local.',
++  'review.checkpointIdentityMismatch': 'The Host returned an inconsistent Checkpoint identity or Working state.',
++  'review.checkpointSaved': 'Stage {sequence} of the worktree was saved; editing continues. Stages are not yet published to Local.',
++  'review.resumeRevisionPrompt': 'Please re-check the current worktree changes, re-run the necessary validation, and regenerate the review.',
++  'review.resumePrefilled': 'Editing resumed and a re-review request was prefilled; Local is unaffected.',
++  'review.resumeDone': 'Editing resumed; re-check, validate, and generate a new review. Local is unaffected.',
++  'review.detachedIdentityIncomplete': 'The detached preview identity is incomplete; refresh.',
++  'review.recoveryPreflightIncomplete': 'The preview-recovery preflight did not complete.',
++  'review.envCleaned': 'The worktree environment was cleaned up.',
++  'review.cleanupIncomplete': 'Cleanup is still incomplete; recovery information was preserved.',
++  'review.recoveryStateChanged': 'Recovery conditions changed before the write; the preview evidence and worktree were preserved. Re-check.',
++  'review.rollbackContinued': 'The Local preview was withdrawn; the worktree can continue to be edited.',
++  'review.rollbackReAcceptable': 'The Local preview was withdrawn; the review card can be synced again.',
++  'review.syncPreflightIncomplete': 'The sync preflight did not complete.',
++  'review.localChangedCannotCommit': 'Local changed; the commit cannot be made reliably. The preview-recovery evidence and worktree were preserved.',
++  'review.committedCleanup': 'Committed to Local; cleaning up the worktree.',
++  'review.committedRetained': 'Committed to Local; the current runtime environment is retained.',
++  'review.rollbackCannotLossless': 'Local changed; the preview cannot be withdrawn losslessly. The worktree was not deleted.',
++  'review.discardDone': 'This round\'s worktree changes were discarded; Local is unaffected.',
++  'review.analysisProofMissing': 'The Host did not return an exact detached recovery-analysis proof.',
++  'review.analysisRecheckFailed': 'The second Host check did not confirm the detached recovery-analysis proof.',
++  'review.ownerPromptApiMissing': 'The owner session has not provided the Harness prompt API yet.',
++  'review.analysisSent': 'A read-only recovery-analysis request was sent to the exact owner session.',
++  'review.handoffIdentityMismatch': 'The Host returned an inconsistent recovery-handoff identity.',
++  'review.handoffRecheckFailed': 'The second Host/cwd check for the new worktree failed.',
++  'review.handoffPromptApiMissing': 'The new owner session has not provided the Harness prompt API yet.',
++  'review.handoffSent': 'A fresh worktree based on the latest Local HEAD was created and opened; the recovery-handoff request was sent.',
++  'review.previewing': 'Syncing…',
++  'review.checking': 'Checking…',
++  'review.btnPreview': 'Preview changes',
++  'review.btnConfirmSave': 'Confirm and save',
++  'review.processing': 'Processing…',
++  'review.btnRollback': 'Resume and withdraw the preview',
++  'review.btnRecheck': 'Re-check',
++  'review.cleaning': 'Cleaning up…',
++  'review.btnRetryCleanup': 'Retry environment cleanup',
++  'review.ariaActions': 'Acceptance actions',
++  'review.roundRetained': 'This round was committed; the runtime environment is temporarily retained{oid}',
++  'review.roundDelivered': 'This round was delivered{oid}',
++  'review.ariaMore': 'More delivery actions',
++  'review.btnViewReview': 'View the review card',
++  'review.btnCheckpoint': 'Save stage and continue',
++  'review.resuming': 'Resuming…',
++  'review.btnContinue': 'Continue editing',
++  'review.btnSkipPreviewSave': 'Skip preview and save',
++  'review.btnWithdrawPreview': 'Withdraw this preview',
++  'review.btnRetryWithdraw': 'Retry withdrawing',
++  'review.btnSaveChanges': 'Save changes',
++  'review.btnDiscard': 'Discard the task',
++  'review.checkpointTitle': 'Save current progress and continue?',
++  'review.checkpointCloseLabel': 'Close save-progress confirmation',
++  'review.checkpointDescPreview': 'It will first safely withdraw the current preview, then save this round\'s progress and continue development; it stops when a safe withdrawal cannot be proven. The current project is not updated immediately.',
++  'review.checkpointDesc': 'Save the current task progress and continue to the next stage; the current project is not updated immediately, and the final confirmation still produces a single delivery.',
++  'review.cancel': 'Cancel',
++  'review.saving': 'Saving…',
++  'review.checkpointSaveBtn': 'Save progress and continue',
++  'review.checkpointNoPublish': 'Stages are not published to Local',
++  'review.checkpointCount': '{count} stage(s) so far; the final delivery still collapses into a single Local commit from the original task baseline.',
++  'review.commitTitleConfirm': 'Confirm and save these changes?',
++  'review.commitTitleDetached': 'Save these changes?',
++  'review.commitTitleSkip': 'Skip the preview and save directly?',
++  'review.commitCloseLabel': 'Close save confirmation',
++  'review.commitDescPreview': 'Only this round\'s task content matching the current preview is saved; unrelated changes already in Local or added later will not enter the commit.',
++  'review.commitDescSkip': 'The Local preview is skipped; this round\'s worktree delta is saved directly as one commit.',
++  'review.confirmDeliverRetain': 'Confirm delivery and keep the environment',
++  'review.confirmDeliverCleanup': 'Confirm delivery and clean up',
++  'review.retainEnvLabel': 'Temporarily keep the runtime environment after committing',
++  'review.retentionLabel': 'Retention',
++  'review.retain24h': 'Keep for 24 hours',
++  'review.retain3d': 'Keep for 3 days',
++  'review.retainManual': 'Clean up manually',
++  'review.discardTitle': 'Discard this round\'s task?',
++  'review.discardCloseLabel': 'Close discard confirmation',
++  'review.discardDescPreview': 'It will first safely withdraw this Local preview, then clean up the worktree; it stops when a lossless withdrawal cannot be proven, and never overwrites Local changes.',
++  'review.discardDesc': 'Undelivered changes in the worktree are permanently discarded; Local is unaffected.',
++  'review.discarding': 'Discarding…',
++  'review.discardConfirmBtn': 'Confirm discarding the task',
++  'review.detachedNote': '"Detached" is a delivery-recovery state, not a Git detached HEAD. The checks are strictly read-only; write operations are re-validated under the Host lock.',
++  'review.recoveryChecking': 'Checking Local HEAD, index, working tree, retained artifacts, and the acceptance slot…',
++  'review.recoveryProofAria': 'Preview-recovery conclusions',
++  'review.rollbackRow': 'Withdraw: ',
++  'review.finalizeRow': 'Commit: ',
++  'review.provenSafe': 'provably safe',
++  'review.rollbackConflict': 'Withdraw conflicts: {files}',
++  'review.finalizeConflict': 'Commit conflicts: {files}',
++  'review.openHolderWorktree': 'Open the worktree holding the Local acceptance slot',
++  'review.agentReadOnlyAnalysis': 'Read-only analysis by the Agent',
++  'review.handoffToNewWorktree': 'Hand off to a new worktree',
++  'review.agentResolveConflict': 'Resolve conflicts via the Agent',
++  'review.recoveryQueued': 'The recovery request is queued, waiting for the owner session to finish loading and stop streaming.',
++  'review.recoverySending': 'Sending the recovery request through the official Harness session API…',
++  'review.recoveryResolveSent': 'The Agent is resolving the conflicts; a new review card must be generated when done.',
++  'review.recoveryRegenSent': 'The Agent is regenerating the review result read-only; the worktree will not be modified.',
++  'review.recoveryCancelled': 'The session/checkout switched; the old recovery request was cancelled.',
++  'review.recoverySendFailed': 'Sending the recovery request failed: {detail}',
++  'review.btnResend': 'Resend',
++  'review.workingNote': 'Working on the worktree, please wait…',
++  'review.errorRecoveryHint': '{message} ({category}; recovery: {recovery})',
++  // Target status capsule (session target chip)
++  'target.local': 'Local',
++  'target.creating': 'Creating…',
++  'target.working': 'Editing',
++  'target.readyForReview': 'Awaiting review',
++  'target.previewActive': 'Reviewing in Local',
++  'target.previewDetached': 'Preview needs recovery',
++  'target.retained': 'Retained',
++  'target.cleanupPending': 'Cleaning up',
++  'target.recoveryRequired': 'Recovery needed',
++  'target.delivered': 'Delivered',
++  'target.loading': 'Loading…',
++  'target.unavailable': 'Unavailable',
++  'target.accessibleLabel': 'Session target: {label}',
++  'target.accessibleLabelExpiry': 'Session target: {label}, expires {expiry}',
++  'target.sourceCwdMismatch': 'The source session cwd does not match the Local root recorded by the Host.',
++  'target.lineage': 'Source {source} · current {current} · Iteration {iteration}',
++  'target.retainedUntil': 'Retained until {expiry}',
++  'target.menuReveal': 'Open the current working location',
++  'target.menuSource': 'Back to the source session',
++  'target.menuManager': 'Manage linked worktrees',
++  'target.processing': 'Working…',
++  'target.menuRetryCleanup': 'Retry environment cleanup',
++  'target.menuDiscard': 'Discard the task and clean up the worktree',
++  'target.menuTitle': 'Session target and linked worktrees',
++  'target.discardTitle': 'Discard the task and clean up the worktree?',
++  'target.discardCloseLabel': 'Cancel worktree cleanup',
++  'target.discardDescPreview': 'The Host first safely withdraws the Local preview; it stops and preserves the recovery scene when a lossless withdrawal cannot be proven.',
++  'target.discardDesc': 'Undelivered changes in the worktree are permanently discarded; the Local checkout is never silently overwritten.',
++  'target.cancel': 'Cancel',
++  'target.discardConfirm': 'Confirm worktree cleanup',
++  // Worktree console view
++  'console.loading': 'Loading the worktree console…',
++  'console.ariaLabel': 'Worktree console',
++  'console.title': 'Linked worktrees',
++  'console.refreshing': 'Refreshing…',
++  'console.refresh': 'Refresh',
++  'console.currentLabel': 'Current target',
++  'console.creating': 'Creating…',
++  'console.create': 'Create worktree',
++  'console.logicalRelation': 'Logical links',
++  'console.empty': 'This project has no managed worktree yet.',
++  'console.relationCurrent': 'Current',
++  'console.relationSource': 'Source',
++  'console.relationLinked': 'Linked task',
++  'console.iteration': 'Iteration {iteration}',
++  'console.dirty': 'Uncommitted changes',
++  'console.clean': 'Clean',
++  'console.checkpointsSaved': '{count} undelivered stage(s) saved',
++  'console.retentionMode': 'Retention: {mode}',
++  'console.expiresAt': 'Expires: {when}',
++  'console.openAria': 'Open {checkout}',
++  'console.opening': 'Opening…',
++  'console.open': 'Open',
++  'console.discardAria': 'Discard {checkout}',
++  'console.discarding': 'Discarding…',
++  'console.discard': 'Discard',
++  'console.cleanupAria': 'Retry cleanup {checkout}',
++  'console.retrying': 'Retrying…',
++  'console.retryCleanup': 'Retry cleanup',
++  'console.discardTitle': 'Discard a worktree with changes?',
++  'console.discardDescLocalSource': 'The Local source will discard reserved target {checkoutId} and all of its uncommitted changes.',
++  'console.discardDescPreview': 'It first safely withdraws the Local preview of {checkoutId}; the worktree is only deleted after the withdrawal succeeds.',
++  'console.discardDesc': 'The current session will discard worktree {checkoutId} and all of its uncommitted changes.',
++  'console.discardCancel': 'Cancel',
++  'console.discardConfirm': 'Confirm discarding the changes',
++  'console.errorRecoveryRefresh': 'Refresh to read the latest Host state.',
++  'console.errorRecoveryConfirmDirty': 'Explicitly confirm the dirty worktree and retry.',
++  'console.errorRecoveryOpenRecovery': 'Review the recovery information before acting again.',
++  'console.errorRecoveryRetry': 'Retry once the transient failure has passed.',
++  'console.errorRecoveryNone': 'The current session has no permission to perform this action.',
++  'console.errorFormat': '{code}: {message} {recovery}',
++  'console.hostWrongSource': 'The Host returned a target belonging to another source session.',
++  'console.hostSourceAsTarget': 'The Host wrongly returned the source session as the isolated target session.',
++  'console.hostTargetIdentityMismatch': 'The target session identity returned by the Host is inconsistent.',
++  'console.retain24h': 'Keep for 24 hours',
++  'console.retain3d': 'Keep for 3 days',
++  'console.retainManual': 'Clean up manually',
++  // Composer review status dock
++  'status.recoveryAria': 'Worktree recovery continuation',
++  'status.recoveryConflict': 'Worktree conflict-recovery continuation',
++  'status.recoveryRegen': 'Read-only review regeneration',
++  'status.recoveryQueued': 'The request is durably queued, waiting for the exact owner session to finish loading and stop streaming.',
++  'status.recoverySending': 'Sending the recovery request through the official Harness session API…',
++  'status.recoverySent': 'The recovery request was handed to the Agent.',
++  'status.recoveryCancelled': 'The session/checkout switched; the old recovery request was cancelled.',
++  'status.recoverySendFailed': 'Sending the recovery request failed: {detail}',
++  'status.btnResend': 'Resend',
++  'status.nextAria': 'Next worktree round',
++  'status.nextTitle': 'This round was delivered; continue the next round of edits in the original session',
++  'status.nextDesc': 'It safely rebuilds the cleaned-up worktree path and keeps the current conversation.',
++  'status.creating': 'Creating…',
++  'status.nextIteration': 'Start the next round of edits',
++  'status.slotWaiting': 'Another task is holding the Local acceptance slot',
++  'status.readyLabel': 'The edits are complete; waiting for you to confirm the preview',
++  'status.previewActiveLabel': 'Previewing this round\'s changes; confirm to save',
++  'status.driftLabel': 'The current project has new changes; the preview awaits a safe recovery',
++  'status.conflictLabel': 'The preview conflicts with Local; the recovery scene was preserved',
++  'status.recoveryRequiredLabel': 'The preview needs recovery; the safety record was preserved',
++  'status.cleanupPendingLabel': 'The changes were saved; the worktree cleanup awaits a retry',
++  'status.retainedLabel': 'The changes were saved; the runtime environment is temporarily retained',
++  'status.driftDetail': 'A same-branch fast-forward can safely be retried; nothing is written when switching branches or rewriting history.',
++  'status.conflictDetail': 'The automatic withdrawal re-checks conflicts; nothing is written when safety cannot be proven.',
++  'status.files': '{count} file(s)',
++  'status.validated': 'Automatic validation passed',
++  'status.checkValidation': 'Please check the validation result',
++  'status.detailFormat': '{files} · {validation}',
++  'status.dockAria': 'Worktree awaiting review',
++  'status.notConnected': 'The live worktree console is not connected.',
++  // Worktree manager modal
++  'manager.title': 'Linked worktrees',
++  'manager.closeLabel': 'Close linked worktrees',
++  'manager.description': 'Source/target logical links maintained by the plugin registry; DSH still shows independent workspaces by their own cwds.',
++  // Workspace sidebar projection
++  'sidebar.working': 'In progress',
++  'sidebar.readyForReview': 'Awaiting review',
++  'sidebar.previewActive': 'Previewing',
++  'sidebar.previewDetached': 'Needs recovery',
++  'sidebar.recoveryRequired': 'Recovery needed',
++  'sidebar.finalized': 'Finalized',
++  'sidebar.discarded': 'Discarded',
++  // Remote adapter diagnostics
++  'remote.malformed': 'Remote {method} returned a payload that does not match the strict contract',
++  'remote.mountFailed': 'The worktree console remote namespace failed to mount',
++}
++
++export type WorktreeLocaleKey = keyof typeof worktreeZh
++
++/**
++ * Translate function for the "worktree" namespace: resolves the key against
++ * the active locale at call time (namespace -> common -> key literal),
++ * interpolating {placeholder} params.
++ */
++export type WorktreeTranslate = (key: WorktreeLocaleKey, params?: Record<string, unknown>) => string
++
++/** Compile-time bilingual balance: both shipped dictionaries must have the same key set. */
++type AssertEqual<T, U> = [T] extends [U] ? ([U] extends [T] ? true : never) : never
++const bilingualBalance: AssertEqual<keyof typeof worktreeZh, keyof typeof worktreeEn> = true
++void bilingualBalance
++
++/** Shared target-state label keys (Session Target capsule + Worktree console). */
++export const TARGET_STATE_KEYS: Record<WorktreeConsoleTargetState, WorktreeLocaleKey> = {
++  local: 'target.local',
++  creating: 'target.creating',
++  working: 'target.working',
++  ready_for_review: 'target.readyForReview',
++  preview_active: 'target.previewActive',
++  preview_detached: 'target.previewDetached',
++  retained: 'target.retained',
++  cleanup_pending: 'target.cleanupPending',
++  recovery_required: 'target.recoveryRequired',
++  delivered: 'target.delivered',
++}
++
++/** Shared sidebar task-state label keys (managed-workspace projection). */
++export const SIDEBAR_STATE_KEYS: Record<WorktreeSidebarTaskState, WorktreeLocaleKey> = {
++  working: 'sidebar.working',
++  ready_for_review: 'sidebar.readyForReview',
++  preview_active: 'sidebar.previewActive',
++  preview_detached: 'sidebar.previewDetached',
++  recovery_required: 'sidebar.recoveryRequired',
++  finalized: 'sidebar.finalized',
++  discarded: 'sidebar.discarded',
++}
++
++/**
++ * Register both shipped dictionaries (untyped single-locale form, so the call
++ * typechecks in the plugin's standalone graph where the full namespace merge
++ * is absent). Call from a Client fiber where the locale service is installed;
++ * returns an idempotent disposer.
++ */
++export function registerWorktreeLocale(locale: LocaleRuntime): () => void {
++  const disposers = [
++    locale.register('worktree', 'zh', worktreeZh),
++    locale.register('worktree', 'en', worktreeEn),
++  ]
++  return () => {
++    for (const dispose of disposers) dispose()
++  }
++}
+diff --git a/src/client/pre-session/PreSessionWorktreeToggle.tsx b/src/client/pre-session/PreSessionWorktreeToggle.tsx
+index 2b62e6c..a75595f 100644
+--- a/src/client/pre-session/PreSessionWorktreeToggle.tsx
++++ b/src/client/pre-session/PreSessionWorktreeToggle.tsx
+@@ -9,6 +9,7 @@ import type {
+   PreSessionDraftState,
+   PreparePreSessionWorktreeRequest,
+ } from './controller.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ 
+ export interface PreSessionWorktreeToggleProps {
+   sessionId: string
+@@ -17,6 +18,7 @@ export interface PreSessionWorktreeToggleProps {
+   inputActions: PreSessionDraftActions
+   adapter: WorktreeConsoleAdapter
+   controller: { prepare(request: PreparePreSessionWorktreeRequest): Promise<WorktreeConsoleTargetDetails> }
++  t: WorktreeTranslate
+ }
+ 
+ type LoadState = 'loading' | 'idle' | 'preparing' | 'error' | 'unsupported'
+@@ -33,16 +35,14 @@ function snapshotInput(input: PreSessionDraftState): PreSessionDraftState {
+   }
+ }
+ 
+-function confirmationDescription(input: PreSessionDraftState): string {
+-  const attachmentText = input.imageIds.length === 1
+-    ? '1 个附件'
+-    : `${input.imageIds.length} 个附件`
++function confirmationDescription(input: PreSessionDraftState, t: WorktreeTranslate): string {
++  const attachmentText = t('preSession.attachments', { count: input.imageIds.length })
+   if (input.draft.trim() !== '' && input.imageIds.length > 0) {
+-    return `当前输入内容和 ${attachmentText}将移动到新的 Worktree 会话。`
++    return t('preSession.confirmDraftAndAttachments', { attachments: attachmentText })
+   }
+-  if (input.imageIds.length > 0) return `${attachmentText}将移动到新的 Worktree 会话。`
+-  if (input.draft.trim() !== '') return '当前输入内容将移动到新的 Worktree 会话。'
+-  return '将创建新的 Worktree 会话；当前 Local 会话不会收到消息。'
++  if (input.imageIds.length > 0) return t('preSession.confirmAttachments', { attachments: attachmentText })
++  if (input.draft.trim() !== '') return t('preSession.confirmDraft')
++  return t('preSession.confirmBlank')
+ }
+ 
+ /** Blank-session Worktree switch mounted in Harness's public composer tool row. */
+@@ -53,6 +53,7 @@ export function PreSessionWorktreeToggle({
+   inputActions,
+   adapter,
+   controller,
++  t,
+ }: PreSessionWorktreeToggleProps) {
+   const [target, setTarget] = useState<WorktreeConsoleTargetDetails | null>(null)
+   const [state, setState] = useState<LoadState>('loading')
+@@ -118,13 +119,13 @@ export function PreSessionWorktreeToggle({
+   const disabled = busy || selected || (!canCreate && !retryingLookup) || input.phase !== 'plain'
+   const checked = selected || pendingInput !== null || state === 'preparing'
+   const status = state === 'preparing'
+-    ? '正在创建…'
++    ? t('preSession.preparing')
+     : selected
+-      ? '已创建'
++      ? t('preSession.created')
+       : pendingInput !== null
+-        ? '待确认'
++        ? t('preSession.awaitingConfirm')
+         : state === 'error'
+-          ? '重试'
++          ? t('preSession.retry')
+           : 'Local'
+ 
+   const beginConfirmation = async (): Promise<void> => {
+@@ -189,21 +190,21 @@ export function PreSessionWorktreeToggle({
+       <Modal
+         open={pendingInput !== null}
+         onClose={cancelConfirmation}
+-        title="在 Worktree 中开始？"
+-        closeLabel="关闭"
+-        description={pendingInput === null ? '' : confirmationDescription(pendingInput)}
++        title={t('preSession.dialogTitle')}
++        closeLabel={t('preSession.close')}
++        description={pendingInput === null ? '' : confirmationDescription(pendingInput, t)}
+         footer={(
+           <>
+             <button type="button" className="dsh-wt-button" disabled={state === 'preparing'} onClick={cancelConfirmation}>
+-              取消
++              {t('preSession.cancel')}
+             </button>
+             <button type="button" className="dsh-wt-button dsh-wt-primary" disabled={state === 'preparing'} onClick={() => { void confirm() }}>
+-              {state === 'preparing' ? '正在创建…' : '创建并切换'}
++              {state === 'preparing' ? t('preSession.preparing') : t('preSession.createAndSwitch')}
+             </button>
+           </>
+         )}
+       >
+-        <p className="dsh-wt-pre-session-note">Local 会话不会收到这条消息；切换后请在新会话中使用原生发送按钮。</p>
++        <p className="dsh-wt-pre-session-note">{t('preSession.switchNote')}</p>
+         {error ? <p className="dsh-wt-error" role="alert">{error}</p> : null}
+       </Modal>
+     </span>
+diff --git a/src/client/pre-session/controller.ts b/src/client/pre-session/controller.ts
+index 7865a18..a109f22 100644
+--- a/src/client/pre-session/controller.ts
++++ b/src/client/pre-session/controller.ts
+@@ -78,14 +78,14 @@ export class PreSessionWorktreeController {
+ 
+   private async run(request: PreparePreSessionWorktreeRequest): Promise<WorktreeConsoleTargetDetails> {
+     if (request.input.phase !== 'plain') {
+-      throw new PreSessionWorktreeError('当前草稿正在提交或解析，请等待输入恢复后再创建 Worktree。')
++      throw new PreSessionWorktreeError(this.services.t('preSession.draftBusy'))
+     }
+     if (request.input.occurrences.length > 0) {
+-      throw new PreSessionWorktreeError('草稿包含尚未序列化的引用，请先移除引用芯片或发送后再创建 Worktree。')
++      throw new PreSessionWorktreeError(this.services.t('preSession.unserializedRefs'))
+     }
+ 
+     const previousBlock = this.services.conversation.blocks.storeFor(request.sessionId).getSnapshot()
+-    this.services.conversation.blocks.set(request.sessionId, { reason: '正在创建隔离 Worktree…' })
++    this.services.conversation.blocks.set(request.sessionId, { reason: this.services.t('preSession.creatingBlock') })
+ 
+     let created: WorktreeConsoleCreateResponse | undefined
+     let workspaceId: string | undefined
+@@ -97,7 +97,7 @@ export class PreSessionWorktreeController {
+ 
+       const workspace = await this.services.workspaces.create({ path: created.managedRoot })
+       if (workspace.path !== created.managedRoot) {
+-        throw new PreSessionWorktreeError(`Harness 将 managed root 注册到了不同路径：${workspace.path}`)
++        throw new PreSessionWorktreeError(this.services.t('preSession.managedRootMismatch', { path: workspace.path }))
+       }
+       workspaceId = workspace.workspaceId
+ 
+@@ -107,17 +107,17 @@ export class PreSessionWorktreeController {
+       })
+       if (actualSessionId !== created.targetSessionId) {
+         throw new PreSessionWorktreeError(
+-          `Harness 创建了意外的 Session ${actualSessionId}；预期 ${created.targetSessionId}。`,
++          this.services.t('preSession.unexpectedSession', { sessionId: actualSessionId, expectedSessionId: created.targetSessionId }),
+         )
+       }
+ 
+       const targetBinding = this.services.sessions.binding(created.targetSessionId)
+       if (targetBinding?.ctx === undefined) {
+-        throw new PreSessionWorktreeError('目标 Session 已创建，但 Harness 尚未提供可迁移草稿的 Session binding。')
++        throw new PreSessionWorktreeError(this.services.t('preSession.bindingMissing'))
+       }
+       const targetInput = this.services.conversation.input.for(targetBinding.ctx)
+       if (!sourceStillMatches(request)) {
+-        throw new PreSessionWorktreeError('确认后 Local 草稿或附件发生了变化，已取消迁移以避免覆盖新的输入。')
++        throw new PreSessionWorktreeError(this.services.t('preSession.sourceChanged'))
+       }
+       // From the final source CAS through target writes, navigation and source
+       // clear there is no await. This ordering matters for image IDs: a failed
+@@ -125,7 +125,7 @@ export class PreSessionWorktreeController {
+       // that the preserved source still references.
+       targetInput.setDraft(request.input.draft)
+       if (!targetInput.addImages(request.input.imageIds)) {
+-        throw new PreSessionWorktreeError('目标 Session 暂时拒绝接收草稿附件。')
++        throw new PreSessionWorktreeError(this.services.t('preSession.attachmentsRejected'))
+       }
+       this.services.sessions.open(created.targetSessionId)
+       request.inputActions.setDraft('')
+@@ -148,7 +148,7 @@ export class PreSessionWorktreeController {
+         )
+         if (!cleaned) {
+           throw new PreSessionWorktreeError(
+-            `${messageOf(error)} Worktree 已持久化但自动回滚失败，请从 Worktree Console 打开 owner Session 继续恢复。`,
++            this.services.t('preSession.rollbackFailed', { detail: messageOf(error) }),
+             true,
+           )
+         }
+diff --git a/src/client/pre-session/index.tsx b/src/client/pre-session/index.tsx
+index 55081fd..c35a086 100644
+--- a/src/client/pre-session/index.tsx
++++ b/src/client/pre-session/index.tsx
+@@ -38,6 +38,7 @@ export function registerPreSessionWorktree(
+       name: 'conversation.input.left',
+       id: 'worktree-pre-session',
+       order: 40,
++      locale: 'worktree',
+     },
+     Entry,
+   ))
+diff --git a/src/client/review-console/DeliveryProof.tsx b/src/client/review-console/DeliveryProof.tsx
+index 0603366..d31b1df 100644
+--- a/src/client/review-console/DeliveryProof.tsx
++++ b/src/client/review-console/DeliveryProof.tsx
+@@ -1,43 +1,44 @@
+ import type { WorktreeConsoleTargetSummary } from '../../console-contract.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ 
+ function shortOid(value: string): string {
+   return value.slice(0, 8)
+ }
+ 
+-function validationLabel(status: NonNullable<WorktreeConsoleTargetSummary['deliveryProof']>['validationStatus']): string {
+-  if (status === 'passed') return '验证通过'
+-  if (status === 'failed') return '验证失败'
+-  if (status === 'partial') return '部分验证'
+-  if (status === 'not_run') return '未运行验证'
+-  return '无验证摘要'
++function validationLabel(t: WorktreeTranslate, status: NonNullable<WorktreeConsoleTargetSummary['deliveryProof']>['validationStatus']): string {
++  if (status === 'passed') return t('proof.validated')
++  if (status === 'failed') return t('proof.failed')
++  if (status === 'partial') return t('proof.partial')
++  if (status === 'not_run') return t('proof.notRun')
++  return t('proof.noSummary')
+ }
+ 
+-export function DeliveryProof({ target, compact = false }: { target: WorktreeConsoleTargetSummary; compact?: boolean }) {
++export function DeliveryProof({ target, compact = false, t }: { target: WorktreeConsoleTargetSummary; compact?: boolean; t: WorktreeTranslate }) {
+   const proof = target.deliveryProof
+   if (!proof) return null
+   const lifecycle = target.state === 'delivered'
+-    ? '环境已清理'
++    ? t('proof.envCleaned')
+     : target.state === 'retained'
+-      ? `环境已保留${target.expiresAt ? `至 ${new Date(target.expiresAt).toLocaleString()}` : ''}`
++      ? t('proof.envRetained') + (target.expiresAt ? t('proof.envRetainedUntil', { until: new Date(target.expiresAt).toLocaleString() }) : '')
+       : target.state === 'cleanup_pending'
+-        ? 'Commit 已创建，环境清理待完成'
+-        : '交付证据已记录'
++        ? t('proof.commitPendingCleanup')
++        : t('proof.evidenceRecorded')
+   if (compact) {
+     return (
+       <span className="dsh-wt-delivery-proof dsh-wt-delivery-proof-compact">
+-        Commit {target.commitOid ? shortOid(target.commitOid) : '无新增 Commit'} · {proof.localBranch ?? 'detached'}@{shortOid(proof.localHeadAfter)} · {proof.changedFiles.length} 个文件 · {lifecycle}
++        Commit {target.commitOid ? shortOid(target.commitOid) : t('proof.noCommit')} · {proof.localBranch ?? 'detached'}@{shortOid(proof.localHeadAfter)} · {t('proof.files', { count: proof.changedFiles.length })} · {lifecycle}
+       </span>
+     )
+   }
+   return (
+-    <section className="dsh-wt-delivery-proof" aria-label="交付证明">
++    <section className="dsh-wt-delivery-proof" aria-label={t('proof.ariaLabel')}>
+       <header><strong>Delivery Proof</strong><span>{lifecycle}</span></header>
+       <dl>
+-        <div><dt>Commit</dt><dd><code>{target.commitOid ?? '无新增 Commit'}</code></dd></div>
++        <div><dt>Commit</dt><dd><code>{target.commitOid ?? t('proof.noCommit')}</code></dd></div>
+         <div><dt>Local</dt><dd>{proof.localBranch ?? 'detached'} · <code>{shortOid(proof.localHeadBefore)}</code> → <code>{shortOid(proof.localHeadAfter)}</code></dd></div>
+-        <div><dt>文件</dt><dd>{proof.changedFiles.length} 个</dd></div>
+-        <div><dt>验证</dt><dd>{validationLabel(proof.validationStatus)}{proof.validationSummary ? ` · ${proof.validationSummary}` : ''}</dd></div>
+-        <div><dt>Local 历史</dt><dd>{proof.commitInLocalHistory === true ? 'Commit 仍在 Local 历史中' : proof.commitInLocalHistory === false ? 'Commit 已不在当前 Local 历史中' : '当前无法确认'}</dd></div>
++        <div><dt>{t('proof.filesLabel')}</dt><dd>{t('proof.files', { count: proof.changedFiles.length })}</dd></div>
++        <div><dt>{t('proof.validationLabel')}</dt><dd>{validationLabel(t, proof.validationStatus)}{proof.validationSummary ? ` · ${proof.validationSummary}` : ''}</dd></div>
++        <div><dt>{t('proof.localHistoryLabel')}</dt><dd>{proof.commitInLocalHistory === true ? t('proof.inHistory') : proof.commitInLocalHistory === false ? t('proof.notInHistory') : t('proof.historyUnknown')}</dd></div>
+       </dl>
+     </section>
+   )
+diff --git a/src/client/review-console/PreflightStatus.tsx b/src/client/review-console/PreflightStatus.tsx
+index 3b3c687..18c8528 100644
+--- a/src/client/review-console/PreflightStatus.tsx
++++ b/src/client/review-console/PreflightStatus.tsx
+@@ -1,17 +1,18 @@
+ import type { WorktreeConsoleTargetSummary } from '../../console-contract.js'
+ import type { WorktreeApplyPreflightView } from '../../types.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ import type { PreflightSnapshot } from './preflight-cache.js'
+ 
+ function shortOid(value: string): string {
+   return value.slice(0, 8)
+ }
+ 
+-function statusLabel(preflight: WorktreeApplyPreflightView): string {
++function statusLabel(t: WorktreeTranslate, preflight: WorktreeApplyPreflightView): string {
+   switch (preflight.status) {
+-    case 'ready': return '同步条件已确认'
+-    case 'local_advanced': return 'Local 已前进，可安全合并'
+-    case 'already_in_local': return '本轮内容已在 Local'
+-    case 'conflict': return `发现 ${preflight.conflictingFiles.length} 个冲突文件`
++    case 'ready': return t('preflight.ready')
++    case 'local_advanced': return t('preflight.localAdvanced')
++    case 'already_in_local': return t('preflight.alreadyInLocal')
++    case 'conflict': return t('preflight.conflicts', { count: preflight.conflictingFiles.length })
+     case 'blocked': return preflight.message
+   }
+ }
+@@ -24,6 +25,7 @@ export function PreflightStatus({
+   onRecovery,
+   onOpenHolder,
+   busy,
++  t,
+ }: {
+   snapshot: PreflightSnapshot
+   target?: WorktreeConsoleTargetSummary
+@@ -32,16 +34,17 @@ export function PreflightStatus({
+   onRecovery(preflight: WorktreeApplyPreflightView): void
+   onOpenHolder(): void
+   busy: boolean
++  t: WorktreeTranslate
+ }) {
+   if (snapshot.status === 'idle') return null
+   if (snapshot.status === 'loading') {
+-    return <div className="dsh-wt-preflight" data-preflight="loading">正在执行只读同步预检… Local 不会被修改。</div>
++    return <div className="dsh-wt-preflight" data-preflight="loading">{t('preflight.checking')}</div>
+   }
+   if (snapshot.status === 'error') {
+     return (
+       <div className="dsh-wt-preflight" data-preflight="error">
+-        <span>预检失败：{snapshot.error.message}</span>
+-        <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={onRefresh}>重新检查</button>
++        <span>{t('preflight.failed', { detail: snapshot.error.message })}</span>
++        <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={onRefresh}>{t('preflight.recheck')}</button>
+       </div>
+     )
+   }
+@@ -55,37 +58,37 @@ export function PreflightStatus({
+   return (
+     <div className="dsh-wt-preflight" data-preflight={preflight.status}>
+       <div className="dsh-wt-preflight-head">
+-        <strong>{statusLabel(preflight)}</strong>
+-        <span>只读检查 · Local 未修改</span>
++        <strong>{statusLabel(t, preflight)}</strong>
++        <span>{t('preflight.readOnlyNote')}</span>
+       </div>
+       {!compact && preflight.status !== 'blocked' ? (
+         <dl className="dsh-wt-preflight-facts">
+           <div><dt>Local</dt><dd>{preflight.localBranch ?? 'detached'} · <code>{shortOid(preflight.localHeadOid)}</code></dd></div>
+           <div><dt>Worktree</dt><dd><code>{shortOid(preflight.isolatedHeadOid)}</code></dd></div>
+           <div><dt>Effective base</dt><dd><code>{shortOid(preflight.effectiveBaseOid)}</code></dd></div>
+-          <div><dt>变更</dt><dd>{preflight.changedFiles.length} 个文件</dd></div>
++          <div><dt>{t('preflight.changes')}</dt><dd>{t('preflight.files', { count: preflight.changedFiles.length })}</dd></div>
+         </dl>
+       ) : null}
+       {!compact && preflight.status === 'conflict' && preflight.conflictingFiles.length > 0 ? (
+-        <ul className="dsh-wt-conflict-list" aria-label="冲突文件">
++        <ul className="dsh-wt-conflict-list" aria-label={t('preflight.conflictListAria')}>
+           {preflight.conflictingFiles.map(path => <li key={path}><code>{path}</code></li>)}
+         </ul>
+       ) : null}
+-      {holder ? <p>占用任务：{holder.checkoutId.slice(0, 8)} · Session {holder.ownerSessionId.slice(0, 8)} · {holder.state}</p> : null}
++      {holder ? <p>{t('preflight.holder', { checkout: holder.checkoutId.slice(0, 8), session: holder.ownerSessionId.slice(0, 8), state: holder.state })}</p> : null}
+       {preflight.status === 'conflict' || blocked ? (
+         <div className="dsh-wt-recovery-actions">
+-          <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={onRefresh}>重新检查</button>
++          <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={onRefresh}>{t('preflight.recheck')}</button>
+           {preflight.status === 'conflict' ? (
+             <button type="button" className="dsh-wt-inline-action" disabled={busy || !target?.capabilities.resumeRevision} onClick={() => onRecovery(preflight)}>
+-              让 Agent 解决冲突
++              {t('preflight.resolveWithAgent')}
+             </button>
+           ) : staleIsolated ? (
+             <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={() => onRecovery(preflight)}>
+-              重新生成验收结果
++              {t('preflight.regenerateReview')}
+             </button>
+           ) : null}
+           {holder ? (
+-            <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={onOpenHolder}>打开占用任务</button>
++            <button type="button" className="dsh-wt-inline-action" disabled={busy} onClick={onOpenHolder}>{t('preflight.openHolder')}</button>
+           ) : null}
+         </div>
+       ) : null}
+diff --git a/src/client/review-console/ReviewActions.tsx b/src/client/review-console/ReviewActions.tsx
+index 8550954..0a89088 100644
+--- a/src/client/review-console/ReviewActions.tsx
++++ b/src/client/review-console/ReviewActions.tsx
+@@ -27,6 +27,7 @@ import {
+   type WorktreeRecoveryRequest,
+ } from './recovery-continuation.js'
+ import { requestWorktreeReviewRefresh } from './status-events.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ 
+ interface ReviewActionsProps {
+   review: WorktreeReviewEvidence
+@@ -36,6 +37,7 @@ interface ReviewActionsProps {
+   target?: WorktreeConsoleTargetSummary
+   disabled: boolean
+   unavailableMessage: string
++  t: WorktreeTranslate
+   focusReview?: () => void
+   isActive?: () => boolean
+   onStale: (error: WorktreeConsoleError) => void
+@@ -57,13 +59,13 @@ function sameStrings(left: readonly string[], right: readonly string[]): boolean
+   return left.length === right.length && left.every((value, index) => value === right[index])
+ }
+ 
+-function preflightMessage(preflight: WorktreeApplyPreflightView): string {
+-  if (preflight.status === 'ready') return '同步预检通过，正在创建可撤回的 Local Preview。'
+-  if (preflight.status === 'local_advanced') return 'Local 已前进，但预检确认可以安全合并。'
+-  if (preflight.status === 'already_in_local') return '本轮内容已在 Local 中；同步将是安全空操作。'
+-  if (preflight.status === 'conflict') return `同步预检发现 ${preflight.conflictingFiles.length} 个冲突文件；Local 未修改。`
+-  if (preflight.status === 'blocked') return `同步暂时阻塞：${preflight.message}`
+-  return '同步预检完成；Local 未修改。'
++function preflightMessage(t: WorktreeTranslate, preflight: WorktreeApplyPreflightView): string {
++  if (preflight.status === 'ready') return t('review.preflightReady')
++  if (preflight.status === 'local_advanced') return t('review.preflightLocalAdvanced')
++  if (preflight.status === 'already_in_local') return t('review.preflightAlreadyInLocal')
++  if (preflight.status === 'conflict') return t('review.preflightConflict', { count: preflight.conflictingFiles.length })
++  if (preflight.status === 'blocked') return t('review.preflightBlocked', { detail: preflight.message })
++  return t('review.preflightDone')
+ }
+ 
+ export function ReviewActions({
+@@ -74,6 +76,7 @@ export function ReviewActions({
+   target,
+   disabled,
+   unavailableMessage,
++  t,
+   focusReview,
+   isActive = () => true,
+   onStale,
+@@ -216,14 +219,14 @@ export function ReviewActions({
+       setRuntimeConflict(nextError.continuation)
+       setCommitMode(null)
+       setError(null)
+-      setMessage('实时写入校验发现冲突；Local 未修改。请明确让 Agent 在 managed Worktree 中解决。')
++      setMessage(t('review.runtimeConflict'))
+       finish()
+       return
+     }
+     setError(nextError)
+     if (nextError.code === 'stale_target') onStale(nextError)
+     if (nextError.code === 'stale_local' || nextError.code === 'stale_isolated') {
+-      setMessage('状态在写入前发生变化；已停止操作，请按最新只读预检恢复。')
++      setMessage(t('review.stateChangedBeforeWrite'))
+       void refreshPreflight()
+     }
+     finish()
+@@ -262,7 +265,7 @@ export function ReviewActions({
+       return
+     }
+     if (latest.status !== 'success' || latest.preflight.status !== 'conflict') {
+-      setMessage(latest.status === 'success' ? preflightMessage(latest.preflight) : '冲突预检未完成。')
++      setMessage(latest.status === 'success' ? preflightMessage(t, latest.preflight) : t('review.conflictPreflightIncomplete'))
+       finish()
+       return
+     }
+@@ -273,7 +276,7 @@ export function ReviewActions({
+       || latest.preflight.localHeadOid !== preflight.localHeadOid
+       || !sameStrings(latest.preflight.conflictingFiles, preflight.conflictingFiles)
+     ) {
+-      setError({ code: 'stale_target', message: '冲突身份在恢复前已变化，请按最新预检重试。' })
++      setError({ code: 'stale_target', message: t('review.conflictIdentityChanged') })
+       finish()
+       return
+     }
+@@ -302,7 +305,7 @@ export function ReviewActions({
+       || nextTarget.state !== 'working'
+       || nextTarget.revision !== preflight.revision + 1
+     ) {
+-      setError({ code: 'checkout_mismatch', message: '恢复编辑后 Host 返回的 Working 身份不一致。' })
++      setError({ code: 'checkout_mismatch', message: t('review.resumeWorkingIdentityMismatch') })
+       finish()
+       return
+     }
+@@ -316,7 +319,7 @@ export function ReviewActions({
+       || recovery.localHeadOid !== preflight.localHeadOid
+       || !sameStrings(recovery.conflictingFiles, preflight.conflictingFiles)
+     ) {
+-      setError({ code: 'checkout_mismatch', message: 'Host 未返回精确的冲突恢复凭证。' })
++      setError({ code: 'checkout_mismatch', message: t('review.resumeProofMissing') })
+       finish()
+       return
+     }
+@@ -332,7 +335,7 @@ export function ReviewActions({
+       localHeadOid: recovery.localHeadOid,
+       conflictingFiles: [...recovery.conflictingFiles],
+     })
+-    setMessage('已安全恢复 Working，冲突解决请求正在等待精确 owner Session 空闲。Local 未修改。')
++    setMessage(t('review.resumeWorkingAwaiting'))
+     finish()
+   }
+ 
+@@ -363,7 +366,7 @@ export function ReviewActions({
+       || latest.preflight.reviewId !== preflight.reviewId
+       || latest.preflight.revision !== preflight.revision
+     ) {
+-      setMessage(latest.status === 'success' ? preflightMessage(latest.preflight) : '只读复核未完成。')
++      setMessage(latest.status === 'success' ? preflightMessage(t, latest.preflight) : t('review.readOnlyRecheckIncomplete'))
+       finish()
+       return
+     }
+@@ -384,7 +387,7 @@ export function ReviewActions({
+       || recovery.reviewId !== preflight.reviewId
+       || recovery.revision !== preflight.revision
+     ) {
+-      setError({ code: 'checkout_mismatch', message: 'Host 未返回精确的只读验收再生成凭证。' })
++      setError({ code: 'checkout_mismatch', message: t('review.regenerateProofMissing') })
+       finish()
+       return
+     }
+@@ -396,7 +399,7 @@ export function ReviewActions({
+       reviewId: recovery.reviewId,
+       revision: recovery.revision,
+     })
+-    setMessage('只读验收再生成请求正在等待精确 owner Session 空闲；不会恢复 Working 或修改文件。')
++    setMessage(t('review.regenerateAwaiting'))
+     finish()
+   }
+ 
+@@ -444,7 +447,7 @@ export function ReviewActions({
+       finish()
+       return
+     }
+-    setMessage(preflightMessage(inspected.preflight))
++    setMessage(preflightMessage(t, inspected.preflight))
+     if (inspected.preflight.status === 'conflict' || inspected.preflight.status === 'blocked') {
+       finish()
+       return
+@@ -459,7 +462,7 @@ export function ReviewActions({
+       return
+     }
+     applyTarget(outcome.value.target)
+-    setMessage('已同步为可撤回的 Local Preview；请在 Local 中验收。')
++    setMessage(t('review.previewSynced'))
+     finish()
+   }
+ 
+@@ -501,14 +504,14 @@ export function ReviewActions({
+       || nextTarget.review !== undefined
+       || nextTarget.checkpoints?.at(-1)?.checkpointId !== saved.checkpointId
+     ) {
+-      setError({ code: 'checkout_mismatch', message: 'Host 返回的 Checkpoint 身份或 Working 状态不一致。' })
++      setError({ code: 'checkout_mismatch', message: t('review.checkpointIdentityMismatch') })
+       finish()
+       return
+     }
+     applyTarget(nextTarget)
+     setCheckpointOpen(false)
+     checkpointRequestId.current = null
+-    setMessage(`已保存第 ${saved.sequence} 个 Worktree 阶段并继续修改；阶段尚未发布到 Local。`)
++    setMessage(t('review.checkpointSaved', { sequence: saved.sequence }))
+     finish()
+   }
+ 
+@@ -528,12 +531,12 @@ export function ReviewActions({
+       ? prefillSessionDraft(
+           services,
+           identity.sessionId,
+-          '请重新检查当前 Worktree 的修改，重新运行必要验证，并重新生成验收稿。',
++          t('review.resumeRevisionPrompt'),
+         )
+       : false
+     setMessage(drafted
+-      ? '已恢复编辑并预填重新验收请求；Local 未受影响。'
+-      : '已恢复编辑；请重新检查、验证并生成新的验收稿。Local 未受影响。')
++      ? t('review.resumePrefilled')
++      : t('review.resumeDone'))
+     finish()
+   }
+ 
+@@ -542,7 +545,7 @@ export function ReviewActions({
+     let freshProof: WorktreePreviewRecoveryProof | undefined
+     if (target?.state === 'preview_detached') {
+       if (!recoveryIdentity) {
+-        setError({ code: 'stale_target', message: 'Detached Preview 身份不完整，请刷新。' })
++        setError({ code: 'stale_target', message: t('review.detachedIdentityIncomplete') })
+         finish()
+         return
+       }
+@@ -558,7 +561,7 @@ export function ReviewActions({
+       if (inspected.status !== 'success' || inspected.preflight.status !== 'assessed') {
+         setMessage(inspected.status === 'success' && inspected.preflight.status === 'blocked'
+           ? inspected.preflight.message
+-          : 'Preview Recovery 预检未完成。')
++          : t('review.recoveryPreflightIncomplete'))
+         finish()
+         return
+       }
+@@ -584,8 +587,8 @@ export function ReviewActions({
+     }
+     applyTarget(outcome.value.target)
+     setMessage(outcome.value.target.state === 'preview_detached'
+-      ? '恢复条件在写入前发生变化；Preview 证据和 Worktree 已保留，请重新检查。'
+-      : resumeRevision ? '已撤回 Local Preview，可以继续修改 Worktree。' : '已撤回 Local Preview，验收卡仍可再次同步。')
++      ? t('review.recoveryStateChanged')
++      : resumeRevision ? t('review.rollbackContinued') : t('review.rollbackReAcceptable'))
+     finish()
+   }
+ 
+@@ -606,7 +609,7 @@ export function ReviewActions({
+         return
+       }
+       if (inspected.status !== 'success' || inspected.preflight.status === 'blocked' || inspected.preflight.status === 'conflict') {
+-        setMessage(inspected.status === 'success' ? preflightMessage(inspected.preflight) : '同步预检未完成。')
++        setMessage(inspected.status === 'success' ? preflightMessage(t, inspected.preflight) : t('review.syncPreflightIncomplete'))
+         finish()
+         return
+       }
+@@ -614,7 +617,7 @@ export function ReviewActions({
+     let previewProof: WorktreePreviewRecoveryProof | undefined
+     if (mode === 'finalize_preview' && target?.state === 'preview_detached') {
+       if (!recoveryIdentity) {
+-        setError({ code: 'stale_target', message: 'Detached Preview 身份不完整，请刷新。' })
++        setError({ code: 'stale_target', message: t('review.detachedIdentityIncomplete') })
+         finish()
+         return
+       }
+@@ -630,7 +633,7 @@ export function ReviewActions({
+       if (inspected.status !== 'success' || inspected.preflight.status !== 'assessed') {
+         setMessage(inspected.status === 'success' && inspected.preflight.status === 'blocked'
+           ? inspected.preflight.message
+-          : 'Preview Recovery 预检未完成。')
++          : t('review.recoveryPreflightIncomplete'))
+         finish()
+         return
+       }
+@@ -654,9 +657,9 @@ export function ReviewActions({
+     }
+     applyTarget(outcome.value.target)
+     if (outcome.value.target.state === 'preview_detached') {
+-      setMessage('Local 已变化，无法可靠提交；Preview 恢复证据和 Worktree 已保留。')
++      setMessage(t('review.localChangedCannotCommit'))
+     } else {
+-      setMessage(selectedRetention === 'cleanup' ? '已提交到 Local，并开始清理 Worktree。' : '已提交到 Local，并保留当前运行环境。')
++      setMessage(selectedRetention === 'cleanup' ? t('review.committedCleanup') : t('review.committedRetained'))
+     }
+     setCommitMode(null)
+     finish()
+@@ -681,8 +684,8 @@ export function ReviewActions({
+     }
+     applyTarget(outcome.value.target)
+     setMessage(outcome.value.target.state === 'preview_detached'
+-      ? 'Local 已变化，无法无损撤回；未删除 Worktree。'
+-      : '已放弃本轮 Worktree 修改，Local 未受影响。')
++      ? t('review.rollbackCannotLossless')
++      : t('review.discardDone'))
+     setDiscardOpen(false)
+     finish()
+   }
+@@ -698,7 +701,7 @@ export function ReviewActions({
+     if (inspected.status !== 'success' || inspected.preflight.status !== 'assessed') {
+       setMessage(inspected.status === 'success' && inspected.preflight.status === 'blocked'
+         ? inspected.preflight.message
+-        : 'Preview Recovery 预检未完成。')
++        : t('review.recoveryPreflightIncomplete'))
+       return null
+     }
+     return inspected.preflight.proof
+@@ -729,7 +732,7 @@ export function ReviewActions({
+       || continuation.revision !== identity.expectedRevision
+       || continuation.generation !== proof.generation
+     ) {
+-      setError({ code: 'checkout_mismatch', message: 'Host 未返回精确的 detached Recovery 分析凭证。' })
++      setError({ code: 'checkout_mismatch', message: t('review.analysisProofMissing') })
+       finish()
+       return
+     }
+@@ -742,18 +745,19 @@ export function ReviewActions({
+       if (!verified.ok || verified.value.target.recoveryContinuation?.kind !== continuation.kind
+         || verified.value.target.recoveryContinuation.requestId !== continuation.requestId
+         || verified.value.target.recoveryContinuation.generation !== continuation.generation) {
+-        throw new Error('二次 Host 检查未确认 detached Recovery 分析凭证。')
++        throw new Error(t('review.analysisRecheckFailed'))
+       }
+       const binding = services.sessions.binding(identity.sessionId)
+       const prompt = binding?.session.prompt
+-      if (!binding || !prompt) throw new Error('Owner Session 尚未提供 Harness prompt API。')
++      if (!binding || !prompt) throw new Error(t('review.ownerPromptApiMissing'))
++      // Agent-facing prompt (sent to the owner session), not browser UI copy.
+       const result = await prompt.call(binding.session, [{ type: 'text', text: [
+         `请只读分析 detached Preview Recovery：checkout ${identity.checkoutId}，review ${identity.expectedReviewId}，preview ${recoveryIdentity.expectedPreviewId}，generation ${proof.generation}。`,
+         '禁止修改旧 managed Worktree、Local、Git refs、index、receipt 或 retained artifacts；不要运行 reset/rebase/force checkout/clean。',
+         '请解释 rollback/finalize blocker、仍缺失的任务增量与最安全的人工下一步。',
+       ].join('\n') }], 'queue')
+       if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+-      setMessage('已向精确 owner Session 发送只读 Recovery 分析请求。')
++      setMessage(t('review.analysisSent'))
+     } catch (reason) {
+       setError({ code: 'checkout_mismatch', message: reason instanceof Error ? reason.message : String(reason) })
+     }
+@@ -787,7 +791,7 @@ export function ReviewActions({
+       || continuation.checkoutId !== created.value.target.checkoutId
+       || continuation.checkoutId === identity.checkoutId
+     ) {
+-      setError({ code: 'checkout_mismatch', message: 'Host 返回的 Recovery handoff 身份不一致。' })
++      setError({ code: 'checkout_mismatch', message: t('review.handoffIdentityMismatch') })
+       finish()
+       return
+     }
+@@ -803,18 +807,19 @@ export function ReviewActions({
+       if (!verified.ok || verified.value.target.managedRoot !== created.value.managedRoot
+         || verified.value.target.recoveryContinuation?.kind !== continuation.kind
+         || verified.value.target.recoveryContinuation.requestId !== continuation.requestId) {
+-        throw new Error('新 Worktree 的二次 Host/cwd 检查未通过。')
++        throw new Error(t('review.handoffRecheckFailed'))
+       }
+       const binding = services.sessions.binding(created.value.targetSessionId)
+       const prompt = binding?.session.prompt
+-      if (!binding || !prompt) throw new Error('新 owner Session 尚未提供 Harness prompt API。')
++      if (!binding || !prompt) throw new Error(t('review.handoffPromptApiMissing'))
++      // Agent-facing prompt (sent to the new owner session), not browser UI copy.
+       const result = await prompt.call(binding.session, [{ type: 'text', text: [
+         `这是 detached Preview Recovery handoff。旧 checkout ${identity.checkoutId} / review ${identity.expectedReviewId} / preview ${recoveryIdentity.expectedPreviewId} / generation ${proof.generation} 只读。`,
+         '当前新 Worktree 基于最新 Local HEAD；只恢复仍缺失的任务增量。禁止修改 Local、旧 Worktree、旧 receipt/refs，禁止 reset/rebase/force checkout/clean。',
+         '完成后运行必要验证并生成新的 Ready for Review。',
+       ].join('\n') }], 'queue')
+       if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+-      setMessage('已创建并打开基于最新 Local HEAD 的 fresh Worktree，Recovery handoff 请求已发送。')
++      setMessage(t('review.handoffSent'))
+     } catch (reason) {
+       setError({ code: 'checkout_mismatch', message: reason instanceof Error ? reason.message : String(reason) })
+     }
+@@ -837,7 +842,7 @@ export function ReviewActions({
+       return
+     }
+     applyTarget(outcome.value.target)
+-    setMessage(outcome.value.target.state === 'delivered' ? 'Worktree 环境已清理。' : '清理仍未完成，已保留恢复信息。')
++    setMessage(outcome.value.target.state === 'delivered' ? t('review.envCleaned') : t('review.cleanupIncomplete'))
+     finish()
+   }
+ 
+@@ -889,91 +894,91 @@ export function ReviewActions({
+   const primary = ready ? (
+     <button type="button" className="dsh-wt-button dsh-wt-primary" disabled={allDisabled || !target.capabilities.preview || !safeReadyPreflight} onClick={() => { void previewLocal() }}>
+       {submitting === 'preview'
+-        ? '同步中…'
++        ? t('review.previewing')
+         : autoPreflightEnabled && (preflightSnapshot.status === 'idle' || preflightSnapshot.status === 'loading')
+-          ? '检查中…'
+-          : '预览修改'}
++          ? t('review.checking')
++          : t('review.btnPreview')}
+     </button>
+   ) : previewActive ? (
+     <button type="button" className="dsh-wt-button dsh-wt-primary" disabled={allDisabled || !target.capabilities.finalizePreview} onClick={() => setCommitMode('finalize_preview')}>
+-      确认并保存
++      {t('review.btnConfirmSave')}
+     </button>
+   ) : previewRecovery ? (
+     rollbackRecoverySafe ? (
+       <button type="button" className="dsh-wt-button" disabled={allDisabled || !target?.capabilities.rollbackPreview} onClick={() => { void rollbackPreview(true) }}>
+-        {submitting === 'rollback' ? '处理中…' : '恢复并撤回预览'}
++        {submitting === 'rollback' ? t('review.processing') : t('review.btnRollback')}
+       </button>
+     ) : (
+       <button type="button" className="dsh-wt-button" disabled={allDisabled || target?.state !== 'preview_detached'} onClick={() => { void refreshRecoveryPreflight() }}>
+-        {recoveryPreflight.status === 'loading' ? '检查中…' : '重新检查'}
++        {recoveryPreflight.status === 'loading' ? t('review.checking') : t('review.btnRecheck')}
+       </button>
+     )
+   ) : cleanupPending ? (
+     <button type="button" className="dsh-wt-button" disabled={allDisabled || !target?.capabilities.retryCleanup} onClick={() => { void retryCleanup() }}>
+-      {submitting === 'retry_cleanup' ? '清理中…' : '重试清理环境'}
++      {submitting === 'retry_cleanup' ? t('review.cleaning') : t('review.btnRetryCleanup')}
+     </button>
+   ) : null
+ 
+   return (
+-    <section className="dsh-wt-review-actions" aria-label="验收操作">
++    <section className="dsh-wt-review-actions" aria-label={t('review.ariaActions')}>
+       {!live ? <p className="dsh-wt-status">{unavailableMessage}</p> : null}
+       {terminal ? (
+         <p className="dsh-wt-status">
+           {target.state === 'retained'
+-            ? `本轮已提交，运行环境暂时保留${target.commitOid ? ` · ${target.commitOid.slice(0, 8)}` : ''}`
+-            : `本轮已交付${target.commitOid ? ` · ${target.commitOid.slice(0, 8)}` : ''}`}
++            ? t('review.roundRetained', { oid: target.commitOid ? ` · ${target.commitOid.slice(0, 8)}` : '' })
++            : t('review.roundDelivered', { oid: target.commitOid ? ` · ${target.commitOid.slice(0, 8)}` : '' })}
+         </p>
+       ) : (
+         <div className="dsh-wt-actions">
+           {primary}
+           <details ref={moreMenuRef} className="dsh-wt-more-menu">
+-            <summary className="dsh-wt-more-trigger" aria-label="更多交付操作">•••</summary>
++            <summary className="dsh-wt-more-trigger" aria-label={t('review.ariaMore')}>•••</summary>
+             <div className="dsh-wt-more-content" role="menu">
+               {focusReview ? (
+                 <button type="button" role="menuitem" className="dsh-wt-more-item" onClick={() => {
+                   focusReview()
+                   closeMoreMenu()
+-                }}>查看验收卡</button>
++                }}>{t('review.btnViewReview')}</button>
+               ) : null}
+               {ready ? (
+                 <>
+                   <button type="button" role="menuitem" className="dsh-wt-more-item" disabled={allDisabled || !target.capabilities.checkpoint || !target.checkpointGeneration} onClick={() => {
+                     openCheckpoint()
+                     closeMoreMenu()
+-                  }}>保存阶段并继续</button>
++                  }}>{t('review.btnCheckpoint')}</button>
+                   <button type="button" role="menuitem" className="dsh-wt-more-item" disabled={allDisabled || !target.capabilities.resumeRevision} onClick={() => {
+                     void resumeRevision()
+                     closeMoreMenu()
+-                  }}>{submitting === 'resume_revision' ? '恢复中…' : '继续修改'}</button>
++                  }}>{submitting === 'resume_revision' ? t('review.resuming') : t('review.btnContinue')}</button>
+                   <button type="button" role="menuitem" className="dsh-wt-more-item" disabled={allDisabled || !target.capabilities.finalize || !safeReadyPreflight} onClick={() => {
+                     setCommitMode('finish')
+                     closeMoreMenu()
+-                  }}>跳过预览并保存</button>
++                  }}>{t('review.btnSkipPreviewSave')}</button>
+                 </>
+               ) : null}
+               {previewActive && target.capabilities.checkpoint && target.checkpointGeneration ? (
+                 <button type="button" role="menuitem" className="dsh-wt-more-item" disabled={allDisabled} onClick={() => {
+                   openCheckpoint()
+                   closeMoreMenu()
+-                }}>保存阶段并继续</button>
++                }}>{t('review.btnCheckpoint')}</button>
+               ) : null}
+               {previewActive || rollbackRecoverySafe ? (
+                 <button type="button" role="menuitem" className="dsh-wt-more-item" disabled={allDisabled || !target.capabilities.rollbackPreview} onClick={() => {
+                   void rollbackPreview(true)
+                   closeMoreMenu()
+-                }}>{previewActive ? '撤回本次预览' : '重新尝试撤回'}</button>
++                }}>{previewActive ? t('review.btnWithdrawPreview') : t('review.btnRetryWithdraw')}</button>
+               ) : null}
+               {finalizeRecoverySafe ? (
+                 <button type="button" role="menuitem" className="dsh-wt-more-item" disabled={allDisabled || !target.capabilities.finalizePreview} onClick={() => {
+                   setCommitMode('finalize_preview')
+                   closeMoreMenu()
+-                }}>保存修改</button>
++                }}>{t('review.btnSaveChanges')}</button>
+               ) : null}
+               {canDiscard ? (
+                 <button type="button" role="menuitem" className="dsh-wt-more-item dsh-wt-danger-text" disabled={allDisabled} onClick={() => {
+                   setDiscardOpen(true)
+                   closeMoreMenu()
+-                }}>放弃任务</button>
++                }}>{t('review.btnDiscard')}</button>
+               ) : null}
+             </div>
+           </details>
+@@ -983,24 +988,24 @@ export function ReviewActions({
+       <Modal
+         open={checkpointOpen}
+         onClose={closeCheckpoint}
+-        title="保存当前进度并继续？"
+-        closeLabel="关闭保存进度确认"
++        title={t('review.checkpointTitle')}
++        closeLabel={t('review.checkpointCloseLabel')}
+         description={previewActive
+-          ? '会先安全撤回当前预览，再保存本轮任务进度并继续开发；无法证明可以安全撤回时会停止。当前项目不会立即更新。'
+-          : '保存当前任务进度并继续下一阶段；当前项目不会立即更新，最终确认时仍只会生成一次交付。'}
++          ? t('review.checkpointDescPreview')
++          : t('review.checkpointDesc')}
+         footer={(
+           <div className="dsh-wt-modal-footer">
+-            <button type="button" className="dsh-wt-button" disabled={submitting !== null} onClick={closeCheckpoint}>取消</button>
++            <button type="button" className="dsh-wt-button" disabled={submitting !== null} onClick={closeCheckpoint}>{t('review.cancel')}</button>
+             <button type="button" className="dsh-wt-button dsh-wt-primary" disabled={submitting !== null || !checkpointMessage.trim() || checkpointMessage.trim().length > 500} onClick={() => { void checkpoint() }}>
+-              {submitting === 'checkpoint' ? '正在保存…' : '保存进度并继续'}
++              {submitting === 'checkpoint' ? t('review.saving') : t('review.checkpointSaveBtn')}
+             </button>
+           </div>
+         )}
+       >
+         <div className="dsh-wt-commit-dialog">
+           <div className="dsh-wt-checkpoint-note">
+-            <strong>阶段不会发布到 Local</strong>
+-            <span>已有 {target?.checkpoints?.length ?? 0} 个阶段；最终交付仍会从原始任务基线汇总为一个 Local Commit。</span>
++            <strong>{t('review.checkpointNoPublish')}</strong>
++            <span>{t('review.checkpointCount', { count: target?.checkpoints?.length ?? 0 })}</span>
+           </div>
+           <label htmlFor={`${formId}-checkpoint-message`}>Checkpoint Commit Message</label>
+           <textarea id={`${formId}-checkpoint-message`} aria-label="Checkpoint Commit Message" rows={6} maxLength={500} value={checkpointMessage} onChange={event => setCheckpointMessage(event.target.value)} />
+@@ -1012,19 +1017,19 @@ export function ReviewActions({
+         open={commitMode !== null}
+         onClose={closeCommit}
+         title={commitMode === 'finalize_preview'
+-          ? '确认并保存本次修改？'
+-          : target?.state === 'preview_detached' ? '保存本次修改？' : '跳过预览并直接保存？'}
+-        closeLabel="关闭保存确认"
++          ? t('review.commitTitleConfirm')
++          : target?.state === 'preview_detached' ? t('review.commitTitleDetached') : t('review.commitTitleSkip')}
++        closeLabel={t('review.commitCloseLabel')}
+         description={commitMode === 'finalize_preview'
+-          ? '只会保存当前预览对应的本轮任务内容；Local 中已有或之后新增的无关修改不会进入该 Commit。'
+-          : '将跳过 Local Preview，直接把本轮 Worktree 增量保存为一个 Commit。'}
++          ? t('review.commitDescPreview')
++          : t('review.commitDescSkip')}
+         footer={(
+           <div className="dsh-wt-modal-footer">
+-            <button type="button" className="dsh-wt-button" disabled={submitting !== null} onClick={closeCommit}>取消</button>
++            <button type="button" className="dsh-wt-button" disabled={submitting !== null} onClick={closeCommit}>{t('review.cancel')}</button>
+             <button type="button" className="dsh-wt-button dsh-wt-primary" disabled={submitting !== null || !commitMessage.trim() || commitMessage.trim().length > 500} onClick={() => { void submitCommit() }}>
+               {submitting === 'finish' || submitting === 'finalize_preview'
+-                ? '正在保存…'
+-                : retainEnvironment ? '确认交付并保留环境' : '确认交付并清理'}
++                ? t('review.saving')
++                : retainEnvironment ? t('review.confirmDeliverRetain') : t('review.confirmDeliverCleanup')}
+             </button>
+           </div>
+         )}
+@@ -1035,15 +1040,15 @@ export function ReviewActions({
+           <div className="dsh-wt-character-count">{commitMessage.length}/500</div>
+           <label className="dsh-wt-retention-check">
+             <input type="checkbox" checked={retainEnvironment} onChange={event => setRetainEnvironment(event.target.checked)} />
+-            <span>提交后暂时保留当前运行环境</span>
++            <span>{t('review.retainEnvLabel')}</span>
+           </label>
+           {retainEnvironment ? (
+             <label className="dsh-wt-retention-select">
+-              <span>保留时长</span>
+-              <select aria-label="保留时长" value={retention} onChange={event => setRetention(event.target.value as Exclude<WorktreeRetentionMode, 'cleanup'>)}>
+-                <option value="retain_24h">保留 24 小时</option>
+-                <option value="retain_3d">保留 3 天</option>
+-                <option value="retain_manual">手动清理</option>
++              <span>{t('review.retentionLabel')}</span>
++              <select aria-label={t('review.retentionLabel')} value={retention} onChange={event => setRetention(event.target.value as Exclude<WorktreeRetentionMode, 'cleanup'>)}>
++                <option value="retain_24h">{t('review.retain24h')}</option>
++                <option value="retain_3d">{t('review.retain3d')}</option>
++                <option value="retain_manual">{t('review.retainManual')}</option>
+               </select>
+             </label>
+           ) : null}
+@@ -1053,16 +1058,16 @@ export function ReviewActions({
+       <Modal
+         open={discardOpen}
+         onClose={closeDiscard}
+-        title="放弃本轮任务？"
+-        closeLabel="关闭放弃确认"
++        title={t('review.discardTitle')}
++        closeLabel={t('review.discardCloseLabel')}
+         description={previewActive
+-          ? '会先安全撤回本次 Local Preview，再清理 Worktree；无法无损撤回时会停止，不会覆盖 Local 修改。'
+-          : 'Worktree 中尚未交付的修改将被永久丢弃，Local 不受影响。'}
++          ? t('review.discardDescPreview')
++          : t('review.discardDesc')}
+         footer={(
+           <div className="dsh-wt-modal-footer">
+-            <button type="button" className="dsh-wt-button" disabled={submitting !== null} onClick={closeDiscard}>取消</button>
++            <button type="button" className="dsh-wt-button" disabled={submitting !== null} onClick={closeDiscard}>{t('review.cancel')}</button>
+             <button type="button" className="dsh-wt-button dsh-wt-danger" disabled={submitting !== null} onClick={() => { void discard() }}>
+-              {submitting === 'discard' ? '正在放弃…' : '确认放弃任务'}
++              {submitting === 'discard' ? t('review.discarding') : t('review.discardConfirmBtn')}
+             </button>
+           </div>
+         )}
+@@ -1076,6 +1081,7 @@ export function ReviewActions({
+           onRecovery={recoverPreflight}
+           onOpenHolder={() => { void openHolder() }}
+           busy={submitting !== null || activeRecovery?.status === 'queued' || activeRecovery?.status === 'sending' || activeRecovery?.status === 'sent'}
++          t={t}
+         />
+       ) : null}
+       {target?.state === 'preview_detached' ? (
+@@ -1083,11 +1089,11 @@ export function ReviewActions({
+           <div className="dsh-wt-preflight-head">
+             <strong>Detached Preview Recovery</strong>
+             <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null || recoveryPreflight.status === 'loading'} onClick={() => { void refreshRecoveryPreflight() }}>
+-              重新检查
++              {t('review.btnRecheck')}
+             </button>
+           </div>
+-          <p>Detached 是交付恢复状态，不是 Git detached HEAD。检查严格只读，写操作会在 Host 锁内再次验证。</p>
+-          {recoveryPreflight.status === 'loading' ? <p>正在检查 Local HEAD、index、working tree、retained artifacts 与验收槽位…</p> : null}
++          <p>{t('review.detachedNote')}</p>
++          {recoveryPreflight.status === 'loading' ? <p>{t('review.recoveryChecking')}</p> : null}
+           {recoveryPreflight.status === 'error' ? <p className="dsh-wt-error">{recoveryPreflight.error.message}</p> : null}
+           {recoveryPreflight.status === 'success' && recoveryPreflight.preflight.status === 'blocked' ? (
+             <p className="dsh-wt-error">{recoveryPreflight.preflight.message}</p>
+@@ -1095,27 +1101,27 @@ export function ReviewActions({
+           {recoveryProof ? (
+             <>
+               <p className="dsh-wt-code">generation {recoveryProof.generation.slice(0, 12)} · HEAD {recoveryProof.localHeadOid.slice(0, 12)} · {recoveryProof.localHeadRef ?? 'detached HEAD'}</p>
+-              <ul className="dsh-wt-test-list" aria-label="Preview Recovery 结论">
+-                <li>撤回：{recoveryProof.rollback.status === 'safe' ? '可证明安全' : recoveryProof.rollback.message}</li>
+-                <li>提交：{recoveryProof.finalize.status === 'safe' ? '可证明安全' : recoveryProof.finalize.message}</li>
++              <ul className="dsh-wt-test-list" aria-label={t('review.recoveryProofAria')}>
++                <li>{t('review.rollbackRow')}{recoveryProof.rollback.status === 'safe' ? t('review.provenSafe') : recoveryProof.rollback.message}</li>
++                <li>{t('review.finalizeRow')}{recoveryProof.finalize.status === 'safe' ? t('review.provenSafe') : recoveryProof.finalize.message}</li>
+               </ul>
+               {recoveryProof.rollback.status === 'blocked' && recoveryProof.rollback.conflictingFiles?.length ? (
+-                <p>撤回冲突：{recoveryProof.rollback.conflictingFiles.join('、')}</p>
++                <p>{t('review.rollbackConflict', { files: recoveryProof.rollback.conflictingFiles.join('、') })}</p>
+               ) : null}
+               {recoveryProof.finalize.status === 'blocked' && recoveryProof.finalize.conflictingFiles?.length ? (
+-                <p>提交冲突：{recoveryProof.finalize.conflictingFiles.join('、')}</p>
++                <p>{t('review.finalizeConflict', { files: recoveryProof.finalize.conflictingFiles.join('、') })}</p>
+               ) : null}
+               {recoveryProof.blocker ? (
+                 <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null || !services} onClick={() => { void openHolder() }}>
+-                  打开占用 Local 验收槽位的 Worktree
++                  {t('review.openHolderWorktree')}
+                 </button>
+               ) : null}
+               <div className="dsh-wt-recovery-actions">
+                 <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null || !services} onClick={() => { void analyzeRecovery() }}>
+-                  让 Agent 只读分析
++                  {t('review.agentReadOnlyAnalysis')}
+                 </button>
+                 <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null || !services} onClick={() => { void handoffRecovery() }}>
+-                  交接到新 Worktree
++                  {t('review.handoffToNewWorktree')}
+                 </button>
+               </div>
+             </>
+@@ -1125,35 +1131,35 @@ export function ReviewActions({
+       {runtimeConflict ? (
+         <div className="dsh-wt-recovery-actions">
+           <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null || !services} onClick={recoverRuntimeConflict}>
+-            让 Agent 解决冲突
++            {t('review.agentResolveConflict')}
+           </button>
+         </div>
+       ) : null}
+       {activeRecovery ? (
+         <div className="dsh-wt-action-status" data-recovery-status={activeRecovery.status}>
+-          {activeRecovery.status === 'queued' ? '恢复请求已排队，等待 owner Session 加载完成且停止 streaming。' : null}
+-          {activeRecovery.status === 'sending' ? '正在通过 Harness 官方 Session API 发送恢复请求…' : null}
++          {activeRecovery.status === 'queued' ? t('review.recoveryQueued') : null}
++          {activeRecovery.status === 'sending' ? t('review.recoverySending') : null}
+           {activeRecovery.status === 'sent'
+             ? activeRecovery.request.kind === 'worktree_apply_conflict'
+-              ? '已交给 Agent 解决冲突；完成后必须生成新的验收卡。'
+-              : '已交给 Agent 只读重新生成验收结果；不会修改 Worktree。'
++              ? t('review.recoveryResolveSent')
++              : t('review.recoveryRegenSent')
+             : null}
+-          {activeRecovery.status === 'cancelled' ? 'Session/checkout 已切换，旧恢复请求已取消。' : null}
++          {activeRecovery.status === 'cancelled' ? t('review.recoveryCancelled') : null}
+           {activeRecovery.status === 'failed' ? (
+             <>
+-              <span>恢复请求发送失败：{activeRecovery.error}</span>
+-              <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null} onClick={() => retryWorktreeRecovery(activeRecovery.request.sessionId)}>重新发送</button>
++              <span>{t('review.recoverySendFailed', { detail: activeRecovery.error })}</span>
++              <button type="button" className="dsh-wt-inline-action" disabled={submitting !== null} onClick={() => retryWorktreeRecovery(activeRecovery.request.sessionId)}>{t('review.btnResend')}</button>
+             </>
+           ) : null}
+         </div>
+       ) : null}
+-      {target && (target.state === 'cleanup_pending' || terminal) ? <DeliveryProof target={target} /> : null}
++      {target && (target.state === 'cleanup_pending' || terminal) ? <DeliveryProof target={target} t={t} /> : null}
+       <div className="dsh-wt-action-status" aria-live="polite">
+-        {submitting ? '正在处理 Worktree，请稍候…' : message}
++        {submitting ? t('review.workingNote') : message}
+       </div>
+       {error && !isStale(error) ? (
+         <div className="dsh-wt-error" role="alert">
+-          {error.message}（{worktreeConsoleErrorMeta(error.code).category}；恢复方式：{worktreeConsoleErrorMeta(error.code).recovery}）
++          {t('review.errorRecoveryHint', { message: error.message, category: worktreeConsoleErrorMeta(error.code).category, recovery: worktreeConsoleErrorMeta(error.code).recovery })}
+         </div>
+       ) : null}
+     </section>
+diff --git a/src/client/review-console/WorktreeReviewPanel.tsx b/src/client/review-console/WorktreeReviewPanel.tsx
+index d25de90..00ca6d2 100644
+--- a/src/client/review-console/WorktreeReviewPanel.tsx
++++ b/src/client/review-console/WorktreeReviewPanel.tsx
+@@ -7,6 +7,7 @@ import type {
+ } from '../../console-contract.js'
+ import type { WorktreeClientServices } from '../actions.js'
+ import { ReviewActions } from './ReviewActions.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ 
+ export interface WorktreeReviewEvidence extends WorktreeConsoleReviewSummary {
+   detailsMarkdown?: string
+@@ -28,19 +29,20 @@ export interface WorktreeReviewPanelProps {
+   onRefresh?: () => void | Promise<void>
+   onTargetChange?: (target: WorktreeConsoleTargetSummary) => void
+   unavailableMessage?: string
++  t: WorktreeTranslate
+ }
+ 
+-function validationLabel(status: WorktreeReviewEvidence['validationStatus']): string {
+-  if (status === 'passed') return '自动验证通过'
+-  if (status === 'failed') return '自动验证失败，仍可继续验收'
+-  if (status === 'partial') return '部分验证通过'
+-  return '未运行自动验证'
++function validationLabel(t: WorktreeTranslate, status: WorktreeReviewEvidence['validationStatus']): string {
++  if (status === 'passed') return t('panel.validated')
++  if (status === 'failed') return t('panel.failed')
++  if (status === 'partial') return t('panel.partial')
++  return t('panel.notRun')
+ }
+ 
+-function testStatusLabel(status: WorktreeReviewEvidence['tests'][number]['status']): string {
+-  if (status === 'passed') return '通过'
+-  if (status === 'failed') return '失败'
+-  return '未运行'
++function testStatusLabel(t: WorktreeTranslate, status: WorktreeReviewEvidence['tests'][number]['status']): string {
++  if (status === 'passed') return t('panel.testPassed')
++  if (status === 'failed') return t('panel.testFailed')
++  return t('panel.testNotRun')
+ }
+ 
+ function reviewIsStale(
+@@ -65,7 +67,8 @@ export function WorktreeReviewPanel({
+   target,
+   onRefresh,
+   onTargetChange,
+-  unavailableMessage = '实时 Worktree Console 未连接；连接后即可执行验收操作。',
++  unavailableMessage,
++  t,
+ }: WorktreeReviewPanelProps) {
+   const panelId = useId()
+   const mounted = useRef(true)
+@@ -108,7 +111,7 @@ export function WorktreeReviewPanel({
+   const [currentTarget, setCurrentTarget] = useState(target)
+   const [detailsExpanded, setDetailsExpanded] = useState(false)
+   const [invalidReason, setInvalidReason] = useState<string | null>(
+-    reviewIsStale(target, identity, review) ? '验收结果已过期，请刷新。' : null,
++    reviewIsStale(target, identity, review) ? t('panel.stale') : null,
+   )
+   const refreshRequested = useRef(false)
+ 
+@@ -120,11 +123,11 @@ export function WorktreeReviewPanel({
+   useLayoutEffect(() => {
+     setCurrentTarget(target)
+     refreshRequested.current = false
+-    setInvalidReason(reviewIsStale(target, identity, review) ? '验收结果已过期，请刷新。' : null)
++    setInvalidReason(reviewIsStale(target, identity, review) ? t('panel.stale') : null)
+   }, [identity?.expectedReviewId, identity?.expectedRevision, review.reviewId, review.revision, targetKey])
+ 
+   const handleStale = useCallback((_error: WorktreeConsoleError) => {
+-    setInvalidReason('验收结果已过期，请刷新。')
++    setInvalidReason(t('panel.stale'))
+     if (!refreshRequested.current) {
+       refreshRequested.current = true
+       void onRefresh?.()
+@@ -136,6 +139,7 @@ export function WorktreeReviewPanel({
+     onTargetChange?.(nextTarget)
+   }, [onTargetChange])
+ 
++  const resolvedUnavailableMessage = unavailableMessage ?? t('reviewRow.notConnected')
+   const liveReady = Boolean(
+     adapter
+     && identity
+@@ -148,13 +152,13 @@ export function WorktreeReviewPanel({
+   return (
+     <section
+       className="dsh-wt-review-panel"
+-      aria-label="Worktree 验收"
++      aria-label={t('panel.ariaLabel')}
+       data-worktree-review-id={review.reviewId}
+     >
+       <header className="dsh-wt-review-compact-head">
+         <span className="dsh-wt-review-status-icon" data-validation={review.validationStatus} aria-hidden>✓</span>
+         <div className="dsh-wt-review-compact-copy">
+-          <h2 className="dsh-wt-review-title">第 {review.iteration} 轮修改已准备验收</h2>
++          <h2 className="dsh-wt-review-title">{t('panel.iterationReady', { iteration: review.iteration })}</h2>
+           <p className="dsh-wt-review-summary">{review.summary}</p>
+         </div>
+         <span className="dsh-wt-review-identity dsh-wt-code" title={`Review ${review.reviewId} · r${review.revision}`}>
+@@ -163,10 +167,10 @@ export function WorktreeReviewPanel({
+       </header>
+ 
+       <div className="dsh-wt-review-meta">
+-        <span data-validation={review.validationStatus}>{validationLabel(review.validationStatus)}</span>
+-        <span>{review.changedFiles.length} 个文件</span>
++        <span data-validation={review.validationStatus}>{validationLabel(t, review.validationStatus)}</span>
++        <span>{t('panel.files', { count: review.changedFiles.length })}</span>
+         {(currentTarget?.checkpoints?.length ?? 0) > 0 ? (
+-          <span className="dsh-wt-checkpoint-summary">已保存 {currentTarget!.checkpoints!.length} 个阶段 · 尚未发布到 Local</span>
++          <span className="dsh-wt-checkpoint-summary">{t('panel.checkpointsSaved', { count: currentTarget!.checkpoints!.length })}</span>
+         ) : null}
+         {hasValidationDetails ? (
+           <button
+@@ -177,8 +181,10 @@ export function WorktreeReviewPanel({
+             onClick={() => setDetailsExpanded(value => !value)}
+           >
+             {detailsExpanded
+-              ? '收起验证详情'
+-              : `查看验证详情${review.tests.length > 0 ? `（${review.tests.length} 项测试）` : ''}`}
++              ? t('panel.collapseDetails')
++              : review.tests.length > 0
++                ? t('panel.viewDetailsWithTests', { count: review.tests.length })
++                : t('panel.viewDetails')}
+           </button>
+         ) : null}
+       </div>
+@@ -187,10 +193,10 @@ export function WorktreeReviewPanel({
+         <div id={`${panelId}-validation`} className="dsh-wt-review-validation-details">
+           {review.validationSummary ? <p>{review.validationSummary}</p> : null}
+           {review.tests.length > 0 ? (
+-            <ul className="dsh-wt-test-list" aria-label="验证命令">
++            <ul className="dsh-wt-test-list" aria-label={t('panel.testsAria')}>
+               {review.tests.map((item, index) => (
+                 <li className="dsh-wt-test" key={`${item.command}-${index}`}>
+-                  <span className="dsh-wt-test-state" data-test-status={item.status}>{testStatusLabel(item.status)}</span>
++                  <span className="dsh-wt-test-state" data-test-status={item.status}>{testStatusLabel(t, item.status)}</span>
+                   <span className="dsh-wt-test-command">
+                     <code className="dsh-wt-code">{item.command}</code>
+                     {item.summary ? <span className="dsh-wt-test-summary">{item.summary}</span> : null}
+@@ -210,7 +216,8 @@ export function WorktreeReviewPanel({
+         identity={identity}
+         target={currentTarget}
+         disabled={!liveReady}
+-        unavailableMessage={unavailableMessage}
++        unavailableMessage={resolvedUnavailableMessage}
++        t={t}
+         isActive={() => mounted.current && activeActionScope.current === actionScope}
+         onStale={handleStale}
+         onTargetChange={handleTargetChange}
+diff --git a/src/client/target-console/TargetStatusAction.tsx b/src/client/target-console/TargetStatusAction.tsx
+index d7512cb..582d1c6 100644
+--- a/src/client/target-console/TargetStatusAction.tsx
++++ b/src/client/target-console/TargetStatusAction.tsx
+@@ -6,6 +6,7 @@ import type {
+   WorktreeConsoleTargetState,
+ } from '../../console-contract.js'
+ import { openExistingSession, type WorktreeClientServices } from '../actions.js'
++import { TARGET_STATE_KEYS, type WorktreeTranslate } from '../locales/worktree.js'
+ import { requestWorktreeReviewRefresh, WORKTREE_REVIEW_REFRESH_EVENT } from '../review-console/status-events.js'
+ import { WorktreeManagerModal } from './WorktreeManagerModal.js'
+ 
+@@ -15,25 +16,13 @@ export interface TargetStatusActionProps {
+   services: WorktreeClientServices
+ }
+ 
+-const STATE_LABELS: Record<WorktreeConsoleTargetState, string> = {
+-  local: 'Local',
+-  creating: '创建中…',
+-  working: '修改中',
+-  ready_for_review: '待验收',
+-  preview_active: 'Local 验收中',
+-  preview_detached: '预览待恢复',
+-  retained: '已保留',
+-  cleanup_pending: '清理中',
+-  recovery_required: '需要恢复',
+-  delivered: '已交付',
+-}
+-
+ function shortOid(value: string): string {
+   return value === 'unversioned' ? value : value.slice(0, 7)
+ }
+ 
+ /** Interactive Session Target capsule with source-linked management actions. */
+ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatusActionProps) {
++  const t: WorktreeTranslate = services.t
+   const [target, setTarget] = useState<WorktreeConsoleTargetDetails | null>(null)
+   const [loading, setLoading] = useState(true)
+   const [error, setError] = useState<string | null>(null)
+@@ -91,12 +80,14 @@ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatu
+   }, [refresh, sessionId])
+ 
+   const state = target?.state ?? (loading ? 'loading' : 'error')
+-  const stateLabel = state === 'loading' ? '加载中…' : state === 'error' ? '不可用' : STATE_LABELS[state]
++  const stateLabel = state === 'loading' ? t('target.loading') : state === 'error' ? t('target.unavailable') : t(TARGET_STATE_KEYS[state])
+   const triggerLabel = target?.state === 'local' ? 'Local' : target ? `Worktree · ${stateLabel}` : stateLabel
+   const expiry = target?.state === 'retained' && target.expiresAt
+     ? new Date(target.expiresAt).toLocaleDateString()
+     : null
+-  const accessibleLabel = expiry === null ? `Session Target：${triggerLabel}` : `Session Target：${triggerLabel}，到期 ${expiry}`
++  const accessibleLabel = expiry === null
++    ? t('target.accessibleLabel', { label: triggerLabel })
++    : t('target.accessibleLabelExpiry', { label: triggerLabel, expiry })
+ 
+   const reveal = (): void => {
+     if (!target?.managedRoot) return
+@@ -110,7 +101,7 @@ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatu
+     if (!target || target.sourceSessionId === sessionId) return
+     setMenuOpen(false)
+     if (target.sourceRoot === null || !openExistingSession(services, target.sourceSessionId, target.sourceRoot)) {
+-      setError('来源 Session 的 cwd 无法与 Host 记录的 Local root 匹配。')
++      setError(t('target.sourceCwdMismatch'))
+     }
+   }
+ 
+@@ -182,8 +173,8 @@ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatu
+     <span className="dsh-wtc-menu-summary">
+       <strong>{triggerLabel}</strong>
+       <span>{target.project.name}</span>
+-      <span>来源 {shortOid(target.sourceOid)} · 当前 {shortOid(target.currentOid)} · Iteration {target.iteration}</span>
+-      {expiry ? <span>保留至 {expiry}</span> : null}
++      <span>{t('target.lineage', { source: shortOid(target.sourceOid), current: shortOid(target.currentOid), iteration: target.iteration })}</span>
++      {expiry ? <span>{t('target.retainedUntil', { expiry })}</span> : null}
+       {error ? <span className="dsh-wtc-menu-error">{error}</span> : null}
+     </span>
+   ) : error ?? triggerLabel
+@@ -191,16 +182,16 @@ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatu
+   const items: MenuEntry[] = [
+     { id: 'summary', label: summary, disabled: true },
+     { type: 'separator', id: 'summary-separator' },
+-    ...(target?.managedRoot && target.capabilities.open ? [{ id: 'reveal', label: '打开当前工作位置' } satisfies MenuEntry] : []),
++    ...(target?.managedRoot && target.capabilities.open ? [{ id: 'reveal', label: t('target.menuReveal') } satisfies MenuEntry] : []),
+     ...(target && target.sourceSessionId !== sessionId
+-      ? [{ id: 'source', label: '返回来源 Session' } satisfies MenuEntry]
++      ? [{ id: 'source', label: t('target.menuSource') } satisfies MenuEntry]
+       : []),
+-    ...(target ? [{ id: 'manager', label: '管理关联 Worktrees' } satisfies MenuEntry] : []),
++    ...(target ? [{ id: 'manager', label: t('target.menuManager') } satisfies MenuEntry] : []),
+   ]
+   const footer: MenuEntry[] = target?.capabilities.retryCleanup
+-    ? [{ id: 'retry_cleanup', label: pendingAction === 'retry_cleanup' ? '处理中…' : '重试清理环境', disabled: pendingAction !== null }]
++    ? [{ id: 'retry_cleanup', label: pendingAction === 'retry_cleanup' ? t('target.processing') : t('target.menuRetryCleanup'), disabled: pendingAction !== null }]
+     : target?.capabilities.discard
+-      ? [{ id: 'discard', label: pendingAction === 'discard' ? '处理中…' : '放弃任务并清理 Worktree', danger: true, disabled: pendingAction !== null }]
++      ? [{ id: 'discard', label: pendingAction === 'discard' ? t('target.processing') : t('target.menuDiscard'), danger: true, disabled: pendingAction !== null }]
+       : []
+ 
+   return (
+@@ -228,7 +219,7 @@ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatu
+             aria-expanded={menuOpen}
+             aria-haspopup="menu"
+             aria-label={accessibleLabel}
+-            title="Session Target 与关联 Worktrees"
++            title={t('target.menuTitle')}
+             onClick={() => setMenuOpen(current => !current)}
+           >
+             <span className="dsh-wtc-target-dot" aria-hidden />
+@@ -253,16 +244,16 @@ export function TargetStatusAction({ sessionId, adapter, services }: TargetStatu
+       <Modal
+         open={cleanupConfirmOpen}
+         onClose={() => setCleanupConfirmOpen(false)}
+-        title="放弃任务并清理 Worktree？"
+-        closeLabel="取消清理 Worktree"
++        title={t('target.discardTitle')}
++        closeLabel={t('target.discardCloseLabel')}
+         description={target?.state === 'preview_active'
+-          ? 'Host 会先安全撤回 Local Preview；无法证明可无损撤回时会停止并保留恢复现场。'
+-          : 'Worktree 中尚未交付的修改会永久丢弃；Local Checkout 不会被静默覆盖。'}
++          ? t('target.discardDescPreview')
++          : t('target.discardDesc')}
+         footer={(
+           <span className="dsh-wtc-confirm-actions">
+-            <button type="button" className="dsh-wtc-button" onClick={() => setCleanupConfirmOpen(false)}>取消</button>
++            <button type="button" className="dsh-wtc-button" onClick={() => setCleanupConfirmOpen(false)}>{t('target.cancel')}</button>
+             <button type="button" className="dsh-wtc-button dsh-wtc-danger" disabled={pendingAction !== null} onClick={() => { void discard() }}>
+-              确认清理 Worktree
++              {t('target.discardConfirm')}
+             </button>
+           </span>
+         )}
+diff --git a/src/client/target-console/WorktreeConsoleView.tsx b/src/client/target-console/WorktreeConsoleView.tsx
+index b117dfa..c67c62a 100644
+--- a/src/client/target-console/WorktreeConsoleView.tsx
++++ b/src/client/target-console/WorktreeConsoleView.tsx
+@@ -15,6 +15,7 @@ import {
+   openIsolatedTarget,
+   type WorktreeClientServices,
+ } from '../actions.js'
++import { TARGET_STATE_KEYS, type WorktreeTranslate } from '../locales/worktree.js'
+ 
+ export interface WorktreeConsoleViewProps {
+   sessionId: string
+@@ -24,48 +25,35 @@ export interface WorktreeConsoleViewProps {
+   onTargetChange?(): void
+ }
+ 
+-const STATE_LABELS: Record<WorktreeConsoleTargetState, string> = {
+-  local: 'Local',
+-  creating: '创建中…',
+-  working: '修改中',
+-  ready_for_review: '待验收',
+-  preview_active: 'Local 验收中',
+-  preview_detached: '预览待恢复',
+-  retained: '已保留',
+-  cleanup_pending: '清理中',
+-  recovery_required: '需要恢复',
+-  delivered: '已交付',
+-}
+-
+ interface ConsoleSnapshot {
+   sessionId: string
+   current: WorktreeConsoleTargetDetails
+   list: WorktreeConsoleListResponse
+ }
+ 
+-function errorText(error: WorktreeConsoleError): string {
++function errorText(t: WorktreeTranslate, error: WorktreeConsoleError): string {
+   const meta = worktreeConsoleErrorMeta(error.code)
+   const next = {
+-    refresh: '请刷新以读取最新 Host 状态。',
+-    confirm_dirty: '请明确确认脏 Worktree 后重试。',
+-    open_recovery: '再次操作前请先查看恢复信息。',
+-    retry: '临时故障消失后可以重试。',
+-    none: '当前 Session 无权完成此操作。',
++    refresh: t('console.errorRecoveryRefresh'),
++    confirm_dirty: t('console.errorRecoveryConfirmDirty'),
++    open_recovery: t('console.errorRecoveryOpenRecovery'),
++    retry: t('console.errorRecoveryRetry'),
++    none: t('console.errorRecoveryNone'),
+   }[meta.recovery]
+-  return `${error.code}: ${error.message} ${next}`
++  return t('console.errorFormat', { code: error.code, message: error.message, recovery: next })
+ }
+ 
+-function retentionLabel(retention: NonNullable<WorktreeConsoleTargetSummary['retention']>): string {
+-  if (retention === 'retain_24h') return '保留 24 小时'
+-  if (retention === 'retain_3d') return '保留 3 天'
+-  return '手动清理'
++function retentionLabel(t: WorktreeTranslate, retention: NonNullable<WorktreeConsoleTargetSummary['retention']>): string {
++  if (retention === 'retain_24h') return t('console.retain24h')
++  if (retention === 'retain_3d') return t('console.retain3d')
++  return t('console.retainManual')
+ }
+ 
+-function TargetState({ target }: { target: WorktreeConsoleTargetSummary }) {
++function TargetState({ target, t }: { target: WorktreeConsoleTargetSummary; t: WorktreeTranslate }) {
+   return (
+     <span className="dsh-wtc-state" data-target-state={target.state}>
+       <span className="dsh-wtc-state-dot" aria-hidden />
+-      {STATE_LABELS[target.state]}
++      {t(TARGET_STATE_KEYS[target.state])}
+     </span>
+   )
+ }
+@@ -91,6 +79,7 @@ export function WorktreeConsoleView({
+   focusCheckoutId,
+   onTargetChange,
+ }: WorktreeConsoleViewProps) {
++  const t = services.t
+   const mounted = useRef(true)
+   const request = useRef(0)
+   const sessionGeneration = useRef(0)
+@@ -132,11 +121,11 @@ export function WorktreeConsoleView({
+       ])
+       if (!isActive(generation) || token !== request.current) return
+       if (!current.ok) {
+-        setError(errorText(current.error))
++        setError(errorText(t, current.error))
+         return
+       }
+       if (!list.ok) {
+-        setError(errorText(list.error))
++        setError(errorText(t, list.error))
+         return
+       }
+       setSnapshot({ sessionId, current: current.value.target, list: list.value })
+@@ -176,7 +165,7 @@ export function WorktreeConsoleView({
+ 
+   const mutationError = (code: WorktreeConsoleErrorCode, message: string, generation: number): void => {
+     if (!isActive(generation)) return
+-    setError(errorText({ code, message }))
++    setError(errorText(t, { code, message }))
+     if (code === 'stale_target' || code === 'stale_local' || code === 'stale_isolated') {
+       void refresh(false)
+     }
+@@ -192,15 +181,15 @@ export function WorktreeConsoleView({
+       const outcome = await adapter.create({ sourceSessionId: sessionId })
+       if (!isActive(generation)) return
+       if (!outcome.ok) {
+-        setError(errorText(outcome.error))
++        setError(errorText(t, outcome.error))
+         return
+       }
+       const { target, targetSessionId, managedRoot } = outcome.value
+       if (target.sourceSessionId !== sessionId) {
+-        throw new Error('Host 返回了属于其他 source Session 的目标。')
++        throw new Error(t('console.hostWrongSource'))
+       }
+       if (targetSessionId === sessionId) {
+-        throw new Error('Host 错误地把 source Session 作为 isolated target Session 返回。')
++        throw new Error(t('console.hostSourceAsTarget'))
+       }
+       if (
+         target.checkoutId === null
+@@ -210,7 +199,7 @@ export function WorktreeConsoleView({
+         || target.project.id !== sourceProjectId
+         || !target.capabilities.open
+       ) {
+-        throw new Error('Host 返回的 target Session 身份不一致。')
++        throw new Error(t('console.hostTargetIdentityMismatch'))
+       }
+       await openIsolatedTarget(services, { targetSessionId, managedRoot }, () => isActive(generation))
+       if (!isActive(generation)) return
+@@ -329,30 +318,30 @@ export function WorktreeConsoleView({
+       })
+ 
+   if (loading && visibleSnapshot === null) {
+-    return <div className="dsh-wtc-loading" role="status" aria-live="polite">正在加载 Worktree 控制台…</div>
++    return <div className="dsh-wtc-loading" role="status" aria-live="polite">{t('console.loading')}</div>
+   }
+ 
+   return (
+-    <section className="dsh-wtc-console" aria-label="Worktree 控制台">
++    <section className="dsh-wtc-console" aria-label={t('console.ariaLabel')}>
+       <header className="dsh-wtc-console-head">
+         <div>
+           <span className="dsh-wtc-kicker">SESSION TARGET</span>
+-          <h2>关联 Worktrees</h2>
++          <h2>{t('console.title')}</h2>
+         </div>
+         <button type="button" className="dsh-wtc-button" disabled={loading} onClick={() => { void refresh() }}>
+-          {loading ? '刷新中…' : '刷新'}
++          {loading ? t('console.refreshing') : t('console.refresh')}
+         </button>
+       </header>
+       {error ? <div className="dsh-wtc-error" role="alert">{error}</div> : null}
+       {visibleSnapshot ? (
+         <>
+-          <section className="dsh-wtc-current" aria-label="当前目标">
++          <section className="dsh-wtc-current" aria-label={t('console.currentLabel')}>
+             <div>
+-              <span className="dsh-wtc-label">当前目标</span>
++              <span className="dsh-wtc-label">{t('console.currentLabel')}</span>
+               <strong>{visibleSnapshot.current.project.name}</strong>
+             </div>
+             <div className="dsh-wtc-current-actions">
+-              <TargetState target={visibleSnapshot.current} />
++              <TargetState target={visibleSnapshot.current} t={t} />
+               {visibleSnapshot.current.state !== 'recovery_required' && visibleSnapshot.current.capabilities.create ? (
+                 <button
+                   type="button"
+@@ -360,21 +349,21 @@ export function WorktreeConsoleView({
+                   disabled={pendingAction !== null}
+                   onClick={() => { void createTarget() }}
+                 >
+-                  {pendingAction === 'create' ? '创建中…' : '创建 Worktree'}
++                  {pendingAction === 'create' ? t('console.creating') : t('console.create')}
+                 </button>
+               ) : null}
+             </div>
+           </section>
+-          <section className="dsh-wtc-list-section" aria-label="关联 Worktrees">
++          <section className="dsh-wtc-list-section" aria-label={t('console.title')}>
+             <div className="dsh-wtc-section-head">
+               <div>
+-                <span className="dsh-wtc-label">逻辑关联</span>
++                <span className="dsh-wtc-label">{t('console.logicalRelation')}</span>
+                 <h3>{visibleSnapshot.list.project.name}</h3>
+               </div>
+               <span className="dsh-wtc-count">{visibleSnapshot.list.worktrees.length}</span>
+             </div>
+             {visibleSnapshot.list.worktrees.length === 0 ? (
+-              <div className="dsh-wtc-empty">这个项目还没有受管 Worktree。</div>
++              <div className="dsh-wtc-empty">{t('console.empty')}</div>
+             ) : (
+               <ul className="dsh-wtc-list">
+                 {orderedWorktrees.map(target => (
+@@ -385,18 +374,18 @@ export function WorktreeConsoleView({
+                   >
+                     <div className="dsh-wtc-row-main">
+                       <div className="dsh-wtc-row-title">
+-                        <TargetState target={target} />
++                        <TargetState target={target} t={t} />
+                         <span className="dsh-wtc-row-id">{target.checkoutId ?? 'Local source'}</span>
+-                        {target.checkoutId === visibleSnapshot.current.checkoutId ? <span className="dsh-wtc-relation">当前</span> : null}
+-                        {sessionId === target.sourceSessionId && sessionId !== target.ownerSessionId ? <span className="dsh-wtc-relation">来源</span> : null}
+-                        {sessionId !== target.sourceSessionId && sessionId !== target.ownerSessionId ? <span className="dsh-wtc-relation">关联任务</span> : null}
++                        {target.checkoutId === visibleSnapshot.current.checkoutId ? <span className="dsh-wtc-relation">{t('console.relationCurrent')}</span> : null}
++                        {sessionId === target.sourceSessionId && sessionId !== target.ownerSessionId ? <span className="dsh-wtc-relation">{t('console.relationSource')}</span> : null}
++                        {sessionId !== target.sourceSessionId && sessionId !== target.ownerSessionId ? <span className="dsh-wtc-relation">{t('console.relationLinked')}</span> : null}
+                       </div>
+                       <div className="dsh-wtc-facts">
+-                        <span>第 {target.iteration} 轮</span>
+-                        {target.dirty ? <span>有未提交修改</span> : <span>干净</span>}
+-                        {(target.checkpoints?.length ?? 0) > 0 ? <span>已保存 {target.checkpoints!.length} 个未交付阶段</span> : null}
+-                        {target.retention ? <span>保留方式：{retentionLabel(target.retention)}</span> : null}
+-                        {target.expiresAt ? <span>到期时间：{new Date(target.expiresAt).toLocaleString()}</span> : null}
++                        <span>{t('console.iteration', { iteration: target.iteration })}</span>
++                        {target.dirty ? <span>{t('console.dirty')}</span> : <span>{t('console.clean')}</span>}
++                        {(target.checkpoints?.length ?? 0) > 0 ? <span>{t('console.checkpointsSaved', { count: target.checkpoints!.length })}</span> : null}
++                        {target.retention ? <span>{t('console.retentionMode', { mode: retentionLabel(t, target.retention) })}</span> : null}
++                        {target.expiresAt ? <span>{t('console.expiresAt', { when: new Date(target.expiresAt).toLocaleString() })}</span> : null}
+                         {target.cleanupMessage ? <span className="dsh-wtc-recovery-message">{target.cleanupMessage}</span> : null}
+                       </div>
+                     </div>
+@@ -406,36 +395,36 @@ export function WorktreeConsoleView({
+                         <button
+                           type="button"
+                           className="dsh-wtc-button"
+-                          aria-label={`打开 ${target.checkoutId}`}
++                          aria-label={t('console.openAria', { checkout: target.checkoutId })}
+                           disabled={pendingAction !== null}
+                           onClick={() => { void openListedTarget(target) }}
+                         >
+-                          {pendingAction === `open:${target.checkoutId}` ? '打开中…' : '打开'}
++                          {pendingAction === `open:${target.checkoutId}` ? t('console.opening') : t('console.open')}
+                         </button>
+                       ) : null}
+                       {target.capabilities.discard && target.checkoutId !== null ? (
+                         <button
+                           type="button"
+                           className="dsh-wtc-button dsh-wtc-danger"
+-                          aria-label={`放弃 ${target.checkoutId}`}
++                          aria-label={t('console.discardAria', { checkout: target.checkoutId })}
+                           disabled={pendingAction !== null}
+                           onClick={() => {
+                             if (target.dirty) setConfirmTarget(target)
+                             else void discardTarget(target, false)
+                           }}
+                         >
+-                          {pendingAction === `discard:${target.checkoutId}` ? '放弃中…' : '放弃'}
++                          {pendingAction === `discard:${target.checkoutId}` ? t('console.discarding') : t('console.discard')}
+                         </button>
+                       ) : null}
+                       {target.capabilities.retryCleanup && target.checkoutId !== null ? (
+                         <button
+                           type="button"
+                           className="dsh-wtc-button"
+-                          aria-label={`重试清理 ${target.checkoutId}`}
++                          aria-label={t('console.cleanupAria', { checkout: target.checkoutId })}
+                           disabled={pendingAction !== null}
+                           onClick={() => { void retryCleanup(target) }}
+                         >
+-                          {pendingAction === `cleanup:${target.checkoutId}` ? '重试中…' : '重试清理'}
++                          {pendingAction === `cleanup:${target.checkoutId}` ? t('console.retrying') : t('console.retryCleanup')}
+                         </button>
+                       ) : null}
+                     </div>
+@@ -451,30 +440,30 @@ export function WorktreeConsoleView({
+           className="dsh-wtc-confirm"
+           role="alertdialog"
+           aria-modal="true"
+-          aria-label="放弃有修改的 Worktree？"
++          aria-label={t('console.discardTitle')}
+           onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+             if (event.key !== 'Escape') return
+             event.preventDefault()
+             setConfirmTarget(null)
+           }}
+         >
+-          <strong>放弃有修改的 Worktree？</strong>
++          <strong>{t('console.discardTitle')}</strong>
+           <p>
+             {sessionId === confirmTarget.sourceSessionId && sessionId !== confirmTarget.ownerSessionId
+-              ? `Local source 将放弃预留目标 ${confirmTarget.checkoutId} 及其全部未提交修改。`
++              ? t('console.discardDescLocalSource', { checkoutId: confirmTarget.checkoutId })
+               : confirmTarget.state === 'preview_active' || confirmTarget.capabilities.rollbackPreview
+-                ? `将先安全撤回 ${confirmTarget.checkoutId} 的 Local Preview；只有撤回成功后才会删除 Worktree。`
+-                : `当前 Session 将放弃 Worktree ${confirmTarget.checkoutId} 及其全部未提交修改。`}
++                ? t('console.discardDescPreview', { checkoutId: confirmTarget.checkoutId })
++                : t('console.discardDesc', { checkoutId: confirmTarget.checkoutId })}
+           </p>
+           <div className="dsh-wtc-confirm-actions">
+-            <button type="button" className="dsh-wtc-button" onClick={() => { setConfirmTarget(null) }}>取消</button>
++            <button type="button" className="dsh-wtc-button" onClick={() => { setConfirmTarget(null) }}>{t('console.discardCancel')}</button>
+             <button
+               ref={confirmButton}
+               type="button"
+               className="dsh-wtc-button dsh-wtc-danger"
+               onClick={() => { void discardTarget(confirmTarget, true) }}
+             >
+-              确认放弃修改
++              {t('console.discardConfirm')}
+             </button>
+           </div>
+         </div>
+diff --git a/src/client/target-console/WorktreeManagerModal.tsx b/src/client/target-console/WorktreeManagerModal.tsx
+index 6126676..17494a7 100644
+--- a/src/client/target-console/WorktreeManagerModal.tsx
++++ b/src/client/target-console/WorktreeManagerModal.tsx
+@@ -2,6 +2,7 @@ import { Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+ import type { WorktreeConsoleAdapter } from '../../console-contract.js'
+ import type { WorktreeClientServices } from '../actions.js'
+ import { WorktreeConsoleView } from './WorktreeConsoleView.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ 
+ export interface WorktreeManagerModalProps {
+   open: boolean
+@@ -23,13 +24,14 @@ export function WorktreeManagerModal({
+   onClose,
+   onTargetChange,
+ }: WorktreeManagerModalProps) {
++  const t: WorktreeTranslate = services.t
+   return (
+     <Modal
+       open={open}
+       onClose={onClose}
+-      title="关联 Worktrees"
+-      closeLabel="关闭关联 Worktrees"
+-      description="由插件 registry 维护的 source/target 逻辑关联；DSH 仍按各自 cwd 显示独立 Workspace。"
++      title={t('manager.title')}
++      closeLabel={t('manager.closeLabel')}
++      description={t('manager.description')}
+       className="dsh-wtc-manager-dialog"
+       contentClassName="dsh-wtc-manager-content"
+     >
+diff --git a/src/client/target-console/WorktreeReviewStatus.tsx b/src/client/target-console/WorktreeReviewStatus.tsx
+index 79aef71..82cfafa 100644
+--- a/src/client/target-console/WorktreeReviewStatus.tsx
++++ b/src/client/target-console/WorktreeReviewStatus.tsx
+@@ -9,6 +9,7 @@ import {
+   useWorktreeRecoverySnapshot,
+ } from '../review-console/recovery-continuation.js'
+ import { reviewEvidenceFromTarget, reviewIdentityFromTarget } from '../review-console/index.js'
++import type { WorktreeTranslate } from '../locales/worktree.js'
+ import { WORKTREE_REVIEW_REFRESH_EVENT } from '../review-console/status-events.js'
+ 
+ export interface WorktreeReviewStatusProps {
+@@ -19,6 +20,7 @@ export interface WorktreeReviewStatusProps {
+ 
+ /** Domi-style compact delivery status above the native Harness composer. */
+ export function WorktreeReviewStatus({ session, adapter, services }: WorktreeReviewStatusProps) {
++  const t: WorktreeTranslate = services.t
+   const sessionId = session.sessionId
+   const [target, setTarget] = useState<WorktreeConsoleTargetDetails | null>(null)
+   const [error, setError] = useState<string | null>(null)
+@@ -82,20 +84,20 @@ export function WorktreeReviewStatus({ session, adapter, services }: WorktreeRev
+     : null
+   if (standaloneRecovery) {
+     return (
+-      <section className="dsh-wt-review-dock" aria-label="Worktree 恢复续跑" data-recovery-status={standaloneRecovery.status}>
++      <section className="dsh-wt-review-dock" aria-label={t('status.recoveryAria')} data-recovery-status={standaloneRecovery.status}>
+         <span className="dsh-wt-review-dock-icon" aria-hidden>!</span>
+         <span className="dsh-wt-review-dock-copy">
+-          <strong>{standaloneRecovery.request.kind === 'worktree_apply_conflict' ? 'Worktree 冲突恢复续跑' : '只读验收再生成'}</strong>
++          <strong>{standaloneRecovery.request.kind === 'worktree_apply_conflict' ? t('status.recoveryConflict') : t('status.recoveryRegen')}</strong>
+           <span>
+-            {standaloneRecovery.status === 'queued' ? '请求已持久排队，等待精确 owner Session 加载完成且停止 streaming。' : null}
+-            {standaloneRecovery.status === 'sending' ? '正在通过 Harness 官方 Session API 发送恢复请求…' : null}
+-            {standaloneRecovery.status === 'sent' ? '恢复请求已交给 Agent。' : null}
+-            {standaloneRecovery.status === 'cancelled' ? 'Session/checkout 已切换，旧恢复请求已取消。' : null}
+-            {standaloneRecovery.status === 'failed' ? `恢复请求发送失败：${standaloneRecovery.error}` : null}
++            {standaloneRecovery.status === 'queued' ? t('status.recoveryQueued') : null}
++            {standaloneRecovery.status === 'sending' ? t('status.recoverySending') : null}
++            {standaloneRecovery.status === 'sent' ? t('status.recoverySent') : null}
++            {standaloneRecovery.status === 'cancelled' ? t('status.recoveryCancelled') : null}
++            {standaloneRecovery.status === 'failed' ? t('status.recoverySendFailed', { detail: standaloneRecovery.error }) : null}
+           </span>
+         </span>
+         {standaloneRecovery.status === 'failed' ? (
+-          <button type="button" className="dsh-wt-button" onClick={() => retryWorktreeRecovery(sessionId)}>重新发送</button>
++          <button type="button" className="dsh-wt-button" onClick={() => retryWorktreeRecovery(sessionId)}>{t('status.btnResend')}</button>
+         ) : null}
+       </section>
+     )
+@@ -129,12 +131,12 @@ export function WorktreeReviewStatus({ session, adapter, services }: WorktreeRev
+       }
+     }
+     return (
+-      <section className="dsh-wt-review-dock" aria-label="Worktree 下一轮" data-review-state="delivered">
++      <section className="dsh-wt-review-dock" aria-label={t('status.nextAria')} data-review-state="delivered">
+         <span className="dsh-wt-review-dock-icon" aria-hidden>✓</span>
+         <span className="dsh-wt-review-dock-copy">
+-          <strong>本轮已交付，可在原会话继续下一轮修改</strong>
+-          <span>将安全重建已清理的 Worktree 路径，并保留当前对话。</span>
+-          <DeliveryProof target={target} compact />
++          <strong>{t('status.nextTitle')}</strong>
++          <span>{t('status.nextDesc')}</span>
++          <DeliveryProof target={target} compact t={t} />
+         </span>
+         {error ? <span className="dsh-wt-error">{error}</span> : null}
+         <button
+@@ -143,7 +145,7 @@ export function WorktreeReviewStatus({ session, adapter, services }: WorktreeRev
+           disabled={startingIteration}
+           onClick={() => { void beginNextIteration() }}
+         >
+-          {startingIteration ? '正在创建…' : '开始下一轮修改'}
++          {startingIteration ? t('status.creating') : t('status.nextIteration')}
+         </button>
+       </section>
+     )
+@@ -171,24 +173,27 @@ export function WorktreeReviewStatus({ session, adapter, services }: WorktreeRev
+   const detachedFromHeadDrift = target.state === 'preview_detached'
+     && target.previewRecovery?.reason === 'stale_local'
+   const label = target.state === 'ready_for_review'
+-    ? target.reviewSlot === 'waiting' ? '另一个任务正在占用 Local 验收槽位' : '修改已完成，等待你预览确认'
++    ? target.reviewSlot === 'waiting' ? t('status.slotWaiting') : t('status.readyLabel')
+     : target.state === 'preview_active'
+-      ? '正在预览本次修改，确认后即可保存'
++      ? t('status.previewActiveLabel')
+       : target.state === 'preview_detached'
+-        ? detachedFromHeadDrift ? '当前项目已有新变化，预览等待安全恢复' : '预览与 Local 发生冲突，已保留恢复现场'
++        ? detachedFromHeadDrift ? t('status.driftLabel') : t('status.conflictLabel')
+         : target.state === 'recovery_required'
+-          ? '预览需要恢复，安全记录已保留'
++          ? t('status.recoveryRequiredLabel')
+           : target.state === 'cleanup_pending'
+-          ? '修改已保存，Worktree 清理待重试'
+-          : '修改已保存，运行环境暂时保留'
++          ? t('status.cleanupPendingLabel')
++          : t('status.retainedLabel')
+   const detail = target.state === 'preview_detached'
+     ? detachedFromHeadDrift
+-      ? '同分支快进可安全重试；切分支或改写历史时不会写入。'
+-      : '自动撤回会重新检查冲突；无法证明安全时不会写入。'
+-    : `${review.changedFiles.length} 个文件 · ${review.validationStatus === 'passed' ? '自动验证通过' : '请检查验证结果'}`
++      ? t('status.driftDetail')
++      : t('status.conflictDetail')
++    : t('status.detailFormat', {
++      files: t('status.files', { count: review.changedFiles.length }),
++      validation: review.validationStatus === 'passed' ? t('status.validated') : t('status.checkValidation'),
++    })
+ 
+   return (
+-    <section className="dsh-wt-review-dock" aria-label="Worktree 待验收" data-review-state={target.state}>
++    <section className="dsh-wt-review-dock" aria-label={t('status.dockAria')} data-review-state={target.state}>
+       <span className="dsh-wt-review-dock-icon" aria-hidden>{target.state === 'preview_detached' || target.state === 'recovery_required' ? '!' : '✓'}</span>
+       <span className="dsh-wt-review-dock-copy">
+         <strong>{label}</strong>
+@@ -202,7 +207,8 @@ export function WorktreeReviewStatus({ session, adapter, services }: WorktreeRev
+         identity={identity}
+         target={target}
+         disabled={false}
+-        unavailableMessage="实时 Worktree Console 未连接。"
++        unavailableMessage={t('status.notConnected')}
++        t={t}
+         focusReview={focusReview}
+         isActive={() => mounted.current && currentSessionId.current === sessionId && sessionGeneration.current === actionGeneration}
+         onStale={() => { void refresh() }}
+diff --git a/src/client/target-console/index.ts b/src/client/target-console/index.ts
+index 2561ea2..58382ba 100644
+--- a/src/client/target-console/index.ts
++++ b/src/client/target-console/index.ts
+@@ -29,11 +29,13 @@ export function registerTargetConsole(
+     id: 'worktree-target',
+     order: 30,
+     label: 'Worktree Target',
++    locale: 'worktree',
+   }, HeaderAction))
+   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+     name: 'conversation.input.dock',
+     id: 'worktree-review-status',
+     order: 10,
++    locale: 'worktree',
+   }, ReviewStatus))
+ }
+ 
+diff --git a/src/client/workspace-sidebar/model.ts b/src/client/workspace-sidebar/model.ts
+index a476006..68ed85c 100644
+--- a/src/client/workspace-sidebar/model.ts
++++ b/src/client/workspace-sidebar/model.ts
+@@ -3,6 +3,7 @@ import type {
+   WorktreeSidebarTaskState,
+   WorktreeSidebarTopologyResponse,
+ } from '../../console-contract.js'
++import { SIDEBAR_STATE_KEYS, type WorktreeTranslate } from '../locales/worktree.js'
+ 
+ export interface SidebarWorkspaceView {
+   workspaceId: string
+@@ -44,7 +45,7 @@ const STATE_LABELS: Record<WorktreeSidebarTaskState, string> = {
+   discarded: '已放弃',
+ }
+ 
+-function currentTasks(topology: WorktreeSidebarTopologyResponse): ProjectedManagedTask[] {
++function currentTasks(topology: WorktreeSidebarTopologyResponse, t?: WorktreeTranslate): ProjectedManagedTask[] {
+   const byOwner = new Map<string, ProjectedManagedTask>()
+   for (const project of topology.projects) {
+     if (!project?.project?.id || !project.project.name || !Array.isArray(project.tasks)) continue
+@@ -54,7 +55,7 @@ function currentTasks(topology: WorktreeSidebarTopologyResponse): ProjectedManag
+         ...task,
+         projectId: project.project.id,
+         projectName: project.project.name,
+-        label: STATE_LABELS[task.state] ?? '进行中',
++        label: t ? t(SIDEBAR_STATE_KEYS[task.state]) : STATE_LABELS[task.state] ?? '进行中',
+       }
+       const previous = byOwner.get(task.ownerSessionId)
+       if (!previous
+@@ -76,8 +77,8 @@ export function projectManagedWorkspaceSidebar(input: {
+   workspaces: readonly SidebarWorkspaceView[]
+   sessions: Readonly<Record<string, SidebarSessionSummary | undefined>>
+   topology: WorktreeSidebarTopologyResponse
+-}): ManagedWorkspaceSidebarProjection {
+-  const tasks = currentTasks(input.topology)
++}, t?: WorktreeTranslate): ManagedWorkspaceSidebarProjection {
++  const tasks = currentTasks(input.topology, t)
+   const protectedSessionIds = new Set(tasks.map(task => task.ownerSessionId))
+   const projected = input.workspaces.map(workspace => ({ ...workspace, sessionIds: [...workspace.sessionIds] }))
+   const byWorkspace = new Map(projected.map(workspace => [workspace.workspaceId, workspace]))
+diff --git a/tests/client-actions.test.ts b/tests/client-actions.test.ts
+index 17a269a..702219b 100644
+--- a/tests/client-actions.test.ts
++++ b/tests/client-actions.test.ts
+@@ -1,6 +1,7 @@
+ import { describe, expect, test, vi } from 'vitest'
+ import type { WorktreeConsoleAdapter } from '../src/console-contract.js'
+ import type { WorktreeClientServices } from '../src/client/actions.js'
++import { zhT } from './support/zh-translate.js'
+ import {
+   openAuthorizedWorktreeTarget,
+   openExistingSession,
+@@ -15,6 +16,7 @@ function services(
+   let workspacePath = ''
+   const listeners = new Set<() => void>()
+   return {
++    t: zhT,
+     workspaces: {
+       create: vi.fn(async ({ path }) => {
+         workspacePath = path
+diff --git a/tests/client-bundle.test.ts b/tests/client-bundle.test.ts
+index c6fe89d..75fe848 100644
+--- a/tests/client-bundle.test.ts
++++ b/tests/client-bundle.test.ts
+@@ -7,6 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
+ import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
+ import { describe, expect, test, vi } from 'vitest'
+ import { createWorktreeConsoleAdapterFixture } from './support/worktree-console.js'
++import { zhT } from './support/zh-translate.js'
+ 
+ interface ClientHandoff {
+   id: string
+@@ -104,7 +105,7 @@ describe('built Client ModuleLoader artifact', () => {
+       clear() {},
+       searchResultLimit: 100,
+     } as never)
+-    ctx.provide('locale', { register: vi.fn() } as never)
++    ctx.provide('locale', { register: vi.fn(() => () => {}), bind: vi.fn(() => zhT) } as never)
+     ctx.provide('remote.directoryPicker', {} as never)
+ 
+     const fiber = ctx.plugin({ inject: worktree.inject, apply: worktree.apply })
+diff --git a/tests/client-pre-session.test.tsx b/tests/client-pre-session.test.tsx
+index 3a43e93..c6d1293 100644
+--- a/tests/client-pre-session.test.tsx
++++ b/tests/client-pre-session.test.tsx
+@@ -6,6 +6,7 @@ import type { WorktreeConsoleAdapter, WorktreeConsoleTargetDetails } from '../sr
+ import type { WorktreeClientServices } from '../src/client/actions.js'
+ import { createPreSessionWorktreeController } from '../src/client/pre-session/controller.js'
+ import { PreSessionWorktreeToggle } from '../src/client/pre-session/PreSessionWorktreeToggle.js'
++import { zhT } from './support/zh-translate.js'
+ import { registerPreSessionWorktree } from '../src/client/pre-session/index.js'
+ import { createWorktreeConsoleAdapterFixture } from './support/worktree-console.js'
+ 
+@@ -106,6 +107,7 @@ function successFixture() {
+         }),
+       },
+     },
++    t: zhT,
+   } as unknown as WorktreeClientServices
+ 
+   const sourceActions = {
+@@ -379,6 +381,7 @@ describe('Pre-session Worktree switch', () => {
+     }))
+     const controller = { prepare: vi.fn() }
+     const view = render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: '', imageIds: [], occurrences: [], phase: 'plain' }}
+@@ -392,6 +395,7 @@ describe('Pre-session Worktree switch', () => {
+     await waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false))
+ 
+     view.rerender(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'active' }}
+       input={{ draft: '', imageIds: [], occurrences: [], phase: 'plain' }}
+@@ -407,6 +411,7 @@ describe('Pre-session Worktree switch', () => {
+     let resolveCurrent!: (outcome: Awaited<ReturnType<WorktreeConsoleAdapter['current']>>) => void
+     fixture.adapter.current = vi.fn(async () => new Promise(done => { resolveCurrent = done }))
+     render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: '', imageIds: [], occurrences: [], phase: 'plain' }}
+@@ -431,6 +436,7 @@ describe('Pre-session Worktree switch', () => {
+     }))
+     const prepare = vi.fn()
+     render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: '', imageIds: [], occurrences: [], phase: 'plain' }}
+@@ -456,6 +462,7 @@ describe('Pre-session Worktree switch', () => {
+     let resolve!: (target: WorktreeConsoleTargetDetails) => void
+     const prepare = vi.fn(async () => new Promise<WorktreeConsoleTargetDetails>(done => { resolve = done }))
+     render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: 'draft', imageIds: ['image-1'], occurrences: [], phase: 'plain', draftRev: 3 }}
+@@ -494,6 +501,7 @@ describe('Pre-session Worktree switch', () => {
+     }))
+     const prepare = vi.fn()
+     render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: 'keep this', imageIds: ['image-1'], occurrences: [], phase: 'plain', draftRev: 4 }}
+@@ -534,6 +542,7 @@ describe('Pre-session Worktree switch', () => {
+       })
+     const prepare = vi.fn()
+     render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: 'draft', imageIds: [], occurrences: [], phase: 'plain' }}
+@@ -558,6 +567,7 @@ describe('Pre-session Worktree switch', () => {
+     }))
+     const prepare = vi.fn(async () => { throw new Error('session create failed') })
+     render(<PreSessionWorktreeToggle
++      t={zhT}
+       sessionId="source-session"
+       session={{ composerPhase: 'blank' }}
+       input={{ draft: 'draft', imageIds: [], occurrences: [], phase: 'plain' }}
+diff --git a/tests/client-recovery-continuation.test.ts b/tests/client-recovery-continuation.test.ts
+index f3e3fc1..877fccd 100644
+--- a/tests/client-recovery-continuation.test.ts
++++ b/tests/client-recovery-continuation.test.ts
+@@ -3,6 +3,7 @@
+ import { afterEach, describe, expect, test, vi } from 'vitest'
+ import type { WorktreeConsoleAdapter, WorktreeConsoleTargetDetails } from '../src/console-contract.js'
+ import type { WorktreeClientServices } from '../src/client/actions.js'
++import { zhT } from './support/zh-translate.js'
+ import {
+   buildWorktreeRecoveryPrompt,
+   clearWorktreeRecovery,
+@@ -29,6 +30,7 @@ function runtime(
+   let currentSessionId = target.ownerSessionId
+   const prompt = vi.fn(async () => ({ ok: true as const, value: { accepted: true as const } }))
+   const services: WorktreeClientServices = {
++    t: zhT,
+     workspaces: { create: vi.fn(), openPath: vi.fn() },
+     sessions: {
+       create: vi.fn(), open: vi.fn(),
+diff --git a/tests/client-review-console.test.tsx b/tests/client-review-console.test.tsx
+index c0f5a19..ee527b6 100644
+--- a/tests/client-review-console.test.tsx
++++ b/tests/client-review-console.test.tsx
+@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
+ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+ import { WorktreeReviewRow } from '../src/client/WorktreeReviewRow.js'
+ import type { WorktreeClientServices } from '../src/client/actions.js'
++import { zhT } from './support/zh-translate.js'
+ import { WORKTREE_STYLES } from '../src/client/styles.js'
+ import { WorktreeReviewPanel, type WorktreeReviewEvidence } from '../src/client/review-console/WorktreeReviewPanel.js'
+ import { WORKTREE_REVIEW_REFRESH_EVENT } from '../src/client/review-console/status-events.js'
+@@ -40,6 +41,7 @@ function clientServices(byId: Record<string, { cwd?: string } | undefined> = {
+   const setDraft = vi.fn()
+   const prompt = vi.fn(async () => ({ ok: true as const, value: { accepted: true as const } }))
+   return {
++    t: zhT,
+     workspaces: { create: vi.fn(), openPath: vi.fn() },
+     sessions: {
+       create: vi.fn(), open: vi.fn(),
+@@ -92,7 +94,7 @@ function loggedReviewRow(adapter?: ReturnType<typeof createWorktreeConsoleAdapte
+         revision: evidence.revision, changedFiles: evidence.changedFiles,
+       }) }],
+     }}
+-    services={{} as WorktreeClientServices}
++    services={{ t: zhT } as WorktreeClientServices}
+     adapter={adapter}
+   />
+ }
+@@ -125,7 +127,7 @@ describe('Domi-style Worktree Review', () => {
+ 
+   test('更多菜单点击外部或按 Escape 会关闭', () => {
+     const fixture = createWorktreeConsoleAdapterFixture()
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />)
+ 
+     const trigger = screen.getByLabelText('更多交付操作')
+     fireEvent.click(trigger)
+@@ -144,7 +146,7 @@ describe('Domi-style Worktree Review', () => {
+ 
+   test('默认只展示中文摘要，并按用户操作展开验证详情', () => {
+     const evidence = review({ detailsMarkdown: '<img src=x onerror=alert(1)>\n\n**plain markdown source**' })
+-    const { container } = render(<WorktreeReviewPanel review={evidence} />)
++    const { container } = render(<WorktreeReviewPanel t={zhT} review={evidence} />)
+ 
+     expect(screen.getByText('第 1 轮修改已准备验收')).toBeTruthy()
+     expect(screen.getByText('Review summary')).toBeTruthy()
+@@ -163,7 +165,7 @@ describe('Domi-style Worktree Review', () => {
+ 
+   test('只显示文件数量，不恢复 Diff、Inspect 或平铺 Retention', () => {
+     const files = Array.from({ length: 200 }, (_, index) => `src/generated/${index}-${'x'.repeat(80)}.ts`)
+-    render(<WorktreeReviewPanel review={review({ changedFiles: files })} />)
++    render(<WorktreeReviewPanel t={zhT} review={review({ changedFiles: files })} />)
+     expect(screen.getByText('200 个文件')).toBeTruthy()
+     expect(screen.queryByText(files[0]!)).toBeNull()
+     expect(screen.queryByRole('button', { name: 'Show diff' })).toBeNull()
+@@ -173,7 +175,7 @@ describe('Domi-style Worktree Review', () => {
+ 
+   test('live target 与验收身份不匹配时 fail closed', () => {
+     const fixture = createWorktreeConsoleAdapterFixture()
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={{ ...fixture.target, revision: 8 }} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={{ ...fixture.target, revision: 8 }} />)
+     expect(screen.getByText(/验收结果已过期，请刷新/)).toBeTruthy()
+     const action = screen.getByRole('button', { name: '预览修改' }) as HTMLButtonElement
+     expect(action.disabled).toBe(true)
+@@ -186,7 +188,7 @@ describe('Domi-style Worktree Review', () => {
+     const onTargetChange = vi.fn()
+     fixture.adapter.preflight = vi.fn(fixture.adapter.preflight)
+     fixture.adapter.preview = vi.fn(fixture.adapter.preview)
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onTargetChange={onTargetChange} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onTargetChange={onTargetChange} />)
+ 
+     await waitFor(() => expect(fixture.adapter.preflight).toHaveBeenCalledTimes(1))
+     expect(screen.getByText('同步条件已确认')).toBeTruthy()
+@@ -204,8 +206,8 @@ describe('Domi-style Worktree Review', () => {
+     const fixture = createWorktreeConsoleAdapterFixture()
+     fixture.adapter.preflight = vi.fn(fixture.adapter.preflight)
+     render(<>
+-      <WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />
+-      <WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />
++      <WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />
++      <WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />
+     </>)
+ 
+     await waitFor(() => expect(screen.getAllByText('同步条件已确认')).toHaveLength(2))
+@@ -242,7 +244,7 @@ describe('Domi-style Worktree Review', () => {
+       ...fixture.target, ...working.target, review: undefined, managedRoot: fixture.target.managedRoot, sourceRoot: fixture.target.sourceRoot,
+       sourceOid: fixture.target.sourceOid, currentBranch: fixture.target.currentBranch,
+     } } }))
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={fixture.target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={fixture.target} />)
+ 
+     await waitFor(() => expect(screen.getByText('发现 1 个冲突文件')).toBeTruthy())
+     expect(screen.getByText('x.ts')).toBeTruthy()
+@@ -290,7 +292,7 @@ describe('Domi-style Worktree Review', () => {
+     const working = { ...fixture.target, state: 'working' as const, revision: 10, review: undefined, recoveryContinuation }
+     fixture.adapter.resumeRevision = vi.fn(async () => ({ ok: true as const, value: { target: working, recoveryContinuation } }))
+     fixture.adapter.inspect = vi.fn(async () => ({ ok: true as const, value: { target: working } }))
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={fixture.target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={fixture.target} />)
+ 
+     await waitFor(() => expect(screen.getByText('同步条件已确认')).toBeTruthy())
+     fireEvent.click(screen.getByRole('button', { name: '预览修改' }))
+@@ -316,7 +318,7 @@ describe('Domi-style Worktree Review', () => {
+     fixture.adapter.checkpoint = vi.fn(fixture.adapter.checkpoint)
+     fixture.adapter.preview = vi.fn(fixture.adapter.preview)
+     const onTargetChange = vi.fn()
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onTargetChange={onTargetChange} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onTargetChange={onTargetChange} />)
+ 
+     fireEvent.click(screen.getByLabelText('更多交付操作'))
+     fireEvent.click(screen.getByRole('menuitem', { name: '保存阶段并继续' }))
+@@ -344,7 +346,7 @@ describe('Domi-style Worktree Review', () => {
+     const { fixture, target } = previewTarget()
+     fixture.adapter.checkpoint = vi.fn(fixture.adapter.checkpoint)
+     fixture.adapter.rollbackPreview = vi.fn(fixture.adapter.rollbackPreview)
+-    render(<WorktreeReviewPanel review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
+ 
+     fireEvent.click(screen.getByLabelText('更多交付操作'))
+     fireEvent.click(screen.getByRole('menuitem', { name: '保存阶段并继续' }))
+@@ -359,7 +361,7 @@ describe('Domi-style Worktree Review', () => {
+     const fixture = createWorktreeConsoleAdapterFixture()
+     fixture.adapter.resumeRevision = vi.fn(fixture.adapter.resumeRevision)
+     const onTargetChange = vi.fn()
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onTargetChange={onTargetChange} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onTargetChange={onTargetChange} />)
+ 
+     fireEvent.click(screen.getByLabelText('更多交付操作'))
+     fireEvent.click(screen.getByRole('menuitem', { name: '继续修改' }))
+@@ -372,7 +374,7 @@ describe('Domi-style Worktree Review', () => {
+   test('Ready 更多菜单提供跳过预览并保存，并保持 Commit Message/Retention 确认', async () => {
+     const fixture = createWorktreeConsoleAdapterFixture()
+     fixture.adapter.finalize = vi.fn(fixture.adapter.finalize)
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} />)
+ 
+     await waitFor(() => expect(screen.getByText('同步条件已确认')).toBeTruthy())
+     fireEvent.click(screen.getByLabelText('更多交付操作'))
+@@ -393,7 +395,7 @@ describe('Domi-style Worktree Review', () => {
+     const { fixture, target } = previewTarget()
+     fixture.adapter.finalizePreview = vi.fn(fixture.adapter.finalizePreview)
+     fixture.adapter.finalize = vi.fn(fixture.adapter.finalize)
+-    render(<WorktreeReviewPanel review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
+ 
+     fireEvent.click(screen.getByRole('button', { name: '确认并保存' }))
+     expect(screen.getByRole('dialog', { name: '确认并保存本次修改？' })).toBeTruthy()
+@@ -408,7 +410,7 @@ describe('Domi-style Worktree Review', () => {
+   test('Preview active 更多菜单支持撤回本次预览', async () => {
+     const { fixture, target } = previewTarget()
+     fixture.adapter.rollbackPreview = vi.fn(fixture.adapter.rollbackPreview)
+-    render(<WorktreeReviewPanel review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
+ 
+     fireEvent.click(screen.getByLabelText('更多交付操作'))
+     fireEvent.click(screen.getByRole('menuitem', { name: '撤回本次预览' }))
+@@ -428,7 +430,7 @@ describe('Domi-style Worktree Review', () => {
+         reason: 'stale_local' as const, attemptedAction: 'rollback_preview' as const,
+       },
+     }
+-    render(<WorktreeReviewPanel
++    render(<WorktreeReviewPanel t={zhT}
+       review={review({ revision: 8 })}
+       identity={identity(8)}
+       adapter={fixture.adapter}
+@@ -457,7 +459,7 @@ describe('Domi-style Worktree Review', () => {
+   test('Preview active 放弃任务会显式要求先 rollback Preview', async () => {
+     const { fixture, target } = previewTarget()
+     fixture.adapter.discard = vi.fn(fixture.adapter.discard)
+-    render(<WorktreeReviewPanel review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review({ revision: 8 })} adapter={fixture.adapter} identity={identity(8)} target={target} />)
+ 
+     fireEvent.click(screen.getByLabelText('更多交付操作'))
+     fireEvent.click(screen.getByRole('menuitem', { name: '放弃任务' }))
+@@ -474,7 +476,7 @@ describe('Domi-style Worktree Review', () => {
+     fixture.adapter.preflight = vi.fn(fixture.adapter.preflight)
+     fixture.adapter.preview = vi.fn(async () => ({ ok: false as const, error: { code: 'stale_local' as const, message: 'Local advanced' } }))
+     const onRefresh = vi.fn()
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onRefresh={onRefresh} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={fixture.target} onRefresh={onRefresh} />)
+ 
+     await waitFor(() => expect(screen.getByText('同步条件已确认')).toBeTruthy())
+     fireEvent.click(screen.getByRole('button', { name: '预览修改' }))
+@@ -508,7 +510,7 @@ describe('Domi-style Worktree Review', () => {
+     })
+     fixture.adapter.inspect = vi.fn(async () => ({ ok: true as const, value: { target: ready } }))
+     fixture.adapter.preview = vi.fn(fixture.adapter.preview)
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={fixture.target} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={fixture.target} />)
+ 
+     await waitFor(() => expect(screen.getByText('stale review')).toBeTruthy())
+     expect((screen.getByRole('button', { name: '预览修改' }) as HTMLButtonElement).disabled).toBe(true)
+@@ -541,10 +543,10 @@ describe('Domi-style Worktree Review', () => {
+         reason: 'project_acceptance_busy', message: 'busy', blocker: waiting.reviewSlotHolder,
+       } } })
+       .mockImplementation(fixture.adapter.preflight)
+-    const view = render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={waiting} />)
++    const view = render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={waiting} />)
+ 
+     await waitFor(() => expect(screen.getByText('busy')).toBeTruthy())
+-    view.rerender(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={available} />)
++    view.rerender(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={available} />)
+ 
+     await waitFor(() => expect(screen.getByText('同步条件已确认')).toBeTruthy())
+     expect(fixture.adapter.preflight).toHaveBeenCalledTimes(2)
+@@ -567,7 +569,7 @@ describe('Domi-style Worktree Review', () => {
+       ...fixture.target, checkoutId: 'checkout-holder', ownerSessionId: 'holder-session', targetSessionId: 'holder-session',
+       managedRoot: '/fixture/holder', capabilities: { ...fixture.target.capabilities, open: true, inspect: true, preview: false, finalize: false },
+     } } }))
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={waiting} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} services={services} identity={identity()} target={waiting} />)
+ 
+     await waitFor(() => expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent?.includes('占用任务：checkout') === true)).toBeTruthy())
+     fireEvent.click(screen.getByRole('button', { name: '打开占用任务' }))
+@@ -589,7 +591,7 @@ describe('Domi-style Worktree Review', () => {
+       },
+       capabilities: { ...fixture.target.capabilities, preview: false, finalize: false },
+     }
+-    render(<WorktreeReviewPanel review={review()} adapter={fixture.adapter} identity={identity()} target={delivered} />)
++    render(<WorktreeReviewPanel t={zhT} review={review()} adapter={fixture.adapter} identity={identity()} target={delivered} />)
+ 
+     expect(screen.getByText('Delivery Proof')).toBeTruthy()
+     expect(screen.getByText(/环境已清理/)).toBeTruthy()
+diff --git a/tests/client-target-console.test.tsx b/tests/client-target-console.test.tsx
+index 307a050..614e4f6 100644
+--- a/tests/client-target-console.test.tsx
++++ b/tests/client-target-console.test.tsx
+@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
+ import type { ComponentType } from 'react'
+ import type { WorktreeConsoleTargetDetails } from '../src/console-contract.js'
+ import type { WorktreeClientServices } from '../src/client/actions.js'
++import { zhT } from './support/zh-translate.js'
+ import { apply as applyClient, WORKTREE_CONSOLE_ADAPTER_SERVICE } from '../src/client/index.js'
+ import { apply as applyRemoteClient } from '../src/client/console-remote/index.js'
+ import { registerTargetConsole, type TargetConsoleContextLike } from '../src/client/target-console/index.js'
+@@ -90,6 +91,7 @@ function clientServices(): WorktreeClientServices {
+   const byId: Record<string, { cwd?: string } | undefined> = { 'source-session': { cwd: '/fixture/project' } }
+   const listeners = new Set<() => void>()
+   return {
++    t: zhT,
+     workspaces: {
+       create: vi.fn(async ({ path }) => {
+         workspacePath = path
+@@ -860,6 +862,7 @@ describe('Client entry integration', () => {
+         if (name === 'workspaces') return services.workspaces
+         if (name === 'sessions') return services.sessions
+         if (name === 'remote.gitWorktree') return remote.gitWorktree
++        if (name === 'locale') return { bind: () => zhT, register: () => () => {} }
+         return provided.get(name)
+       },
+       provide: (name: string, value: unknown) => { provided.set(name, value) },
+@@ -910,6 +913,7 @@ describe('Client entry integration', () => {
+         if (name === 'workspaces') return services.workspaces
+         if (name === 'sessions') return services.sessions
+         if (name === WORKTREE_CONSOLE_ADAPTER_SERVICE) return fixture.adapter
++        if (name === 'locale') return { bind: () => zhT, register: () => () => {} }
+         return undefined
+       },
+       effect: (setup: () => void | (() => void)) => {
+diff --git a/tests/client-toolview.test.tsx b/tests/client-toolview.test.tsx
+index 60961bc..370303a 100644
+--- a/tests/client-toolview.test.tsx
++++ b/tests/client-toolview.test.tsx
+@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
+ import { WorktreeCreateRow } from '../src/client/WorktreeCreateRow.js'
+ import { WorktreeReviewRow } from '../src/client/WorktreeReviewRow.js'
+ import type { WorktreeClientServices } from '../src/client/actions.js'
++import { zhT } from './support/zh-translate.js'
+ 
+ afterEach(() => cleanup())
+ 
+@@ -16,6 +17,7 @@ function services(): WorktreeClientServices & { opened: string[]; commands: stri
+   let workspacePath = ''
+   const commands: string[] = []
+   return {
++    t: zhT,
+     opened,
+     commands,
+     workspaces: {
+diff --git a/tests/support/zh-translate.ts b/tests/support/zh-translate.ts
+new file mode 100644
+index 0000000..f245a17
+--- /dev/null
++++ b/tests/support/zh-translate.ts
+@@ -0,0 +1,21 @@
++import { worktreeZh, type WorktreeLocaleKey, type WorktreeTranslate } from '../../src/client/locales/worktree.js'
++
++/**
++ * Test translate resolving keys against the shipped zh dictionary (with
++ * {placeholder} interpolation). Existing assertions on the exact Chinese copy
++ * keep verifying the same rendered strings.
++ */
++export function createZhTranslate(): WorktreeTranslate {
++  return (key: WorktreeLocaleKey, params?: Record<string, unknown>) => {
++    let out = worktreeZh[key]
++    if (params) {
++      for (const [name, value] of Object.entries(params)) {
++        out = out.split(`{${name}}`).join(String(value))
++      }
++    }
++    return out
++  }
++}
++
++/** Shared instance for fixture wiring. */
++export const zhT: WorktreeTranslate = createZhTranslate()
