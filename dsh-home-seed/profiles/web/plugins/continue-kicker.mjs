@@ -188,7 +188,10 @@ export default function continueKicker(ctx, config = {}) {
   function maybeKick(agent, trigger) {
     try {
       const sessionId = agent.id
-      const events = agent.session?.events
+      // dsh 0.1.2-rc.1 removed Session.events; snapshotEvents() is the
+      // on-demand replacement (cached full snapshot, stable until the next
+      // append - exactly the whole-log tail read analyzeTail needs).
+      const events = agent.session?.snapshotEvents()
       const verdict = analyzeTail(events, fullConfig)
 
       // Reset signals first, whatever the verdict.
