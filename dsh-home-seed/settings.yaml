@@ -282,3 +282,13 @@ agent-presets:
   default: code-local
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
+# Explicit DSH language selection (the 0.1.2-rc.1 i18n line). dsh-git-worktree
+# 0.8.0 follows the DSH locale on every surface; WITHOUT a stored preference,
+# its tools and /worktree commands fall back to Chinese because browser
+# auto-detection is client-side only and invisible to the Host settings
+# service (see the plugin's docs/i18n.md "Limitation"). Storing the
+# preference explicitly makes English uniform across UI, Console, tools and
+# commands. Unregistered in the headless profile (no locale host entry there)
+# and safely preserved/ignored by the settings store in that case.
+locale:
+  preference: en

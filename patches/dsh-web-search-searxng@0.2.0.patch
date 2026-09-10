@@ -1,0 +1,40 @@
+diff --git a/src/index.js b/src/index.js
+index c0d7356..a3384b3 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -9,7 +9,6 @@
+ 
+ import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
+ import z from '@deepseek-ai/schemastery'
+-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+ import {
+   SearxngSearchProvider,
+   SEARXNG_DEFAULT_BASE_URL,
+@@ -26,7 +25,7 @@ export const name = 'web-search-searxng'
+ export const inject = ['web']
+ 
+ /** Settings namespace carrying this provider's endpoint, result count, and optional key. */
+-export const SEARXNG_SETTINGS_NAMESPACE = settingsNamespace('web-search-searxng')
++export const SEARXNG_SETTINGS_NAMESPACE = 'web-search-searxng'
+ 
+ /** The plugin's config schema. All fields optional — defaults apply otherwise. */
+ export const Config = z.object({
+@@ -61,9 +60,15 @@ export function apply(ctx, config) {
+   // The provider reads the active config source per search, so a committed
+   // settings change needs no re-registration.
+   let current = () => config
+-  installSettingsSection(ctx, SEARXNG_SETTINGS_NAMESPACE, Config, config, {
+-    setSource: (source) => { current = source },
+-    onChange: () => {},
++  // dsh 0.1.2-rc.1: the standalone `installSettingsSection` and
++  // `settingsNamespace` exports were removed from @deepseek-ai/dsh-settings.
++  // Section installation moved to SettingsProvider.installSection (same
++  // hooks contract), reached through the `settings` inject service.
++  ctx.inject(['settings'], (settingsCtx) => {
++    settingsCtx.settings.installSection(ctx, SEARXNG_SETTINGS_NAMESPACE, Config, config, {
++      setSource: (source) => { current = source },
++      onChange: () => {},
++    })
+   })
+   ctx.web.registerSearchProvider(
+     new SearxngSearchProvider(() => resolveOptions(ctx, current())),
