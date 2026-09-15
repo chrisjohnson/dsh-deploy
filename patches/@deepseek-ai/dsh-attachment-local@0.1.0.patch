@@ -1,7 +1,16 @@
 diff --git a/lib/index.js b/lib/index.js
-index 12810a5..dfcf65c 100644
+index 12810a5d5f7e941cc50f33922fb4f5c4961858a7..fb71456101406939b78886d6002ce6053f66b4f2 100644
 --- a/lib/index.js
 +++ b/lib/index.js
+@@ -258,7 +258,7 @@ async function readImageFile(root, ref, signal) {
+ //#region lib/types/index.js
+ /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
+ /** Default maximum encoded bytes for one image. */
+-const DEFAULT_MAX_IMAGE_BYTES = 3.5 * 1024 * 1024;
++const DEFAULT_MAX_IMAGE_BYTES = 7 * 1024 * 1024;
+ /** Default maximum images in one prompt. */
+ const DEFAULT_MAX_IMAGES_PER_MESSAGE = 20;
+ /** Default maximum aggregate image bytes in one prompt. */
 @@ -272,7 +272,7 @@ const DEFAULT_MAX_IMAGE_PIXELS = 4e7;
  * every later request of its session, so admission refuses at the same line
  * to keep the durable history streamable.
@@ -11,7 +20,12 @@ index 12810a5..dfcf65c 100644
  /** Persistent content-addressed local attachment store. */
  var LocalAttachmentStore = class extends AttachmentStore {
  	static Config = z.object({
-@@ -294,7 +294,7 @@ var LocalAttachmentStore = class extends AttachmentStore {
+@@ -290,11 +290,11 @@ var LocalAttachmentStore = class extends AttachmentStore {
+ 		super(ctx);
+ 		this.root = resolve(join(resolveDshHome(config.dshHome), "attachments", "v1"));
+ 		this.imageLimits = Object.freeze({
+-			maxImageBytes: config.maxImageBytes ?? 3670016,
++			maxImageBytes: config.maxImageBytes ?? 7340032,
  			maxImagesPerMessage: config.maxImagesPerMessage ?? 20,
  			maxMessageImageBytes: config.maxMessageImageBytes ?? 104857600,
  			maxImagePixels: config.maxImagePixels ?? 4e7,
