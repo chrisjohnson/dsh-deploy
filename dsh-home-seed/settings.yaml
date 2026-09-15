@@ -263,7 +263,18 @@ llm-pi-ai:
       models:
         - id: medium-dense
           contextWindow: 262144
-          maxTokens: 8192
+          # maxTokens (2026-09-15): 8192 -> 16384, matching Dirk v6's real
+          # -n 16384 (doubled from v4's -n 8192 - see that build's build.yaml
+          # for the full writeup: v4's 8192 was traced back to two OTHER
+          # models' real incidents, never independently re-derived for
+          # Dirk). Confirmed live via docker inspect on the v6 container's
+          # actual Cmd, then a real completion through litellm
+          # (finish_reason: stop, not length). Leaving this stale after the
+          # server-side bump would silently cap every request back to 8192
+          # regardless of the backend's real capacity - same failure mode
+          # this file's other maxTokens/contextWindow comments already
+          # document (declared value drifting from real backend capability).
+          maxTokens: 16384
           input: [text, image]
           # reasoningEfforts (2026-09-06): confirmed live via Dirk's own
           # /props chat_template — graduated `reasoning_effort` (not the
