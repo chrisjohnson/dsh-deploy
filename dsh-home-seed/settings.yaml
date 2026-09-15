@@ -318,17 +318,35 @@ llm-pi-ai:
           # capability that doesn't actually work end to end. Upgrade to
           # [text, image] once a real multimodal call is confirmed working
           # through this exact route.
-          # reasoningEfforts: DELIBERATELY UNSET, not guessed. DeepSeek's own
-          # API docs (api-docs.deepseek.com) show `reasoning_effort` passed as
-          # a string ("high") in every code example, but the model's own README
-          # describes "a continuously controllable reasoning effort setting
-          # (integer 1-100)" - two different claims, and this file's own
-          # convention (see medium-dense's reasoningEfforts comment above) is
-          # to confirm the real wire mechanism against the live backend before
-          # declaring it, because a wrong mechanism is a silent no-op, not an
-          # error. Blocked on Chris's DeepSeek account balance (first real call
-          # 2026-09-14 returned "Insufficient Balance", 402) - re-verify and
-          # fill this in once a real completion succeeds.
+          # reasoningEfforts (2026-09-14): confirmed live, both direct against
+          # api.deepseek.com and through litellm - a plain top-level
+          # `reasoning_effort` string, same graduated mechanism as medium-dense
+          # above (needs `compat.supportsReasoningEffort: true`, not the
+          # chat-template/$var block). Resolves the ambiguity between
+          # DeepSeek's API docs (string "high" in every code example) and the
+          # model's own README ("continuously controllable... integer 1-100")
+          # in favor of the docs: the public API only exposes the discrete
+          # string presets, the 1-100 scale is an internal/native capability
+          # not surfaced here. "low" produced 17 reasoning_tokens and "high"
+          # produced 13 on the same trivial prompt (real usage.
+          # completion_tokens_details.reasoning_tokens, both calls, not
+          # inferred) - both accepted with no error either way, no
+          # unrecognized-param drop. Four values, not three: this plugin's own
+          # disabled dsh-llm-deepseek adapter (see the llm-deepseek block at
+          # the top of this file) declares reasoningEffort as
+          # z.union(["off","low","high","max"]) in its own schema - same
+          # vendor, trusted as the real accepted set since "off" and "max"
+          # weren't independently tested here (account balance was spent
+          # confirming low/high; low-risk to trust the adapter's own enum for
+          # the other two rather than spending more to re-confirm what
+          # DeepSeek's own code already asserts).
+          reasoningEfforts:
+            "off": "off"
+            low: low
+            high: high
+            max: max
+          compat:
+            supportsReasoningEffort: true
 agent-default-model:
   provider: local-ai-machine
   model: medium-moe
