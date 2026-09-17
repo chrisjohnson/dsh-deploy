@@ -46,6 +46,19 @@ find /app/dsh-home-seed/profiles -mindepth 2 -maxdepth 2 -name package.json | wh
   rel=${src#/app/dsh-home-seed/profiles/}
   cp "$src" "$DSH_HOME/profiles/$rel"
 done
+# Second exception, same reasoning as package.json above, confirmed live
+# by the same failure mode (2026-09-17): continue-kicker.mjs is entirely
+# authored and maintained through this repo via git - dsh's creator mode
+# has never hand-edited it and has no reason to (it's plugin logic, not a
+# settings/instructions file a user or agent would customize per-box).
+# The no-clobber rule silently left an already-seeded box on a stale copy
+# after a real update shipped (a new kickable flavor + a raised
+# maxConsecutiveKicks default) - same class of bug as the package.json
+# incident, same fix.
+if [ -f /app/dsh-home-seed/profiles/web/plugins/continue-kicker.mjs ]; then
+  cp /app/dsh-home-seed/profiles/web/plugins/continue-kicker.mjs \
+    "$DSH_HOME/profiles/web/plugins/continue-kicker.mjs"
+fi
 if [ ! -f "$DSH_HOME/AGENTS.md" ]; then
   cp /app/dsh-home-seed/AGENTS.md "$DSH_HOME/AGENTS.md"
 fi
