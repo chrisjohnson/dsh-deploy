@@ -32,9 +32,9 @@
 //
 // Tail classification (analyzeTail):
 //
-//   kick 'interrupted' - unresolved crash-recovery marker
-//   kick 'max-tokens'  - output budget exhausted on this boundary, full
-//                        stop. No content-shape check on the final
+//   kick 'interrupted'       - unresolved crash-recovery marker
+//   kick 'max-tokens'        - output budget exhausted on this boundary,
+//                        full stop. No content-shape check on the final
 //                        message: kind === 'max-tokens' is the API
 //                        reporting that THIS generation was cut off by
 //                        the token budget, never a model-chosen stop, so
@@ -49,23 +49,52 @@
 //                        says so and the next turn/end is 'completed',
 //                        which resets the runaway counter); a missed kick
 //                        leaves a session silently stuck with no signal.
-//   none               - completed / aborted / error boundaries (auto-
-//                        continuing over an explicit Stop fights the
-//                        user; blind retry on error loops against broken
-//                        backends), tails already followed by a
-//                        user/assistant message (recovered manually or
+//   kick 'empty-completion'  - 2026-09-17, real incident (GPS Routes
+//                        session, Dirk/medium-dense): kind === 'completed'
+//                        (the model emitted its own stop token, a genuine
+//                        API-reported deliberate halt, not a budget cutoff)
+//                        but the final assistant message's content was
+//                        reasoning ONLY - 69,379 characters of a
+//                        non-converging "wait, let me reconsider... actually,
+//                        let me reconsider..." loop, then a bare stop, no
+//                        text block and no tool_call at all. finish_reason
+//                        never signaled a problem (this wasn't a max-tokens
+//                        cutoff - the reasoning ran well under the model's
+//                        own -n cap), so the tail looked identical to any
+//                        other successful turn to every check above, and
+//                        nothing kicked it. A turn with zero text and zero
+//                        tool_call is never a legitimately finished agent
+//                        turn regardless of how it ended - there is no
+//                        valid "the model just thought and did nothing on
+//                        purpose" case in this loop's structure. Gated on a
+//                        minimum reasoning length (see
+//                        EMPTY_COMPLETION_MIN_REASONING_CHARS below) purely
+//                        to stay out of the way of genuine edge-case empty
+//                        turns unrelated to a reasoning loop, not because a
+//                        shorter empty turn would ever be "fine" - both
+//                        confirmed real incidents (this one and a smaller
+//                        5,147-character case found by scanning every other
+//                        session) were far above any threshold that could
+//                        plausibly cause a false positive.
+//   none               - completed-with-real-content / aborted / error
+//                        boundaries (auto-continuing over an explicit Stop
+//                        fights the user; blind retry on error loops
+//                        against broken backends), tails already followed
+//                        by a user/assistant message (recovered manually or
 //                        otherwise), empty sessions, disabled flavors,
 //                        and any other/unrecognized reason kind (logged,
 //                        never guessed at).
 //
-// Runaway guard: a max-tokens kick can itself produce another max-tokens
-// halt (model re-thinks into the same wall). Per-session consecutive-kick
-// counting: after maxConsecutiveKicks (default 3) with no completed turn
-// or genuine (non-plugin) user message in between, the plugin stops
-// kicking and logs loudly - surfacing the failure instead of silently
-// burning GPU-hours against a task genuinely too big for its budget.
-// Counters reset whenever a completed turn or genuine user message is
-// observed at the tail.
+// Runaway guard: a max-tokens or empty-completion kick can itself produce
+// another halt of the same kind (model re-thinks into the same wall, or
+// loops into another empty stop). Per-session consecutive-kick counting:
+// after maxConsecutiveKicks (default 5, raised from 3 on 2026-09-17 per
+// Chris's explicit direction) with no completed turn or genuine
+// (non-plugin) user message in between, the plugin stops kicking and logs
+// loudly - surfacing the failure instead of silently burning GPU-hours
+// against a task genuinely too big for its budget. Counters reset whenever
+// a completed-with-real-content turn or genuine user message is observed
+// at the tail.
 //
 // Scope guard: sessions with origin 'subagent' (or delegationDepth > 0)
 // are skipped by default (includeSubagents=false). Auto-kicking a
@@ -77,6 +106,10 @@
 // explicitly forbids re-deriving the lost reasoning, demands immediate
 // concrete action, and asks for succinctness, because a naive "please
 // continue" invites another long think-cycle straight back into the wall.
+// An 'empty-completion' kick uses the same "don't re-derive, be decisive"
+// framing - the failure mode (a reasoning loop that never resolves) is the
+// same one max-tokens guards against, just caught by content shape instead
+// of a budget cutoff.
 //
 // Every decision - kicks AND skips - is logged with its reason, so the
 // next "why didn't the plugin fire" question is answerable from
@@ -84,27 +117,69 @@
 // archaeology.
 //
 // Config:
-//   cooldownMs           (default 60000) - min time between kicks for
-//                         the same session id.
-//   liveKickDelayMs      (default 3000)  - delay between a live kickable
-//                         turn/end and the tail re-analysis/kick.
-//   maxConsecutiveKicks  (default 3)     - runaway guard, see above.
-//   kickOnInterrupted    (default true)
-//   kickOnMaxTokens      (default true)
-//   includeSubagents     (default false) - see scope guard above.
+//   cooldownMs                (default 60000) - min time between kicks for
+//                              the same session id.
+//   liveKickDelayMs           (default 3000)  - delay between a live
+//                              kickable turn/end and the tail
+//                              re-analysis/kick.
+//   maxConsecutiveKicks       (default 5)     - runaway guard, see above.
+//   kickOnInterrupted         (default true)
+//   kickOnMaxTokens           (default true)
+//   kickOnEmptyCompletion     (default true)  - see 'empty-completion'
+//                              above.
+//   includeSubagents          (default false) - see scope guard above.
 
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 
 const PLUGIN_NAME = 'continue-kicker'
+
+// Minimum reasoning-block character count before a content-empty
+// 'completed' turn is treated as a real empty-completion loop rather than
+// some unrelated, benign edge case. Not tuned against a false positive
+// that's actually been seen - both real incidents (69,379 and 5,147
+// characters) are far above this, so it exists as a conservative floor,
+// not a calibrated boundary.
+const EMPTY_COMPLETION_MIN_REASONING_CHARS = 500
 
 const CONTINUE_TEXTS = {
   interrupted:
     'The previous turn was interrupted before producing a response. Please continue from where you left off.',
   'max-tokens':
     'Your previous response hit the output token limit before finishing. Do NOT re-derive your thinking from scratch: briefly state your conclusion, then immediately take your next concrete action (make the tool call or give the answer). Be succinct - long reasoning is what hit the limit last time.',
+  'empty-completion':
+    'Your previous response reasoned at length but never reached a conclusion or took an action - it ended with no answer and no tool call. Do NOT re-derive your thinking from scratch: state your conclusion now and immediately take your next concrete action (make the tool call or give the answer). Be decisive - reconsidering the same point repeatedly is what caused this.',
 }
 
 const KICKABLE_KINDS = ['interrupted', 'max-tokens']
+
+// Scans backward from just before `idx` for the assistant/message that
+// belongs to the turn ending at `idx` - stops (returns null) if it hits a
+// turn/end, turn/start, or user/message first, which would mean walking
+// into a different turn entirely rather than this one's own message.
+function lastAssistantMessageBefore(events, idx) {
+  for (let i = idx - 1; i >= 0; i--) {
+    const e = events[i]
+    if (e.type === 'assistant/message') return e
+    if (e.type === 'turn/end' || e.type === 'turn/start' || e.type === 'user/message') return null
+  }
+  return null
+}
+
+// True if the message contains a non-empty text block or any tool_call -
+// i.e. it did something a user or the agent loop can act on.
+function hasRealContent(message) {
+  const content = message?.data?.message?.content ?? []
+  return content.some((b) => {
+    if (b?.type === 'tool_call') return true
+    if (b?.type === 'text') return (b.text ?? '').trim().length > 0
+    return false
+  })
+}
+
+function reasoningCharCount(message) {
+  const content = message?.data?.message?.content ?? []
+  return content.reduce((sum, b) => (b?.type === 'reasoning' ? sum + (b.text ?? '').length : sum), 0)
+}
 
 // Classifies the tail of a session's event array. Returns
 // { action: 'kick', flavor } or { action: 'none', why }, plus optional
@@ -143,7 +218,15 @@ function analyzeTail(events, config) {
   if (!boundary) return { action: 'none', why: 'no turn/end found' }
 
   const kind = boundary.data?.reason?.kind
-  if (kind === 'completed') return { action: 'none', why: 'last turn completed', completedTurn: true }
+  if (kind === 'completed') {
+    if (config.kickOnEmptyCompletion) {
+      const msg = lastAssistantMessageBefore(events, boundaryIdx)
+      if (msg && !hasRealContent(msg) && reasoningCharCount(msg) >= EMPTY_COMPLETION_MIN_REASONING_CHARS) {
+        return { action: 'kick', flavor: 'empty-completion' }
+      }
+    }
+    return { action: 'none', why: 'last turn completed', completedTurn: true }
+  }
   if (kind === 'aborted') return { action: 'none', why: 'last turn aborted by user' }
   if (kind === 'error') return { action: 'none', why: 'last turn errored' }
   if (!KICKABLE_KINDS.includes(kind)) return { action: 'none', why: `unhandled reason kind '${kind}'` }
@@ -163,13 +246,14 @@ function analyzeTail(events, config) {
 export default function continueKicker(ctx, config = {}) {
   const cooldownMs = config.cooldownMs ?? 60000
   const liveKickDelayMs = config.liveKickDelayMs ?? 3000
-  const maxConsecutiveKicks = config.maxConsecutiveKicks ?? 3
+  const maxConsecutiveKicks = config.maxConsecutiveKicks ?? 5
   const fullConfig = {
     cooldownMs,
     liveKickDelayMs,
     maxConsecutiveKicks,
     kickOnInterrupted: config.kickOnInterrupted ?? true,
     kickOnMaxTokens: config.kickOnMaxTokens ?? true,
+    kickOnEmptyCompletion: config.kickOnEmptyCompletion ?? true,
     includeSubagents: config.includeSubagents ?? false,
   }
   const log = ctx.logger(PLUGIN_NAME)
@@ -227,7 +311,7 @@ export default function continueKicker(ctx, config = {}) {
       lastKick.set(sessionId, now)
 
       const flavor = verdict.flavor
-      if (flavor === 'max-tokens') {
+      if (flavor === 'max-tokens' || flavor === 'empty-completion') {
         consecutive.set(sessionId, (consecutive.get(sessionId) ?? 0) + 1)
       }
 
@@ -240,7 +324,9 @@ export default function continueKicker(ctx, config = {}) {
           summary:
             flavor === 'max-tokens'
               ? `Auto-resumed after a max-tokens halt (${consecutive.get(sessionId)}/${maxConsecutiveKicks})`
-              : 'Auto-resumed after an interrupted turn',
+              : flavor === 'empty-completion'
+                ? `Auto-resumed after a reasoning-only completion with no answer (${consecutive.get(sessionId)}/${maxConsecutiveKicks})`
+                : 'Auto-resumed after an interrupted turn',
         },
       })
 
@@ -295,8 +381,8 @@ export default function continueKicker(ctx, config = {}) {
   })
 
   log.info(
-    'continue-kicker active (cooldownMs=%d, liveKickDelayMs=%d, maxConsecutiveKicks=%d, kickOnInterrupted=%s, kickOnMaxTokens=%s, includeSubagents=%s)',
+    'continue-kicker active (cooldownMs=%d, liveKickDelayMs=%d, maxConsecutiveKicks=%d, kickOnInterrupted=%s, kickOnMaxTokens=%s, kickOnEmptyCompletion=%s, includeSubagents=%s)',
     cooldownMs, liveKickDelayMs, maxConsecutiveKicks,
-    fullConfig.kickOnInterrupted, fullConfig.kickOnMaxTokens, fullConfig.includeSubagents,
+    fullConfig.kickOnInterrupted, fullConfig.kickOnMaxTokens, fullConfig.kickOnEmptyCompletion, fullConfig.includeSubagents,
   )
 }
