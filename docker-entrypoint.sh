@@ -107,12 +107,13 @@ fi
 # even though it's an @deepseek-ai-scoped package): what matters is "optional
 # Bundle" vs "core dsh dependency", not the package name's scope.
 # Idempotent: safe to re-run every boot.
-mkdir -p "$DSH_HOME/profiles/web/node_modules" "$DSH_HOME/profiles/web/node_modules/@deepseek-ai"
+mkdir -p "$DSH_HOME/profiles/web/node_modules" "$DSH_HOME/profiles/web/node_modules/@deepseek-ai" "$DSH_HOME/profiles/web/node_modules/@goodandready"
 ln -sfn /app/node_modules/dsh-web-search-searxng "$DSH_HOME/profiles/web/node_modules/dsh-web-search-searxng"
 ln -sfn /app/node_modules/dsh-claude-cli "$DSH_HOME/profiles/web/node_modules/dsh-claude-cli"
 ln -sfn /app/node_modules/@deepseek-ai/dsh-subagent-claude-code "$DSH_HOME/profiles/web/node_modules/@deepseek-ai/dsh-subagent-claude-code"
 ln -sfn /app/node_modules/dsh-better-sidebar "$DSH_HOME/profiles/web/node_modules/dsh-better-sidebar"
 ln -sfn /app/node_modules/dsh-git-worktree "$DSH_HOME/profiles/web/node_modules/dsh-git-worktree"
+ln -sfn /app/node_modules/@goodandready/dsh-image-gen "$DSH_HOME/profiles/web/node_modules/@goodandready/dsh-image-gen"
 
 # Default git identity so `git commit` works out of the box — the image ships
 # with none, and a missing identity makes EVERY commit fail with "Please tell
