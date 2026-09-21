@@ -217,13 +217,18 @@ patchedDependencies:
   # (the UI setting only applies to conversations created after it; new ones fall
   # back to this default). Patches the built lib/client-registry.js after install.
   dsh-better-sidebar@0.18.0: patches/dsh-better-sidebar@0.18.0.patch
-  # @goodandready/dsh-image-gen@0.10.29: real upstream bug, confirmed live
-  # (not guessed from reading the source) - generate_image threw
-  # `ReferenceError: enhancePrompt is not defined` on every call.
-  # lib/tools/generation.js calls enhancePrompt() without importing it;
-  # it's a real, exported function in lib/index.js, just never wired up
-  # at the call site. Pinned to this exact version (unlike some other
-  # patches here) since a missing-import bug is exactly the kind of
-  # thing a real upstream fix could restructure around, silently making
-  # this patch a no-op or, worse, wrong for a different file layout.
-  '@goodandready/dsh-image-gen@0.10.29': patches/@goodandready__dsh-image-gen@0.10.29.patch
+  # @goodandready/dsh-image-gen (currently resolves to 0.10.29, see
+  # package.json): two real upstream bugs, both confirmed live via a
+  # real generate_image call, not found by reading source speculatively.
+  # (1) lib/tools/generation.js calls enhancePrompt() without importing
+  # it (real, exported function in lib/index.js, just never wired up at
+  # the call site) - threw ReferenceError on every call. (2) the same
+  # function then passed the undefined `effectivePolishedNegative` as
+  # the negative prompt instead of the actually-declared
+  # `effectiveNegative` (defined a few lines above, correctly used
+  # elsewhere in the same function) - a second ReferenceError one fix
+  # away. No version pin (unlike dsh-better-sidebar's own entry above) -
+  # pnpm's own patch/patch-commit flow only resolved cleanly against the
+  # bare key here; re-verify this patch still applies (and re-check for
+  # new bugs) before bumping past 0.10.29.
+  '@goodandready/dsh-image-gen': patches/@goodandready__dsh-image-gen.patch
