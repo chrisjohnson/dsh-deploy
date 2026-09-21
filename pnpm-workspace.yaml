@@ -217,3 +217,13 @@ patchedDependencies:
   # (the UI setting only applies to conversations created after it; new ones fall
   # back to this default). Patches the built lib/client-registry.js after install.
   dsh-better-sidebar@0.18.0: patches/dsh-better-sidebar@0.18.0.patch
+  # @goodandready/dsh-image-gen@0.10.29: real upstream bug, confirmed live
+  # (not guessed from reading the source) - generate_image threw
+  # `ReferenceError: enhancePrompt is not defined` on every call.
+  # lib/tools/generation.js calls enhancePrompt() without importing it;
+  # it's a real, exported function in lib/index.js, just never wired up
+  # at the call site. Pinned to this exact version (unlike some other
+  # patches here) since a missing-import bug is exactly the kind of
+  # thing a real upstream fix could restructure around, silently making
+  # this patch a no-op or, worse, wrong for a different file layout.
+  '@goodandready/dsh-image-gen@0.10.29': patches/@goodandready__dsh-image-gen@0.10.29.patch

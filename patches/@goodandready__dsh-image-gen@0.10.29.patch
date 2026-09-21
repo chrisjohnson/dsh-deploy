@@ -1,0 +1,11 @@
+diff --git a/lib/tools/generation.js b/lib/tools/generation.js
+index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..92b4d05506a749105b27c8851e5db78311e402c4 100644
+--- a/lib/tools/generation.js
++++ b/lib/tools/generation.js
+@@ -1,5 +1,6 @@
+ import { polishPrompt } from '../prompt-polisher.js'
+ import { registerGenerationPackTool } from './generation-pack.js'
++import { enhancePrompt } from '../index.js'
+ 
+ /** Run an array of async task functions with a concurrency cap */
+ async function asyncPool(tasks, concurrency = 3) {
