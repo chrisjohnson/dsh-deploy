@@ -358,6 +358,23 @@ llm-pi-ai:
             max: max
           compat:
             supportsReasoningEffort: true
+# dsh-image-gen (M-149 follow-on, 2026-09-21): pointed at this box's own
+# litellm image-gen role (qwen-image-2.1, stable-diffusion.cpp), not a
+# cloud provider - same "one gateway" reasoning the llm-pi-ai providers
+# above follow. Reuses LOCAL_AI_MACHINE_API_KEY (already resolvable in
+# this container's env, same credential the chat providers above use) -
+# no new secret needed. litellm's /v1/images/generations doesn't accept
+# a steps override (confirmed real - see strix-halo-r9700-llm-builds'
+# M-149 build.yaml, a "20 vs 40 steps" A/B came back identical), so
+# every call through this route runs at the server's own baked-in
+# default (20 steps, ~135s at 1024x1024 with easycache) regardless of
+# what a caller here asks for.
+dsh-image-gen:
+  provider: custom
+  customBaseURL: "http://127.0.0.1:4000/v1"
+  customModel: "image-gen"
+  customKeyEnv: "LOCAL_AI_MACHINE_API_KEY"
+
 agent-default-model:
   provider: local-ai-machine
   model: medium-moe
