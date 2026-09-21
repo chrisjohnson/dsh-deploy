@@ -218,16 +218,24 @@ patchedDependencies:
   # back to this default). Patches the built lib/client-registry.js after install.
   dsh-better-sidebar@0.18.0: patches/dsh-better-sidebar@0.18.0.patch
   # @goodandready/dsh-image-gen (currently resolves to 0.10.29, see
-  # package.json): two real upstream bugs, both confirmed live via a
-  # real generate_image call, not found by reading source speculatively.
-  # (1) lib/tools/generation.js calls enhancePrompt() without importing
-  # it (real, exported function in lib/index.js, just never wired up at
-  # the call site) - threw ReferenceError on every call. (2) the same
-  # function then passed the undefined `effectivePolishedNegative` as
-  # the negative prompt instead of the actually-declared
-  # `effectiveNegative` (defined a few lines above, correctly used
-  # elsewhere in the same function) - a second ReferenceError one fix
-  # away. No version pin (unlike dsh-better-sidebar's own entry above) -
+  # package.json): three real upstream bugs, all confirmed live via
+  # real generate_image calls (three separate attempts, each one
+  # revealing the next bug in line), not found by reading source
+  # speculatively. All three are the same root cause: lib/tools/
+  # generation.js is missing entire import statements, apparently
+  # dropped in a refactor (a stray comment references "Extracted from
+  # apply() (#216)"). (1) enhancePrompt() called without importing it
+  # (real, exported function in lib/index.js). (2) the undefined
+  # `effectivePolishedNegative` passed as the negative prompt instead
+  # of the actually-declared `effectiveNegative` (defined a few lines
+  # above, correctly used elsewhere in the same function). (3) SEVEN
+  # more calls (readHistory/pruneHistory/writeHistory/
+  # findCachedGeneration/findCached/findCachedByPrompt/cachedResult, all
+  # real exports of lib/history.js) with the entire import from that
+  # file missing outright - confirmed exhaustively via a script cross-
+  # referencing every call in generation.js against every export of its
+  # sibling modules, not just fixed reactively one crash at a time.
+  # No version pin (unlike dsh-better-sidebar's own entry above) -
   # pnpm's own patch/patch-commit flow only resolved cleanly against the
   # bare key here; re-verify this patch still applies (and re-check for
   # new bugs) before bumping past 0.10.29.
