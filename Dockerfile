@@ -25,6 +25,17 @@ FROM node:22-bookworm-slim
 # `docker` CLI (socket access + group membership is a compose-level
 # concern, see docker-compose.yml's group_add, not baked in here — same
 # split pi-web uses).
+#
+# The debug/troubleshooting set below fills the gaps node:bookworm-slim
+# leaves that bite constantly in a real "why is this not working" session.
+# The base image ships with NO process inspection (ps/top/free/pgrep —
+# procps) and NO network inspection (ip/ss — iproute2); both are routine
+# first reaches. The rest are the standard debugging toolkit a coding agent
+# keeps needing: connectivity (ping/dig/traceroute/mtr), open
+# files+sockets (lsof), syscall tracing (strace), fast search (rg/fd),
+# file-type ID (file), hex dumps (xxd), SQLite inspection
+# (sqlite3 — many app-level DBs), a calculator (bc), and pip3 for ad-hoc
+# Python tooling. All are --no-install-recommends to keep the image lean.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     openssh-client \
@@ -41,8 +52,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     g++ \
     python3 \
+    python3-pip \
     docker.io \
+    procps \
+    iproute2 \
+    iputils-ping \
+    dnsutils \
+    traceroute \
+    mtr \
+    lsof \
+    strace \
+    ripgrep \
+    fd-find \
+    file \
+    xxd \
+    sqlite3 \
+    bc \
     && rm -rf /var/lib/apt/lists/*
+
+# Debian ships fd-find's binary as `fdfind`; alias it to the `fd` name the
+# tool is known by (and that the comment above references).
+RUN ln -sf /usr/bin/fdfind /usr/local/bin/fd
 
 # yq (Mike Farah's Go yq — the YAML-for-jq tool people mean by "yq", not
 # the unrelated Python wrapper apt might otherwise resolve to). No clean
@@ -61,8 +91,53 @@ RUN curl -fsSL -o /tmp/gh.tar.gz \
         https://github.com/cli/cli/releases/download/v2.97.0/gh_2.97.0_linux_amd64.tar.gz \
     && echo "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112  /tmp/gh.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/gh.tar.gz -C /tmp \
-    && mv /tmp/gh_2.97.0_linux_amd64/bin/gh /usr/local/bin/gh \
+    && mv /tmp/gh_2.97.0_linux_amd64/bin/gh /usr/local/bin/gh.real \
     && rm -rf /tmp/gh.tar.gz /tmp/gh_2.97.0_linux_amd64
+
+# Self-healing `gh` wrapper: the real binary is gh.real; this wrapper at
+# /usr/local/bin/gh mints + re-auths a fresh GitHub App installation token on
+# demand when the cached one ($DSH_HOME/.gh-installation-token) is missing or
+# older than ~40 min. This makes `gh`/`gh api` work even if the entrypoint's
+# background refresh loop has died — the failure mode behind intermittent gh
+# auth errors. Fresh-token path is a single file-age check (see the script).
+COPY gh-wrapper.sh /usr/local/bin/gh
+RUN chmod 755 /usr/local/bin/gh
+
+# Headless browser — Playwright + Chromium, so an agent session can
+# screenshot, drive, and inspect web UIs with no display. Two installs:
+# (1) the `playwright` npm package + its CLI (pinned, exactly like the gh
+# and yq installs above — a standalone global install, NOT a member of the
+# /app pnpm tree, because the browser is an agent-facing tool, not a dsh
+# runtime dependency), and (2) the Chromium binary it drives.
+#
+# PLAYWRIGHT_BROWSERS_PATH pins the downloaded browser to /ms-playwright —
+# a plain image-layer path deliberately NOT under any of docker-compose.yml's
+# bind mounts (/dsh-home, /work, /home/node, ...). That's load-bearing: a
+# container recreate wipes the writable layer but keeps the image, and a bind
+# mount would hide whatever the image baked beneath it. Baked into the image
+# => present and identical in every session, no per-session download.
+#
+# --with-deps installs Chromium's system libraries via apt (needs root —
+# build-time is; runtime is the unprivileged `node` user, whose Chromium
+# sandbox works fine without --no-sandbox). chmod a+rX so the runtime `node`
+# user can read+execute the root-downloaded browser tree.
+#
+# Usage from a session: `playwright screenshot <url> <file>` and
+# `playwright pdf <url> <file>` are the one-liners; for real interaction
+# (goto/click/fill/evaluate) write a small script and `require("playwright")` —
+# NODE_PATH below makes that resolve from /work.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# (1) the playwright CLI + library (pinned; layer is stable until the pin bumps)
+RUN npm install -g playwright@1.63.0
+# (2) the Chromium browser it drives + its system libraries
+RUN apt-get update \
+    && playwright install --with-deps chromium \
+    && chmod -R a+rX /ms-playwright \
+    && rm -rf /var/lib/apt/lists/*
+# (3) make `require("playwright")` resolve from agent scripts run out of /work
+# (the global package lives in /usr/local/lib/node_modules, outside Node's
+# normal upward node_modules walk from the workspace)
+ENV NODE_PATH=/usr/local/lib/node_modules
 
 # pnpm, not npm: dsh's internal package graph has genuine cyclic peer
 # dependencies (confirmed upstream, e.g. cordis <-> cordis-plugin-loader

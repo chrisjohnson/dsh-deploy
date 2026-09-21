@@ -114,6 +114,15 @@ ln -sfn /app/node_modules/@deepseek-ai/dsh-subagent-claude-code "$DSH_HOME/profi
 ln -sfn /app/node_modules/dsh-better-sidebar "$DSH_HOME/profiles/web/node_modules/dsh-better-sidebar"
 ln -sfn /app/node_modules/dsh-git-worktree "$DSH_HOME/profiles/web/node_modules/dsh-git-worktree"
 
+# Default git identity so `git commit` works out of the box — the image ships
+# with none, and a missing identity makes EVERY commit fail with "Please tell
+# me who you are" (a wall that forces a session to stop and improvise). Set
+# ONLY if not already configured: this gitconfig is bind-mounted and persists
+# across restarts, so a human/agent-provided identity wins and is never
+# clobbered on the next boot. Override per-repo or globally as needed.
+git config --global --get user.name  >/dev/null 2>&1 || git config --global user.name  "dsh agent"
+git config --global --get user.email >/dev/null 2>&1 || git config --global user.email "dsh-agent@users.noreply.github.com"
+
 # GitHub App credential — one mechanism covering both git and gh:
 #
 # 1. git: a credential.helper backed by github-app-git-credential-helper.mjs
@@ -179,10 +188,19 @@ if [ -n "$GITHUB_APP_ID" ]; then
   esac
 
   (
+    umask 077  # the token file below is created 600, never world-readable
     while true; do
       token="$(node /app/github-app-token.mjs 2>/dev/null)" || true
       if [ -n "$token" ]; then
-        echo "$token" | env -u GH_TOKEN gh auth login --with-token >/dev/null 2>&1 || true
+        # gh.real (not the /usr/local/bin/gh wrapper): this loop IS the
+        # refresher, so routing it through the wrapper would double-mint.
+        echo "$token" | env -u GH_TOKEN /usr/local/bin/gh.real auth login --with-token >/dev/null 2>&1 || true
+        # Also expose the fresh token for general GitHub API use (curl,
+        # `gh api`, ad-hoc scripts) so a session never has to mint one
+        # itself: this loop rewrites it every 45 min, comfortably inside the
+        # ~1h installation-token lifetime. Written to $DSH_HOME — durable,
+        # node-owned, 600 — and never into a git checkout.
+        printf '%s\n' "$token" > "$DSH_HOME/.gh-installation-token"
       fi
       sleep 2700
     done
