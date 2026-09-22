@@ -211,11 +211,6 @@ minimumReleaseAgeExclude:
   - '@goodandready/dsh-image-gen@0.10.29'
 patchedDependencies:
   dsh-claude-cli@0.1.0: patches/dsh-claude-cli@0.1.0.patch
-  # dsh-better-sidebar@0.18.0: open the sidebar default split 35% -> 25% so the
-  # width the operator set in the UI is codified rather than lost on next install
-  # (the UI setting only applies to conversations created after it; new ones fall
-  # back to this default). Patches the built lib/client-registry.js after install.
-  dsh-better-sidebar@0.18.0: patches/dsh-better-sidebar@0.18.0.patch
   # @goodandready/dsh-image-gen (currently resolves to 0.10.29, see
   # package.json): three real upstream bugs, all confirmed live via
   # real generate_image calls (three separate attempts, each one
@@ -242,7 +237,7 @@ patchedDependencies:
   # 'error' : 'ok'` - error and isError are separate signals) - every
   # successful generation was rendered as a failed "card.unknownError"
   # card. Fixed to `block.isError === true` alone, matching dsh-core's
-  # own convention. No version pin (unlike dsh-better-sidebar's own entry above) -
+  # own convention. No version pin here -
   # pnpm's own patch/patch-commit flow only resolved cleanly against the
   # bare key here; re-verify this patch still applies (and re-check for
   # new bugs) before bumping past 0.10.29.
