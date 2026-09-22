@@ -1,3 +1,16 @@
+diff --git a/lib/client.js b/lib/client.js
+index e4b2e88a5963adf9f549d34d327f2c6d2b45624c..d22f1c9c5b2d53d65a8e1b90ee308ec26a8ae73f 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -1361,7 +1361,7 @@ window.__ModuleLoader__.load({
+     function FalImageCard(props) {
+       const block = props.block
+       const running = !('kind' in (block || {}))
+-      const failed = block && (block.isError || block.error !== undefined)
++      const failed = block && block.isError === true
+       const parsed = readResult(block)
+       const responsiveImages = !failed && !running ? readResponsiveImages(block) : []
+       const t = props.t || ((k) => k)
 diff --git a/lib/tools/generation.js b/lib/tools/generation.js
 index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..f76a2df0656e534e16277151199b315c64f5ae6d 100644
 --- a/lib/tools/generation.js

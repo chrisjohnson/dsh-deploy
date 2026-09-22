@@ -235,7 +235,15 @@ patchedDependencies:
   # file missing outright - confirmed exhaustively via a script cross-
   # referencing every call in generation.js against every export of its
   # sibling modules, not just fixed reactively one crash at a time.
-  # No version pin (unlike dsh-better-sidebar's own entry above) -
+  # (4) lib/client.js's FalImageCard treated `block.error !== undefined`
+  # as failure, but dsh-core's own tool-call block shape can carry a
+  # non-null `error` on a NON-failed block (confirmed via
+  # @deepseek-ai/dsh-client-ui-tool's own canonical check:
+  # `block.error?.code === 'interrupted' ? 'stopped' : block.isError ?
+  # 'error' : 'ok'` - error and isError are separate signals) - every
+  # successful generation was rendered as a failed "card.unknownError"
+  # card. Fixed to `block.isError === true` alone, matching dsh-core's
+  # own convention. No version pin (unlike dsh-better-sidebar's own entry above) -
   # pnpm's own patch/patch-commit flow only resolved cleanly against the
   # bare key here; re-verify this patch still applies (and re-check for
   # new bugs) before bumping past 0.10.29.
