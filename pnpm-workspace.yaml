@@ -249,3 +249,16 @@ patchedDependencies:
   # to inject the `settings` seam and call `settingsCtx.settings.installSection(...)`
   # directly, matching the pattern already used by @deepseek-ai/dsh-web-search-deepseek.
   dsh-web-search-searxng@0.2.0: patches/dsh-web-search-searxng@0.2.0.patch
+  # dsh-attachment-local@0.1.5-rc.2: createRequestImage()'s raw-passthrough fast
+  # path (small-enough images below the route's pixel/byte budget are sent to
+  # the model completely unmodified, whatever their native format) does not
+  # exclude image/webp. Our vision backends are llama-server (Ornith, Dirk),
+  # which cannot decode webp at all -- a natively-webp attachment under the
+  # threshold gets sent raw and every turn in the session fails permanently
+  # with a litellm 400 "Failed to load image or audio file" (M-151). The older
+  # pinned dsh-attachment-local (0.1.0-rc.8) had no per-request re-encoding
+  # pipeline at all -- this whole normalize-per-route-policy path, and its
+  # webp gap, is new to 0.1.5-rc.2. Fix: exclude image/webp from the fast
+  # path so it always goes through the encode ladder, which encodes opaque
+  # source images (ours) as jpeg -- a format llama-server supports.
+  '@deepseek-ai/dsh-attachment-local@0.1.5-rc.2': patches/@deepseek-ai__dsh-attachment-local@0.1.5-rc.2.patch
