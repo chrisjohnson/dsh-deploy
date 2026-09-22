@@ -196,7 +196,7 @@ overrides:
 patchedDependencies:
   '@goodandready/dsh-image-gen': 975b93636ee39d8008ab22324cd47bf600a38ccd5cc3fbbe542ff3759f973819
   dsh-better-sidebar@0.18.0: 2b9f13ce419ab114c9398dc88a87832515d82759ffe7dfccc26ce853e851ada3
-  dsh-claude-cli@0.1.0: f9b7835f5ee07ed1e059086e2a6b98a0b5d26e75ec5e330478c56a5592d5aae0
+  dsh-claude-cli@0.1.0: 31fa3f0c7773496d45c11e72cfd5e029ef3601acc5fdbd07db645f3433cf9d22
   dsh-web-search-searxng@0.2.0: 22f2ceae8c93da50ea8b283fe8ea0f5876d95810eaa4c1dc3ba4bfb9f9066de4
 
 importers:
@@ -223,7 +223,7 @@ importers:
         version: 0.18.0(patch_hash=2b9f13ce419ab114c9398dc88a87832515d82759ffe7dfccc26ce853e851ada3)(50ee9fdab433a6e2e3c66000078269fd)
       dsh-claude-cli:
         specifier: git+https://github.com/katsos/dsh-claude-cli.git#3a3a57f22a3e748c9720a1b96ce64e015f0f9643
-        version: https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(patch_hash=f9b7835f5ee07ed1e059086e2a6b98a0b5d26e75ec5e330478c56a5592d5aae0)(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2))
+        version: https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(patch_hash=31fa3f0c7773496d45c11e72cfd5e029ef3601acc5fdbd07db645f3433cf9d22)(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2))
       dsh-git-worktree:
         specifier: 0.4.0
         version: 0.4.0(d6d1b305954ceb875ae8a232b007d553)
@@ -8940,7 +8940,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  dsh-claude-cli@https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(patch_hash=f9b7835f5ee07ed1e059086e2a6b98a0b5d26e75ec5e330478c56a5592d5aae0)(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)):
+  dsh-claude-cli@https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(patch_hash=31fa3f0c7773496d45c11e72cfd5e029ef3601acc5fdbd07db645f3433cf9d22)(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)):
     dependencies:
       '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
       '@deepseek-ai/dsh-llm': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)

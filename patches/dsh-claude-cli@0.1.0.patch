@@ -37,3 +37,16 @@ index be2d703764e07ffa9a4829bd6ea1f02ba6326fe4..8c8c123009db6cb7f182c4b77e8e21e3
  ];
  /**
   * Reasoning efforts the CLI's `--effort` flag accepts, in increasing order.
+diff --git a/lib/translate.js b/lib/translate.js
+index 1ce4d286683a58cbb74acf9a078b299d330aad18..13b0e22982bf01bd5ef5e80cba1e6dffff3bda99 100644
+--- a/lib/translate.js
++++ b/lib/translate.js
+@@ -10,7 +10,7 @@
+  *
+  * @module dsh-claude-cli/translate
+  */
+-import { CallId, EMPTY_RESPONSE_CODE, } from '@deepseek-ai/dsh-llm';
++import { ToolCallId as CallId, EMPTY_RESPONSE_CODE, } from '@deepseek-ai/dsh-llm';
+ import { classifyCliError, cliFailure, retryAfterMs, CLI_EXIT_CODE } from "./failure.js";
+ import { parseCliLine } from "./protocol.js";
+ import { harnessToolName } from "./tools.js";
