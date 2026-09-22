@@ -272,7 +272,7 @@ export default function continueKicker(ctx, config = {}) {
   function maybeKick(agent, trigger) {
     try {
       const sessionId = agent.id
-      const events = agent.session?.events
+      const events = agent.session?.snapshotEvents()
       const verdict = analyzeTail(events, fullConfig)
 
       // Reset signals first, whatever the verdict.
