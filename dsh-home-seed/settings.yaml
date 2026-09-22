@@ -400,3 +400,5 @@ agent-presets:
   default: code-local
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
+locale:
+  preference: en
