@@ -247,3 +247,10 @@ patchedDependencies:
   # bare key here; re-verify this patch still applies (and re-check for
   # new bugs) before bumping past 0.10.29.
   '@goodandready/dsh-image-gen': patches/@goodandready__dsh-image-gen.patch
+  # dsh-web-search-searxng@0.2.0: upstream `@deepseek-ai/dsh-settings` dropped
+  # its top-level `installSettingsSection`/`settingsNamespace` exports in the
+  # 0.1.5-rc.2 line (installSection is now a method on the injected `ctx.settings`
+  # service, and a settings namespace is just a plain string). Rewrites src/index.js
+  # to inject the `settings` seam and call `settingsCtx.settings.installSection(...)`
+  # directly, matching the pattern already used by @deepseek-ai/dsh-web-search-deepseek.
+  dsh-web-search-searxng@0.2.0: patches/dsh-web-search-searxng@0.2.0.patch
