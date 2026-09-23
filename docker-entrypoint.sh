@@ -63,7 +63,11 @@ if [ ! -f "$DSH_HOME/AGENTS.md" ]; then
   cp /app/dsh-home-seed/AGENTS.md "$DSH_HOME/AGENTS.md"
 fi
 mkdir -p "$DSH_HOME/.agent-presets"
-cp -rn /app/dsh-home-seed/agent-presets/. "$DSH_HOME/.agent-presets/"
+# Directory may not exist in the image at all when there are no custom
+# presets to ship (git doesn't track empty directories) — nothing to seed.
+if [ -d /app/dsh-home-seed/agent-presets ]; then
+  cp -rn /app/dsh-home-seed/agent-presets/. "$DSH_HOME/.agent-presets/"
+fi
 # /dsh-home-seed: the whole dsh-home-seed tree, at this separate top-level
 # path specifically because dsh's own settings-file plugin (each profile's
 # cordis.patch.yml, `id: settings`, config.path) points at
