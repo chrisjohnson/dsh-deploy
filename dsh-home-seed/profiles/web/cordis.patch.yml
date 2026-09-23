@@ -61,3 +61,17 @@
         kickOnInterrupted: true
         kickOnMaxTokens: true
         includeSubagents: false
+
+    # Model-facing image_search tool over the same self-hosted SearXNG
+    # instance dsh-web-search-searxng uses for text search, querying its
+    # `images` category. Same env-var convention as dsh-web-search-searxng
+    # (SEARXNG_BASE_URL / SEARXNG_API_KEY) so no new deployment config is
+    # needed. See plugins/image-search-searxng.mjs for why this is a
+    # standalone tool rather than an extension of web_search/dsh-web, and
+    # why it returns markdown links rather than real image attachments.
+    - id: image-search-searxng
+      name: ./plugins/image-search-searxng.mjs
+      config:
+        baseURL: !!js process.env.SEARXNG_BASE_URL ?? 'http://localhost:8888'
+        maxResults: !!js Number(process.env.SEARXNG_NUM_RESULTS ?? 8)
+        apiKey: !!js process.env.SEARXNG_API_KEY
