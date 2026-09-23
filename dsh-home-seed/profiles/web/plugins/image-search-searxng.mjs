@@ -63,11 +63,14 @@ export default function imageSearchSearxng(ctx, config = {}) {
           name: 'image_search',
           description:
             'Search the web for images via a self-hosted SearXNG instance. Returns '
-            + 'titles, source pages, and markdown image links so results render '
-            + 'inline in chat for the user to see. You do not receive image pixels '
-            + 'or a visual attachment - you cannot describe, compare, or analyze what '
-            + 'is actually depicted. Cite results only by title, source, and '
-            + 'resolution; never claim to see the image content itself.',
+            + 'titles, source pages, and a markdown image link (`![title](url)`) per '
+            + 'result. Copy those markdown image links VERBATIM into your reply so '
+            + 'they render inline in chat - the user wants to see the actual '
+            + 'pictures, not a text-only summary of what was found. You do not '
+            + 'receive image pixels or a visual attachment yourself - you cannot '
+            + 'describe, compare, or analyze what is actually depicted. Cite results '
+            + 'only by title, source, and resolution; never claim to see the image '
+            + 'content itself.',
           parameters: {
             query: {
               type: 'string',
