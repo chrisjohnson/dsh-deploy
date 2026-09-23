@@ -29,6 +29,25 @@ prompt, don't ask in chat first. For a bounded multi-step chore elsewhere (edit,
 commit, push), delegate to a subagent so it absorbs its own retries under one
 approval instead of escalating call-by-call. No approver available: denial is final.
 
+## Git: never force-push or rewrite shared history
+
+`git push --force`/`--force-with-lease`, `git reset --hard` on a branch
+already pushed, squash-then-push, or any other rewrite of commits another
+session might have built on — **stop and ask the human first**, even in a
+repo where ordinary direct pushes to `main` are pre-authorized (like this
+one). Direct-push authorization covers **fast-forward** commits only; it
+says nothing about destroying history other work depends on. A force-push
+here has already discarded another session's multi-week sequence of real,
+deployed commits with no warning — replaced by a stale local branch — and
+the box crash-looped on the resulting version mismatch until a human
+manually reconciled it.
+
+If your local branch has diverged from `origin/<branch>` — after a reset,
+rebase, squash, or recovering from a bad state — that divergence is the
+signal to stop, not to force-push over it. Push to a new branch name and
+ask, or describe the exact divergence and let the human decide how to
+reconcile.
+
 ## Model list settings — re-verify on every backend swap
 
 `settings.yaml`'s hand-declared routes (`local-ai-machine`,
