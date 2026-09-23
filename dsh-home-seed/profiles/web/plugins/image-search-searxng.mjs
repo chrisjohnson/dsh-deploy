@@ -15,19 +15,28 @@
 // no agent.cordis.yml customization is needed even now that this deployment
 // runs 100% upstream presets.
 //
-// Deliberately clickable links, not real image attachments: the model never
-// downloads, attaches, or "sees" a result image - it gets titles, source
-// pages, and `img_src`/thumbnail URLs as plain text, which it presents as
-// clickable links. Confirmed live (2026-09-23) that this chat UI's markdown
-// renderer does not embed images from external/untrusted URLs at all -
-// even a raw `![alt](url)` in a plain user-typed message renders as
-// italic alt-text only, zero `<img>` elements in the DOM - so results are
-// click-through, not inline-visible, regardless of markdown syntax. Real
-// inline images would mean downloading and validating arbitrary third-party
-// images through the same attachment/vision pipeline that caused a real
-// production incident (M-151, a WebP image DSH's own vision pipeline could
-// not send to llama-server) - out of scope for what's really just "let the
-// user see search results," and meaningfully lower-risk without it.
+// Deliberately markdown image links, not real image attachments: the model
+// never downloads, attaches, or "sees" a result image - it gets titles,
+// source pages, and `img_src`/thumbnail URLs as plain text, formatted as
+// `![alt](url)`. dsh-client-ui-primitives' renderImage()/MarkdownImage
+// (lib/index.js) DOES render arbitrary http(s) URLs as real inline <img>
+// elements (no domain allowlist - remoteImageUrl() accepts any http(s)
+// URL) and only falls back to alt-text-only when the browser's own image
+// GET request actually fails (a per-image React onError handler) - e.g. a
+// host with hotlink/referrer protection rejecting the `referrerpolicy:
+// no-referrer` request the renderer sends. Confirmed live (2026-09-23):
+// an initial test against a Wikipedia/Wikimedia URL rendered alt-text-only
+// (that host apparently rejects the request) and was wrongly read as "this
+// UI never embeds external images"; a second test against a real SearXNG
+// result URL (images.trailbuiltoffroad.com) rendered a genuine <img> with
+// the correct src. So results render as real inline pictures whenever the
+// source host cooperates, with automatic graceful degradation to alt text
+// otherwise - no code-level distinction needed between the two cases.
+// Real image ATTACHMENTS (the model downloading and actually seeing pixels)
+// would still mean routing arbitrary third-party images through the same
+// attachment/vision pipeline that caused a real production incident
+// (M-151) - out of scope for what's really just "let the user see search
+// results," and meaningfully lower-risk without it.
 //
 // ctx.tools requires an explicit ctx.inject(['tools'], ...) - unlike
 // ctx.logger/ctx.effect, which are always-present base context methods,
@@ -47,7 +56,7 @@ function formatResults(results) {
   return results
     .map((r, i) => {
       const title = r.title ?? `Image ${i + 1}`
-      const lines = [`${i + 1}. **${title}**`, `   [View image](${r.imgSrc})`, `   Source: ${r.sourceUrl}`]
+      const lines = [`${i + 1}. **${title}**`, `   ![${title}](${r.imgSrc})`, `   Source: ${r.sourceUrl}`]
       if (r.resolution) lines.push(`   Resolution: ${r.resolution}`)
       return lines.join('\n')
     })
@@ -67,14 +76,15 @@ export default function imageSearchSearxng(ctx, config = {}) {
           name: 'image_search',
           description:
             'Search the web for images via a self-hosted SearXNG instance. Returns '
-            + 'titles, source pages, and an image URL per result - present each as '
-            + 'a clickable link (e.g. markdown `[View](url)`) so the user can open '
-            + 'and see it; this chat UI does not render inline images from external '
-            + 'URLs, only clickable links. You do not receive image pixels or a '
-            + 'visual attachment yourself - you cannot describe, compare, or analyze '
-            + 'what is actually depicted. Cite results only by title, source, and '
-            + 'resolution; never claim to see the image '
-            + 'content itself.',
+            + 'titles, source pages, and a markdown image link (`![title](url)`) per '
+            + 'result. Copy those markdown image links VERBATIM into your reply - '
+            + 'this chat UI renders them as real inline pictures when the source '
+            + 'host allows it (most do), falling back to plain alt text '
+            + 'automatically otherwise; do not rewrite them as plain `[text](url)` '
+            + 'links yourself. You do not receive image pixels or a visual '
+            + 'attachment yourself - you cannot describe, compare, or analyze what '
+            + 'is actually depicted. Cite results only by title, source, and '
+            + 'resolution; never claim to see the image content itself.',
           parameters: {
             query: {
               type: 'string',
