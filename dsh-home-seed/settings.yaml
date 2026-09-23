@@ -378,26 +378,9 @@ dsh-image-gen:
 agent-default-model:
   provider: local-ai-machine
   model: medium-moe
-# Local variants of the shipped "standard" and "code" (PTC mode) presets
-# with compaction-basic's thresholdRatio lowered 0.8 -> 0.6 — a
-# session got permanently stuck when compaction never got a chance to run
-# before the live conversation itself filled the context window; see
-# dsh-home-seed/agent-presets/{standard,code}-local/agent.cordis.yml for
-# the full incident writeup. The session that actually hit this was
-# running PTC mode, not standard — both needed the identical patch, since
-# each preset mounts its own separate compaction-basic instance.
-#
-# Default set to code-local (PTC), matching actual daily usage on this
-# box, not standard-local — a session created without explicitly picking
-# a preset should get the mode that's actually used, not an unused one
-# that merely happens to share a name convention. Picking "PTC mode" from
-# the New Session dropdown still selects the ORIGINAL shipped, unfixed
-# preset — the shipped and local copies are necessarily two separate
-# dropdown entries (preset ids can't collide), so anyone deliberately
-# choosing a preset by name needs to pick the one labeled
-# "(local-ai-machine, early compaction)" for the fix to apply.
+# Default set to ptc (PTC mode), matching actual daily usage on this box.
 agent-presets:
-  default: code-local
+  default: ptc
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
 locale:
