@@ -25,7 +25,7 @@ index c2c7d51079bbf886cb49d92818f56732880bcedf..45666acd97410fd2bd15889c786f3d32
      .string()
      .description(
 diff --git a/lib/tools/generation.js b/lib/tools/generation.js
-index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..f76a2df0656e534e16277151199b315c64f5ae6d 100644
+index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..77cf502036682520fd8158a7d840a2607e3e79cd 100644
 --- a/lib/tools/generation.js
 +++ b/lib/tools/generation.js
 @@ -1,5 +1,7 @@
@@ -36,6 +36,15 @@ index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..f76a2df0656e534e16277151199b315c
  
  /** Run an array of async task functions with a concurrency cap */
  async function asyncPool(tasks, concurrency = 3) {
+@@ -202,7 +204,7 @@ export function registerGenerationTools(ctx, deps) {
+               type: 'array',
+               items: {
+                 type: 'object',
+-                additionalProperties: false,
++                additionalProperties: true,
+                 properties: {
+                   path: { type: 'string' },
+                   url: { type: 'string' },
 @@ -290,7 +292,7 @@ export function registerGenerationTools(ctx, deps) {
          assertBudgetAvailable(estimatedCost, cfg.dailyBudgetUsd)
          const providers = makeProviders(
