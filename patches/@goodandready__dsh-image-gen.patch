@@ -25,7 +25,7 @@ index c2c7d51079bbf886cb49d92818f56732880bcedf..45666acd97410fd2bd15889c786f3d32
      .string()
      .description(
 diff --git a/lib/tools/generation.js b/lib/tools/generation.js
-index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..77cf502036682520fd8158a7d840a2607e3e79cd 100644
+index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..95fc9e88c9ca3065ccf46dff9702c7a86aae25e1 100644
 --- a/lib/tools/generation.js
 +++ b/lib/tools/generation.js
 @@ -1,5 +1,7 @@
@@ -36,7 +36,17 @@ index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..77cf502036682520fd8158a7d840a260
  
  /** Run an array of async task functions with a concurrency cap */
  async function asyncPool(tasks, concurrency = 3) {
-@@ -202,7 +204,7 @@ export function registerGenerationTools(ctx, deps) {
+@@ -80,6 +82,9 @@ export function registerGenerationTools(ctx, deps) {
+         + 'Saves the image to the session workspace and shows it in the conversation. '
+         + 'Depending on how the deployment is configured the result carries either the image itself or a link to it; '
+         + 'when you only get a link, answer from the prompt and the link rather than claiming to see the picture. '
++        + 'ALWAYS copy the returned link (the second line of the tool result, starting with "/") verbatim into '
++        + 'your reply as a markdown image (`![alt](link)`) - never summarize with just the filesystem path or omit '
++        + 'the link, or the picture will not render for the user. '
+         + 'Use for any text-to-image request. Pass count (1-4) to generate several variations in one call; cost scales with count (default 1).',
+       parameters: {
+         prompt: {
+@@ -202,7 +207,7 @@ export function registerGenerationTools(ctx, deps) {
                type: 'array',
                items: {
                  type: 'object',
@@ -45,7 +55,7 @@ index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..77cf502036682520fd8158a7d840a260
                  properties: {
                    path: { type: 'string' },
                    url: { type: 'string' },
-@@ -290,7 +292,7 @@ export function registerGenerationTools(ctx, deps) {
+@@ -290,7 +295,7 @@ export function registerGenerationTools(ctx, deps) {
          assertBudgetAvailable(estimatedCost, cfg.dailyBudgetUsd)
          const providers = makeProviders(
            { fetchImpl: fetch, resolveKey: (ref) => resolveApiKey(ctx, ref), cfg, subscriptionImages },
