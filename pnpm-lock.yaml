@@ -195,6 +195,7 @@ overrides:
 
 patchedDependencies:
   '@deepseek-ai/dsh-attachment-local@0.1.5-rc.2': fd449832ddf02209975e4cf9d1c9788405b5dd491d5196546b9bd7562882e1de
+  '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.2': 639466357597c086670247d2bfc101a808e841449300dfc2fc931391a0085189
   '@goodandready/dsh-image-gen': 076797dd28dc2516f6684381629de8de724246d5aaf9921acb35b73882cdc480
   dsh-claude-cli@0.1.0: 31fa3f0c7773496d45c11e72cfd5e029ef3601acc5fdbd07db645f3433cf9d22
   dsh-web-search-searxng@0.2.0: 22f2ceae8c93da50ea8b283fe8ea0f5876d95810eaa4c1dc3ba4bfb9f9066de4
@@ -220,7 +221,7 @@ importers:
         version: 7.2.2
       dsh-better-sidebar:
         specifier: ^0.19.1
-        version: 0.19.1(fd1ff72970612d07e4e84f2514be6993)
+        version: 0.19.1(8c8ba220767927ca8ba4c01176d1deea)
       dsh-claude-cli:
         specifier: git+https://github.com/katsos/dsh-claude-cli.git#3a3a57f22a3e748c9720a1b96ce64e015f0f9643
         version: https://codeload.github.com/katsos/dsh-claude-cli/tar.gz/3a3a57f22a3e748c9720a1b96ce64e015f0f9643(patch_hash=31fa3f0c7773496d45c11e72cfd5e029ef3601acc5fdbd07db645f3433cf9d22)(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-llm@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2))
@@ -5477,7 +5478,7 @@ snapshots:
     dependencies:
       '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
 
-  '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)':
+  '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.2(patch_hash=639466357597c086670247d2bfc101a808e841449300dfc2fc931391a0085189)(@deepseek-ai/cordis@4.0.2)':
     dependencies:
       '@deepseek-ai/cordis': 4.0.2(@deepseek-ai/cordis-plugin-include@1.0.7)(@deepseek-ai/cordis-plugin-loader@1.0.3)
 
@@ -8515,7 +8516,7 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
-  dsh-better-sidebar@0.19.1(fd1ff72970612d07e4e84f2514be6993):
+  dsh-better-sidebar@0.19.1(8c8ba220767927ca8ba4c01176d1deea):
     dependencies:
       '@codemirror/commands': 6.11.0
       '@codemirror/lang-cpp': 6.0.3
@@ -8542,7 +8543,7 @@ snapshots:
       '@deepseek-ai/dsh-agent': 0.1.5-rc.2(6df6622855b87cb7fde1fe609a6d039a)
       '@deepseek-ai/dsh-client-locale': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
       '@deepseek-ai/dsh-client-ui-conversation': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
-      '@deepseek-ai/dsh-client-ui-primitives': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
+      '@deepseek-ai/dsh-client-ui-primitives': 0.1.5-rc.2(patch_hash=639466357597c086670247d2bfc101a808e841449300dfc2fc931391a0085189)(@deepseek-ai/cordis@4.0.2)
       '@deepseek-ai/dsh-client-ui-settings': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
       '@deepseek-ai/dsh-client-ui-slots': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
       '@deepseek-ai/dsh-host-webserver': 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)
