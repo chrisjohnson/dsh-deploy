@@ -369,11 +369,25 @@ llm-pi-ai:
 # every call through this route runs at the server's own baked-in
 # default (20 steps, ~135s at 1024x1024 with easycache) regardless of
 # what a caller here asks for.
+#
+# timeoutMs (2026-09-23): package default is 180000 (+30000 internal buffer
+# = 210000ms enforced tool-call timeout). Confirmed live this is too short
+# for this backend at 1024x1024: real generations there take 140-190s
+# (matches the ~135s baseline above plus VRAM-pressure decode slowdown -
+# a "Failed to allocate pinned memory: ErrorOutOfDeviceMemory" Vulkan
+# warning appears every time at this size), landing right at or over the
+# 210s cap - two consecutive real attempts hit
+# "ToolCallError: tool call timed out after 210000ms" while the backend
+# kept generating anyway, unaware the tool call above it had already given
+# up. Raised well past what even a much larger (4K-class) generation on
+# this hardware should plausibly need; lower again if that turns out to
+# be excessive once real timings at larger sizes are known.
 dsh-image-gen:
   provider: custom
   customBaseURL: "http://127.0.0.1:4000/v1"
   customModel: "image-gen"
   customKeyEnv: "LOCAL_AI_MACHINE_API_KEY"
+  timeoutMs: 1770000
 
 agent-default-model:
   provider: local-ai-machine
