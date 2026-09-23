@@ -15,11 +15,15 @@
 // no agent.cordis.yml customization is needed even now that this deployment
 // runs 100% upstream presets.
 //
-// Deliberately markdown-links-only, not real image attachments: the model
-// never downloads, attaches, or "sees" a result image - it gets titles,
-// source pages, and `img_src`/thumbnail URLs as plain text, which it can
-// render as markdown image links for the chat UI to display inline. Real
-// attachments would mean downloading and validating arbitrary third-party
+// Deliberately clickable links, not real image attachments: the model never
+// downloads, attaches, or "sees" a result image - it gets titles, source
+// pages, and `img_src`/thumbnail URLs as plain text, which it presents as
+// clickable links. Confirmed live (2026-09-23) that this chat UI's markdown
+// renderer does not embed images from external/untrusted URLs at all -
+// even a raw `![alt](url)` in a plain user-typed message renders as
+// italic alt-text only, zero `<img>` elements in the DOM - so results are
+// click-through, not inline-visible, regardless of markdown syntax. Real
+// inline images would mean downloading and validating arbitrary third-party
 // images through the same attachment/vision pipeline that caused a real
 // production incident (M-151, a WebP image DSH's own vision pipeline could
 // not send to llama-server) - out of scope for what's really just "let the
@@ -43,7 +47,7 @@ function formatResults(results) {
   return results
     .map((r, i) => {
       const title = r.title ?? `Image ${i + 1}`
-      const lines = [`${i + 1}. **${title}**`, `   ![${title}](${r.imgSrc})`, `   Source: ${r.sourceUrl}`]
+      const lines = [`${i + 1}. **${title}**`, `   [View image](${r.imgSrc})`, `   Source: ${r.sourceUrl}`]
       if (r.resolution) lines.push(`   Resolution: ${r.resolution}`)
       return lines.join('\n')
     })
@@ -63,13 +67,13 @@ export default function imageSearchSearxng(ctx, config = {}) {
           name: 'image_search',
           description:
             'Search the web for images via a self-hosted SearXNG instance. Returns '
-            + 'titles, source pages, and a markdown image link (`![title](url)`) per '
-            + 'result. Copy those markdown image links VERBATIM into your reply so '
-            + 'they render inline in chat - the user wants to see the actual '
-            + 'pictures, not a text-only summary of what was found. You do not '
-            + 'receive image pixels or a visual attachment yourself - you cannot '
-            + 'describe, compare, or analyze what is actually depicted. Cite results '
-            + 'only by title, source, and resolution; never claim to see the image '
+            + 'titles, source pages, and an image URL per result - present each as '
+            + 'a clickable link (e.g. markdown `[View](url)`) so the user can open '
+            + 'and see it; this chat UI does not render inline images from external '
+            + 'URLs, only clickable links. You do not receive image pixels or a '
+            + 'visual attachment yourself - you cannot describe, compare, or analyze '
+            + 'what is actually depicted. Cite results only by title, source, and '
+            + 'resolution; never claim to see the image '
             + 'content itself.',
           parameters: {
             query: {
