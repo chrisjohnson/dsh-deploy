@@ -11,6 +11,19 @@ index e4b2e88a5963adf9f549d34d327f2c6d2b45624c..d22f1c9c5b2d53d65a8e1b90ee308ec2
        const parsed = readResult(block)
        const responsiveImages = !failed && !running ? readResponsiveImages(block) : []
        const t = props.t || ((k) => k)
+diff --git a/lib/index.js b/lib/index.js
+index c2c7d51079bbf886cb49d92818f56732880bcedf..45666acd97410fd2bd15889c786f3d32af31b5fa 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -117,7 +117,7 @@ export const Config = z.object({
+   timeoutMs: z
+     .number()
+     .description('Total generation timeout in milliseconds (submit + poll + download).')
+-    .default(180000),
++    .default(1770000),
+   deliverAs: z
+     .string()
+     .description(
 diff --git a/lib/tools/generation.js b/lib/tools/generation.js
 index 2c9528e650ebaac7ac21eca52af53f0d94fa91ac..f76a2df0656e534e16277151199b315c64f5ae6d 100644
 --- a/lib/tools/generation.js
