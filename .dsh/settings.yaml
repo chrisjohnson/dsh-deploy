@@ -139,62 +139,10 @@ llm-pi-ai:
               enable_thinking:
                 $var: thinking.enabled
                 omitWhenOff: true
-        - id: big-moe
-          contextWindow: 131072
-          maxTokens: 8192
-          # reasoningEfforts (2026-09-06): confirmed via the GGUF's own
-          # embedded tokenizer.chat_template ("laguna_glm_thinking_v8") —
-          # binary `enable_thinking` only (defaults true), same mechanism
-          # as medium-moe/small-moe above.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-        - id: big-moe-continue-json
-          contextWindow: 131072
-          maxTokens: 8192
-          # reasoningEfforts: same backend as big-moe above, see its comment.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-        - id: medium-moe-continue-json
-          # Also needs to track medium-moe's real value (missed in the
-          # 2026-09-03 87552 fix, caught when Ornith v9 superseded it) —
-          # set-role.sh auto-pairs this route to the same backend as
-          # medium-moe, so the two must always agree.
-          contextWindow: 262144
-          maxTokens: 8192
-          # reasoningEfforts: same backend as medium-moe above, see its comment.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-    local-ai-machine-r9700:
-      displayName: local-ai-machine (r9700-egpu-dock)
-      apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
-      api: openai-completions
-      baseURL: http://127.0.0.1:4000/v1
-      models:
         - id: medium-dense
           contextWindow: 262144
           maxTokens: 16384
-          input: [text, image]
+          input: [ text, image ]
           # reasoningEfforts (2026-09-06): confirmed live via Dirk's own
           # /props chat_template — graduated `reasoning_effort` (not the
           # binary switch every strix-apu role above uses). Unrecognized
@@ -225,6 +173,9 @@ subagent-model-selection:
     - provider: local-ai-machine
       model: medium-moe
     - provider: local-ai-machine
-      model: big-moe
-    - provider: local-ai-machine-r9700
       model: medium-dense
+dsh-better-sidebar:
+  titleBarScheme: auto
+  titleBarCompat: false
+  viewersEnabled:
+    code: true
