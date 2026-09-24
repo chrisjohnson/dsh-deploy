@@ -1,8 +1,14 @@
 diff --git a/lib/index.js b/lib/index.js
-index 37fe2501d7c21d25df384a14e68ed45195187849..199b30c6e4ee78c994c1e466d71581ab8366a1b8 100644
+index 37fe2501d7c21d25df384a14e68ed45195187849..ece9389ec56af888fd73e53a63a3be56d295f623 100644
 --- a/lib/index.js
 +++ b/lib/index.js
-@@ -397,7 +397,7 @@ function apply(ctx, config, session) {
+@@ -392,12 +392,12 @@ function apply(ctx, config, session) {
+ 			assertSubagentProviderConfiguration(subagentProvider);
+ 			const wording = providerWording(subagentProvider.inheritsParentContext);
+ 			const providerRouteDefaults = subagentProvider.agentRouteDefaults;
+-			const choiceDescription = !modelSelectionEnabled ? "" : (providerRouteDefaults !== void 0 ? " Child LLM selection is optional. Omit `provider`, `model`, and `reasoning_effort` to use configured child defaults and this provider's route defaults. Supply `provider` and `model` together after using `list_subagent_models` to inspect advertised routes and efforts. Changing the effective route without naming an effort uses the selected model's default effort." : " Child LLM selection is optional. Omit `provider`, `model`, and `reasoning_effort` to use configured child defaults and inherit compatible missing values from the parent Agent. Supply `provider` and `model` together after using `list_subagent_models` to inspect advertised routes and efforts. Changing the effective route without naming an effort uses the selected model's default effort.") + (subagentProvider.inheritsParentContext ? " Changing the route can prevent provider-side reuse of the inherited conversation prefix." : "");
++			const choiceDescription = !modelSelectionEnabled ? " This tool instance always inherits the parent Agent's exact provider/model/reasoning_effort - it has no `provider`, `model`, or `reasoning_effort` parameters, and passing them has no effect (they are silently dropped, not an error). If you need to dispatch to a different model, use a delegation tool instance that advertises child LLM selection in its own description instead of guessing at parameters here." : (providerRouteDefaults !== void 0 ? " Child LLM selection is optional. Omit `provider`, `model`, and `reasoning_effort` to use configured child defaults and this provider's route defaults. Supply `provider` and `model` together after using `list_subagent_models` to inspect advertised routes and efforts. Changing the effective route without naming an effort uses the selected model's default effort." : " Child LLM selection is optional. Omit `provider`, `model`, and `reasoning_effort` to use configured child defaults and inherit compatible missing values from the parent Agent. Supply `provider` and `model` together after using `list_subagent_models` to inspect advertised routes and efforts. Changing the effective route without naming an effort uses the selected model's default effort.") + (subagentProvider.inheritsParentContext ? " Changing the route can prevent provider-side reuse of the inherited conversation prefix." : "");
+ 			mounted = {
  				subagentProvider,
  				disposeTool: runtimeCtx.tools.register(defineTool({
  					name: toolName,
