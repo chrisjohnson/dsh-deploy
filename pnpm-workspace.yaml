@@ -263,3 +263,24 @@ patchedDependencies:
   # from the fast path so it always goes through the encode ladder, which
   # encodes opaque source images as jpeg instead.
   '@deepseek-ai/dsh-attachment-local@0.1.5-rc.2': patches/@deepseek-ai__dsh-attachment-local@0.1.5-rc.2.patch
+  # dsh-client-ui-primitives@0.1.5-rc.2: the markdown renderer's
+  # remoteImageUrl() only accepts absolute http(s) URLs (new URL(url) with
+  # no base, which throws on a bare relative path), so a plugin's own
+  # same-origin image route silently falls back to alt-text-only.
+  # Confirmed live on main (2026-09-23) via dsh-image-gen (dropped here,
+  # not ported) - a real generated image never rendered inline because of
+  # exactly this. Fix generalizes to any plugin serving same-origin
+  # images: resolve root-relative URLs (starting with "/") against
+  # window.location.origin only to check the scheme, but still return the
+  # ORIGINAL relative string so the browser resolves it correctly behind
+  # any reverse proxy or path prefix. Already-working absolute-URL cases
+  # are unaffected.
+  '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.2': patches/@deepseek-ai__dsh-client-ui-primitives@0.1.5-rc.2.patch
+  # dsh-tool-subagent@0.1.5-rc.2: wording-only fix. A continuable
+  # background subagent dispatch settles by injecting a new turn on the
+  # parent automatically - no polling needed - but the tool's own
+  # description never said so, so models would sometimes poll
+  # `list_agents` in a loop waiting for it to finish. Adds explicit text:
+  # don't poll, the settle notice arrives on its own; the returned id is a
+  # subagent id, not a job id, so it's not valid input to job_output/job_kill.
+  '@deepseek-ai/dsh-tool-subagent@0.1.5-rc.2': patches/@deepseek-ai__dsh-tool-subagent@0.1.5-rc.2.patch

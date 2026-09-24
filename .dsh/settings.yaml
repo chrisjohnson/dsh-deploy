@@ -159,6 +159,64 @@ llm-pi-ai:
             xhigh: xhigh
           compat:
             supportsReasoningEffort: true
+    local-ai-machine-cloud:
+      displayName: local-ai-machine (cloud proxy)
+      apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+      api: openai-completions
+      baseURL: http://127.0.0.1:4000/v1
+      models:
+        - id: deepseek-flash
+          # contextWindow (2026-09-14): DeepSeek-V4.1-Flash's own config.json
+          # (deepseek-ai/DeepSeek-V4.1-Flash on HF) - max_position_embeddings:
+          # 1048576 (1M native, via YaRN rope_scaling factor 16 from an
+          # original 65536 trained length). maxTokens: the model's own README
+          # recommended-sampling-parameters table states "max_tokens >= 256K"
+          # for the 1M context_window - used directly, not independently
+          # re-verified via a real oversized completion (would need account
+          # balance - see below).
+          contextWindow: 1048576
+          maxTokens: 262144
+          # input: text only for now, NOT [text, image] - DeepSeek-V4.1-Flash
+          # IS natively multimodal (vision_config present in its official
+          # config.json, pipeline_tag: image-text-to-text, real MMMU-Pro/
+          # DocVQA benchmark scores) but that's the HF checkpoint's own
+          # capability, not a confirmation that litellm's deepseek/ provider
+          # actually forwards image content correctly over DeepSeek's hosted
+          # API. Same failure mode this file has hit twice before (small-dense
+          # and medium-moe both silently lost image support from a missing
+          # `input` declaration) can also go the OTHER way - claiming a
+          # capability that doesn't actually work end to end. Upgrade to
+          # [text, image] once a real multimodal call is confirmed working
+          # through this exact route.
+          # reasoningEfforts (2026-09-14): confirmed live, both direct against
+          # api.deepseek.com and through litellm - a plain top-level
+          # `reasoning_effort` string, same graduated mechanism as medium-dense
+          # above (needs `compat.supportsReasoningEffort: true`, not the
+          # chat-template/$var block). Resolves the ambiguity between
+          # DeepSeek's API docs (string "high" in every code example) and the
+          # model's own README ("continuously controllable... integer 1-100")
+          # in favor of the docs: the public API only exposes the discrete
+          # string presets, the 1-100 scale is an internal/native capability
+          # not surfaced here. "low" produced 17 reasoning_tokens and "high"
+          # produced 13 on the same trivial prompt (real usage.
+          # completion_tokens_details.reasoning_tokens, both calls, not
+          # inferred) - both accepted with no error either way, no
+          # unrecognized-param drop. Four values, not three: this plugin's own
+          # disabled dsh-llm-deepseek adapter (see the llm-deepseek block at
+          # the top of this file) declares reasoningEffort as
+          # z.union(["off","low","high","max"]) in its own schema - same
+          # vendor, trusted as the real accepted set since "off" and "max"
+          # weren't independently tested here (account balance was spent
+          # confirming low/high; low-risk to trust the adapter's own enum for
+          # the other two rather than spending more to re-confirm what
+          # DeepSeek's own code already asserts).
+          reasoningEfforts:
+            "off": "off"
+            low: low
+            high: high
+            max: max
+          compat:
+            supportsReasoningEffort: true
 
 agent-default-model:
   provider: local-ai-machine
@@ -174,6 +232,8 @@ subagent-model-selection:
       model: medium-moe
     - provider: local-ai-machine
       model: medium-dense
+    - provider: local-ai-machine-cloud
+      model: deepseek-flash
 dsh-better-sidebar:
   titleBarScheme: auto
   titleBarCompat: false
