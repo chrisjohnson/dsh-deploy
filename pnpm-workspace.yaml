@@ -278,3 +278,4 @@ patchedDependencies:
   # behavior outside a browser context or for any non-root-relative value,
   # so already-working absolute-URL cases are unaffected.
   '@deepseek-ai/dsh-client-ui-primitives@0.1.5-rc.2': patches/@deepseek-ai__dsh-client-ui-primitives@0.1.5-rc.2.patch
+  '@deepseek-ai/dsh-tool-subagent@0.1.5-rc.2': patches/@deepseek-ai__dsh-tool-subagent@0.1.5-rc.2.patch

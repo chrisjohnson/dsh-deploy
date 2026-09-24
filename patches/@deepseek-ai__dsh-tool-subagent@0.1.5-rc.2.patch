@@ -1,0 +1,13 @@
+diff --git a/lib/index.js b/lib/index.js
+index 37fe2501d7c21d25df384a14e68ed45195187849..199b30c6e4ee78c994c1e466d71581ab8366a1b8 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -397,7 +397,7 @@ function apply(ctx, config, session) {
+ 				subagentProvider,
+ 				disposeTool: runtimeCtx.tools.register(defineTool({
+ 					name: toolName,
+-					description: wording.description + (backgroundEnabled ? continuable ? " This tool runs in the background by default, immediately returns a durable subagent id, and keeps the child conversation available for later turns. When that run settles, the runtime sends the parent a notice containing its outcome and any final assistant message; `send_message` steers the child's nearest step while it is running and starts a turn while it is idle. Set `run_in_background: false` only when your next action depends on receiving the result." : " This call waits for the result by default. Set `run_in_background: true` to return a job id; collect with `job_output` and stop with `job_kill`." : " This call waits for the subagent and returns its result.") + choiceDescription,
++					description: wording.description + (backgroundEnabled ? continuable ? " This tool runs in the background by default, immediately returns a durable subagent id, and keeps the child conversation available for later turns. When that run settles, the runtime sends the parent a notice containing its outcome and any final assistant message; `send_message` steers the child's nearest step while it is running and starts a turn while it is idle. Set `run_in_background: false` only when your next action depends on receiving the result. After dispatching, do NOT poll `list_agents` in a loop to check whether it has settled - the settle notice arrives automatically as a new turn without any action on your part. Just end your turn (or continue other work) and wait for it. The returned id is a subagent id, not a background job id - it is not valid input to `job_output`/`job_list`/`job_kill`." : " This call waits for the result by default. Set `run_in_background: true` to return a job id; collect with `job_output` and stop with `job_kill`." : " This call waits for the subagent and returns its result.") + choiceDescription,
+ 					parameters: {
+ 						description: {
+ 							type: "string",
