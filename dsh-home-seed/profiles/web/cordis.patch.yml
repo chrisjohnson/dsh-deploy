@@ -2,7 +2,11 @@
 # dsh-web-search-searxng ships its OWN patch layer (activates on inclusion
 # in `bundles` above — switches ctx.web's search provider to searxng and
 # mounts the plugin row) via its `dsh.bundle.patch` package.json field, so
-# no hand-written insert is needed for that.
+# no hand-written insert is needed for that. dsh-context and
+# dsh-better-sidebar (context-usage dashboard/panel and sidebar UI plugins,
+# respectively) work the same way — both ship their own `dsh.bundle.patch`
+# and mount purely from inclusion in `bundles` above, so neither needs a
+# row here either.
 
 # Redirects the settings document off a single-file bind mount at
 # $DSH_HOME/settings.yaml. dsh-atomic-write's own
