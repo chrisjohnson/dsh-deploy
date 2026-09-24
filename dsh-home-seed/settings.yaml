@@ -145,13 +145,18 @@ llm-pi-ai:
       # once again the real, full, correct value — not a workaround.
       models:
         - id: small-moe
-          contextWindow: 65536
-          # reasoningEfforts (2026-09-06): confirmed via
-          # /var/lib/ai-models/glm-4.7-flash-awq/chat_template.jinja
-          # (vLLM-served AWQ) — binary `enable_thinking` only (`</think>`
-          # if `enable_thinking is defined and not enable_thinking` else
-          # `<think>`), no reasoning_effort. See this file's header
-          # comment for the chat-template/$var mechanism this needs.
+          # small-moe reassigned glm-4.7-flash -> minicpm5-2b-llamacpp
+          # (2026-09-24, strix-apu, via scripts/set-role.sh): contextWindow
+          # 65536 -> 131072 and maxTokens (previously unset) -> 8192, matching
+          # the new backend's real -c 131072 -n 8192 (build.yaml:
+          # minicpm5-2b--llamacpp-vulkan-radv-strix-apu-v1). reasoningEfforts
+          # confirmed unchanged: minicpm's own GGUF chat_template has the
+          # identical `enable_thinking is defined`/`is true`/`is false`
+          # binary toggle (grepped directly), so the existing chat-template/
+          # $var mechanism below still applies correctly - only the
+          # size/token limits were stale.
+          contextWindow: 131072
+          maxTokens: 8192
           reasoningEfforts:
             "off":
             medium: "on"
