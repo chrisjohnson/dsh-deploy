@@ -251,3 +251,15 @@ patchedDependencies:
   # settingsCtx.settings.installSection(). Verified this shape is still
   # current against the installed @deepseek-ai/dsh-settings@0.1.5-rc.2.
   dsh-web-search-searxng@0.2.0: patches/dsh-web-search-searxng@0.2.0.patch
+  # dsh-attachment-local@0.1.5-rc.2: createRequestImage()'s raw-passthrough
+  # fast path (small-enough images below the route's pixel/byte budget are
+  # sent to the model completely unmodified, whatever their native format)
+  # does not exclude image/webp. Our vision backend (Occamy Q6, medium-moe)
+  # is llama-server, which cannot decode webp at all - a natively-webp
+  # attachment under the threshold gets sent raw and the turn fails with a
+  # litellm 400 "Failed to load image or audio file" (M-151, confirmed live
+  # again here via medium-moe's own container logs: "mtmd_helper_bitmap_
+  # init_from_buf: failed to decode webp buffer"). Fix: exclude image/webp
+  # from the fast path so it always goes through the encode ladder, which
+  # encodes opaque source images as jpeg instead.
+  '@deepseek-ai/dsh-attachment-local@0.1.5-rc.2': patches/@deepseek-ai__dsh-attachment-local@0.1.5-rc.2.patch

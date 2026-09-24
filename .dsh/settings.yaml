@@ -185,6 +185,32 @@ llm-pi-ai:
               enable_thinking:
                 $var: thinking.enabled
                 omitWhenOff: true
+    local-ai-machine-r9700:
+      displayName: local-ai-machine (r9700-egpu-dock)
+      apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+      api: openai-completions
+      baseURL: http://127.0.0.1:4000/v1
+      models:
+        - id: medium-dense
+          contextWindow: 262144
+          maxTokens: 16384
+          input: [text, image]
+          # reasoningEfforts (2026-09-06): confirmed live via Dirk's own
+          # /props chat_template — graduated `reasoning_effort` (not the
+          # binary switch every strix-apu role above uses). Unrecognized
+          # values fall back to 'medium' safely (no error), but
+          # 'high'/'max'/'ultracode'/'extreme' are all aliases for
+          # 'xhigh' in this template, not distinct levels — only
+          # declaring the three that actually differ. This mechanism
+          # needs `compat.supportsReasoningEffort: true`, NOT the
+          # chat-template/$var block the other roles use.
+          reasoningEfforts:
+            "off":
+            low: low
+            medium: medium
+            xhigh: xhigh
+          compat:
+            supportsReasoningEffort: true
 
 agent-default-model:
   provider: local-ai-machine
@@ -193,3 +219,12 @@ locale:
   preference: en
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
+subagent-model-selection:
+  enabled: true
+  allowedModels:
+    - provider: local-ai-machine
+      model: medium-moe
+    - provider: local-ai-machine
+      model: big-moe
+    - provider: local-ai-machine-r9700
+      model: medium-dense

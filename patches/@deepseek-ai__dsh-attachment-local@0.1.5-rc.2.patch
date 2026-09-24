@@ -1,0 +1,13 @@
+diff --git a/lib/index.js b/lib/index.js
+index fec538fb3ad2875aba52b8e10e6e79d3fe3b804d..82617c92a335df92b0ea5a9fc643118bd726e840 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -791,7 +791,7 @@ function sourcePipeline(attachment) {
+ }
+ async function createRequestImage(attachment, policy, hasAlpha) {
+ 	const dimensions = requestImageDimensions(attachment.ref.width, attachment.ref.height, policy.maxPixels);
+-	if (dimensions.width === attachment.ref.width && dimensions.height === attachment.ref.height && attachment.data.byteLength <= policy.maxBytes) return {
++	if (attachment.ref.mediaType !== "image/webp" && dimensions.width === attachment.ref.width && dimensions.height === attachment.ref.height && attachment.data.byteLength <= policy.maxBytes) return {
+ 		data: attachment.data,
+ 		mediaType: attachment.ref.mediaType,
+ 		width: attachment.ref.width,
