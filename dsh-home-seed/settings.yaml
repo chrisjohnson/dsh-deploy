@@ -399,3 +399,29 @@ ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
 locale:
   preference: en
+
+# Host-owned opt-in for the tool-subagent's model-facing provider/model/
+# reasoning_effort override (dsh-web-app's cordis.patch.yml mounts
+# `@deepseek-ai/dsh-tool-subagent/model-selection-settings` at the Host
+# plane with no config, so it defaults to enabled: false / allowedModels:
+# [] - any subagent call naming an explicit model fails at runtime with
+# "child model selection is disabled for this tool instance", separate
+# from and in addition to the per-preset `modelSelectionSettings: true`
+# on the tool-subagent row itself (the ptc preset already ships that).
+# 2026-09-23: this used to be masked by the now-deleted code-local preset
+# never actually exercising this path in daily use; surfaced once ptc
+# became the default. allowedModels intentionally trimmed to the
+# general-purpose roles (Chris's explicit choice) rather than the full
+# picker roster - small-dense/deepseek-flash/the two *-continue-json
+# routes are left out.
+subagent-model-selection:
+  enabled: true
+  allowedModels:
+    - provider: local-ai-machine
+      model: small-moe
+    - provider: local-ai-machine
+      model: medium-moe
+    - provider: local-ai-machine
+      model: big-moe
+    - provider: local-ai-machine-r9700
+      model: medium-dense
