@@ -1,0 +1,172 @@
+// image-search-searxng: a model-facing `image_search` tool over the same
+// self-hosted SearXNG instance dsh-web-search-searxng already uses for text
+// search (SEARXNG_BASE_URL), but querying its `images` category instead of
+// the default `general` one.
+//
+// This is a standalone tool, not an extension of the shared `web_search`
+// tool/dsh-web seam: that seam's WebSearchRequest/WebSearchSource types
+// (upstream @deepseek-ai/dsh-web) have no category or image-field concept at
+// all, and extending them would mean patching multiple upstream packages
+// that every future dsh upgrade would need re-verifying. A standalone tool
+// with its own schema avoids all of that, matching the existing
+// dsh-image-gen/dsh-web-search-searxng pattern of a package (or, here, a
+// local plugin file) that inserts itself via a `cordis.patch.yml`/profile
+// patch `insert:` row - which reaches every agent preset automatically, so
+// no agent.cordis.yml customization is needed even now that this deployment
+// runs 100% upstream presets.
+//
+// Deliberately markdown image links, not real image attachments: the model
+// never downloads, attaches, or "sees" a result image - it gets titles,
+// source pages, and `img_src`/thumbnail URLs as plain text, formatted as
+// `![alt](url)`. dsh-client-ui-primitives' renderImage()/MarkdownImage
+// (lib/index.js) DOES render arbitrary http(s) URLs as real inline <img>
+// elements (no domain allowlist - remoteImageUrl() accepts any http(s)
+// URL) and only falls back to alt-text-only when the browser's own image
+// GET request actually fails (a per-image React onError handler) - e.g. a
+// host with hotlink/referrer protection rejecting the `referrerpolicy:
+// no-referrer` request the renderer sends. Confirmed live (2026-09-23):
+// an initial test against a Wikipedia/Wikimedia URL rendered alt-text-only
+// (that host apparently rejects the request) and was wrongly read as "this
+// UI never embeds external images"; a second test against a real SearXNG
+// result URL (images.trailbuiltoffroad.com) rendered a genuine <img> with
+// the correct src. So results render as real inline pictures whenever the
+// source host cooperates, with automatic graceful degradation to alt text
+// otherwise - no code-level distinction needed between the two cases.
+// Real image ATTACHMENTS (the model downloading and actually seeing pixels)
+// would still mean routing arbitrary third-party images through the same
+// attachment/vision pipeline that caused a real production incident
+// (M-151) - out of scope for what's really just "let the user see search
+// results," and meaningfully lower-risk without it.
+//
+// ctx.tools requires an explicit ctx.inject(['tools'], ...) - unlike
+// ctx.logger/ctx.effect, which are always-present base context methods,
+// `tools` is a cordis-injected SERVICE and accessing it directly throws
+// "cannot get property \"tools\" without inject" at plugin construction
+// time, crashing the whole profile (confirmed live 2026-09-23).
+
+import { defineTool } from '@deepseek-ai/dsh-tools'
+
+const PLUGIN_NAME = 'image-search-searxng'
+const DEFAULT_BASE_URL = 'http://localhost:8888'
+const DEFAULT_MAX_RESULTS = 8
+const USER_AGENT = 'dsh-image-search-searxng/0.1.0'
+
+function formatResults(results) {
+  if (results.length === 0) return 'No image results found.'
+  return results
+    .map((r, i) => {
+      const title = r.title ?? `Image ${i + 1}`
+      const lines = [`${i + 1}. **${title}**`, `   ![${title}](${r.imgSrc})`, `   Source: ${r.sourceUrl}`]
+      if (r.resolution) lines.push(`   Resolution: ${r.resolution}`)
+      return lines.join('\n')
+    })
+    .join('\n\n')
+}
+
+export default function imageSearchSearxng(ctx, config = {}) {
+  const baseURL = config.baseURL ?? DEFAULT_BASE_URL
+  const defaultMaxResults = config.maxResults ?? DEFAULT_MAX_RESULTS
+  const apiKey = config.apiKey
+  const log = ctx.logger(PLUGIN_NAME)
+
+  ctx.inject(['tools'], (ctx) => {
+    ctx.effect(() =>
+      ctx.tools.register(
+        defineTool({
+          name: 'image_search',
+          description:
+            'Search the web for images via a self-hosted SearXNG instance. Returns '
+            + 'titles, source pages, and a markdown image link (`![title](url)`) per '
+            + 'result. Copy those markdown image links VERBATIM into your reply - '
+            + 'this chat UI renders them as real inline pictures when the source '
+            + 'host allows it (most do), falling back to plain alt text '
+            + 'automatically otherwise; do not rewrite them as plain `[text](url)` '
+            + 'links yourself. You do not receive image pixels or a visual '
+            + 'attachment yourself - you cannot describe, compare, or analyze what '
+            + 'is actually depicted. Cite results only by title, source, and '
+            + 'resolution; never claim to see the image content itself.',
+          parameters: {
+            query: {
+              type: 'string',
+              required: true,
+              description: 'The image search query.',
+            },
+            maxResults: {
+              type: 'integer',
+              description: `Maximum results to return, 1-30 (default ${defaultMaxResults}).`,
+            },
+          },
+          output: {
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                results: {
+                  type: 'array',
+                  required: true,
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      title: { type: 'string' },
+                      imgSrc: { type: 'string', required: true },
+                      sourceUrl: { type: 'string', required: true },
+                      resolution: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+            render(_args, value) {
+              return [{ type: 'text', text: formatResults(value.results) }]
+            },
+          },
+          isConcurrencySafe: () => true,
+          async execute(args, exec) {
+            const requested = args.maxResults ?? defaultMaxResults
+            const capped = Math.max(1, Math.min(30, Math.trunc(requested)))
+
+            const endpoint = new URL('/search', baseURL)
+            endpoint.searchParams.set('q', args.query)
+            endpoint.searchParams.set('categories', 'images')
+            endpoint.searchParams.set('format', 'json')
+            if (apiKey != null && apiKey.length > 0) {
+              endpoint.searchParams.set('preference[api_key]', apiKey)
+            }
+
+            let response
+            try {
+              response = await fetch(endpoint, {
+                method: 'GET',
+                redirect: 'error',
+                headers: { accept: 'application/json', 'user-agent': USER_AGENT },
+                signal: exec.signal,
+              })
+            } catch (error) {
+              throw new Error(`SearXNG image search request failed: ${String(error)}`)
+            }
+            if (!response.ok) {
+              throw new Error(`SearXNG image search failed: HTTP ${response.status}`)
+            }
+
+            const payload = await response.json()
+            const results = (payload.results ?? [])
+              .filter((r) => r.img_src != null && r.img_src.length > 0)
+              .slice(0, capped)
+              .map((r) => ({
+                ...(r.title != null && r.title.length > 0 ? { title: r.title } : {}),
+                imgSrc: r.img_src,
+                sourceUrl: r.url != null && r.url.length > 0 ? r.url : r.img_src,
+                ...(r.resolution != null && r.resolution.length > 0 ? { resolution: r.resolution } : {}),
+              }))
+
+            log.info('image_search %j -> %d results', args.query, results.length)
+            return { results }
+          },
+        }),
+      ),
+    )
+  })
+
+  log.info('image-search-searxng active (baseURL=%s, maxResults=%d)', baseURL, defaultMaxResults)
+}

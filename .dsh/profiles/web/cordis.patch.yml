@@ -1,0 +1,69 @@
+# Patch layer for the web profile, applied after every bundle layer.
+# dsh-web-search-searxng ships its OWN patch layer (activates on inclusion
+# in `bundles` below - switches ctx.web's search provider to searxng and
+# mounts the plugin row) via its `dsh.bundle.patch` package.json field, so
+# no hand-written insert is needed for that. dsh-context, dsh-better-sidebar,
+# and dsh-git-worktree work the same way - all three ship their own
+# `dsh.bundle.patch` and mount purely from inclusion in `bundles` below, so
+# none of them needs a row here either.
+#
+# No settings-path redirect here (the old Docker cordis.patch.yml carried
+# one): that was purely a bind-mount rename limitation
+# (dsh-atomic-write commits every settings write via a same-directory
+# temp file + rename, which can't replace an active single-file Docker
+# bind mount). $DSH_HOME/settings.yaml on a real filesystem needs no
+# override - confirmed working in M-153.
+
+# Host-plane auto-continue watcher.
+# DSH equivalent of local-ai-machine's pi-web-session-watcher, but
+# in-process rather than an external poller - dsh's session/agent registries
+# are directly reachable from host-plane plugin code, so no separate service
+# or REST polling is needed the way pi-web (a closed prebuilt image) required.
+#
+# Two triggers feed one shared decision function:
+#
+#   - agent/created tail inspection - the path for crash recovery
+#     ('interrupted' markers are synthesized during session load and never
+#     publish live) and for reopen-after-the-fact cases.
+#   - Live watcher per agent on agent.ctx 'session/event': 'max-tokens'
+#     IS a real streamed finish reason (unlike interrupted), and unattended
+#     halts have no reopen event to lean on. Schedules a delayed
+#     re-analysis of the same tail guards rather than acting on the raw
+#     event.
+#
+# Kick conditions: unresolved 'interrupted' boundary, or any 'max-tokens'
+# boundary (no content-shape check on the final message - kind ===
+# 'max-tokens' is always a budget-cut generation, never a model-chosen
+# stop). Deliberately does NOT fire on 'completed', 'aborted', 'error',
+# tails already followed by a user/assistant message (recovered manually
+# or otherwise), subagent sessions by default (auto-kicking a delegated
+# child fights its parent orchestrator's own retry flow), or after
+# maxConsecutiveKicks consecutive kicks with no progress (runaway guard
+# against think-cap-think loops; logs loudly instead of kicking).
+# Max-tokens kicks use a reason-aware prompt forbidding re-derivation of
+# the lost reasoning. Every kick AND skip is logged with its reason - see
+# .dsh/profiles/web/plugins/continue-kicker.mjs for the full rationale.
+- insert:
+    - id: continue-kicker
+      name: ./plugins/continue-kicker.mjs
+      config:
+        cooldownMs: 60000
+        liveKickDelayMs: 3000
+        maxConsecutiveKicks: 3
+        kickOnInterrupted: true
+        kickOnMaxTokens: true
+        includeSubagents: false
+
+    # Model-facing image_search tool over the same self-hosted SearXNG
+    # instance dsh-web-search-searxng uses for text search, querying its
+    # `images` category. Same env-var convention as dsh-web-search-searxng
+    # (SEARXNG_BASE_URL / SEARXNG_API_KEY) so no new deployment config is
+    # needed. See plugins/image-search-searxng.mjs for why this is a
+    # standalone tool rather than an extension of web_search/dsh-web, and
+    # why it returns markdown links rather than real image attachments.
+    - id: image-search-searxng
+      name: ./plugins/image-search-searxng.mjs
+      config:
+        baseURL: !!js process.env.SEARXNG_BASE_URL ?? 'http://localhost:8888'
+        maxResults: !!js Number(process.env.SEARXNG_NUM_RESULTS ?? 8)
+        apiKey: !!js process.env.SEARXNG_API_KEY

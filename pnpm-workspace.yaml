@@ -6,6 +6,11 @@ allowBuilds:
   protobufjs: true
 nodeLinker: hoisted
 overrides:
+  # Single cordis instance for the whole graph: dsh-git-worktree's peer dep
+  # (and dsh-better-sidebar's) both declare a caret range against cordis;
+  # pinning explicitly avoids pnpm resolving a second copy, which would
+  # split entry/context identity at runtime.
+  '@deepseek-ai/cordis': '4.0.2'
   '@deepseek-ai/dsh-acp': '0.1.5-rc.2'
   '@deepseek-ai/dsh-acp-app': '0.1.5-rc.2'
   '@deepseek-ai/dsh-agent': '0.1.5-rc.2'
@@ -57,6 +62,7 @@ overrides:
   '@deepseek-ai/dsh-client-ui-open-in-app': '0.1.5-rc.2'
   '@deepseek-ai/dsh-client-ui-permission-presets': '0.1.5-rc.2'
   '@deepseek-ai/dsh-client-ui-plan': '0.1.5-rc.2'
+  '@deepseek-ai/dsh-client-ui-primitives': '0.1.5-rc.2'
   '@deepseek-ai/dsh-client-ui-reference': '0.1.5-rc.2'
   '@deepseek-ai/dsh-client-ui-renderer': '0.1.5-rc.2'
   '@deepseek-ai/dsh-client-ui-schedule': '0.1.5-rc.2'
@@ -236,3 +242,12 @@ overrides:
   '@deepseek-ai/dsh-workflow': '0.1.5-rc.2'
   '@deepseek-ai/dsh-workflow-worker-thread': '0.1.5-rc.2'
   '@deepseek-ai/dsh-workspace': '0.1.5-rc.2'
+minimumReleaseAgeExclude:
+  - dsh-context@0.55.0
+patchedDependencies:
+  # dsh-web-search-searxng@0.2.0: upstream @deepseek-ai/dsh-settings dropped
+  # the free-function installSettingsSection/settingsNamespace API this
+  # package was built against, replaced by ctx.inject(['settings']) +
+  # settingsCtx.settings.installSection(). Verified this shape is still
+  # current against the installed @deepseek-ai/dsh-settings@0.1.5-rc.2.
+  dsh-web-search-searxng@0.2.0: patches/dsh-web-search-searxng@0.2.0.patch
