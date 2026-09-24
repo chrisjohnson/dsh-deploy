@@ -1,12 +1,13 @@
 {
-  "name": "dsh-profile-headless",
+  "name": "dsh-profile-web",
   "private": true,
   "dsh": {
     "profile": {
       "bundles": [
         "@deepseek-ai/dsh-base",
-        "@deepseek-ai/dsh-headless"
-      ]
+        "@deepseek-ai/dsh-web-app"
+      ],
+      "patchReload": "live"
     }
   }
 }
