@@ -8,6 +8,7 @@
     "dsh-web-search-searxng": "git+https://github.com/d3cker/dsh-web-search-searxng.git#cbf7071c362de71ff12bc3c5295392384f1d517f",
     "dsh-better-sidebar": "^0.19.1",
     "dsh-context": "^0.55.0",
-    "dsh-git-worktree": "^0.9.2"
+    "dsh-git-worktree": "^0.9.2",
+    "@octokit/auth-app": "^7.1.5"
   }
 }
