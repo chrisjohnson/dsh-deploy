@@ -1,7 +1,25 @@
 diff --git a/lib/index.js b/lib/index.js
-index fec538fb3ad2875aba52b8e10e6e79d3fe3b804d..82617c92a335df92b0ea5a9fc643118bd726e840 100644
+index fec538fb3ad2875aba52b8e10e6e79d3fe3b804d..25cc3f5512cee56ef00a70131c9a01d19d26ab26 100644
 --- a/lib/index.js
 +++ b/lib/index.js
+@@ -82,7 +82,7 @@ async function encode(pipeline, mediaType, quality) {
+ * @returns encoders ordered from highest to lowest ladder quality.
+ */
+ function encodingLadder(prepared, hasAlpha) {
+-	const mediaType = hasAlpha ? "image/webp" : "image/jpeg";
++	const mediaType = "image/jpeg";
+ 	return IMAGE_ENCODING_QUALITIES.map((quality) => (() => encode(prepared.clone(), mediaType, quality)));
+ }
+ /**
+@@ -124,7 +124,7 @@ function isExhaustedEncoding(result) {
+ * @returns whether the output alpha metadata is compatible with the source.
+ */
+ function encodedAlphaIsCompatible(sourceHasAlpha, output) {
+-	return sourceHasAlpha === void 0 || output.hasAlpha === sourceHasAlpha || sourceHasAlpha && !output.hasAlpha && output.mediaType === "image/webp";
++	return sourceHasAlpha === void 0 || output.hasAlpha === sourceHasAlpha || sourceHasAlpha && !output.hasAlpha && (output.mediaType === "image/webp" || output.mediaType === "image/jpeg");
+ }
+ const MEDIA_TYPES = {
+ 	png: "image/png",
 @@ -791,7 +791,7 @@ function sourcePipeline(attachment) {
  }
  async function createRequestImage(attachment, policy, hasAlpha) {
