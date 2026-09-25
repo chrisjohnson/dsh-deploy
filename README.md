@@ -4,15 +4,15 @@ Native (no Docker) install of [`@deepseek-ai/dsh`](https://www.npmjs.com/package
 ("dsh", DeepSeek Harness) for `local-ai-machine`, run as a NixOS systemd
 service instead of a container.
 
-**Status: M-153, minimal bootstrap.** This branch (`native-no-docker`)
-deliberately strips the repo down to the smallest thing that proves the new
-architecture — just `@deepseek-ai/dsh` itself, a base provider/model config,
-and one working test session. The previous Docker-based `main` still runs
-untouched, side by side, for comparison. Everything this repo used to carry
-(patches, custom plugins, the GitHub App credential system, Playwright,
-bundle-plugin dependencies) is catalogued for a follow-up port/drop review
-before any of it comes back — see the M-153 fleet card on `local-ai-machine`
-for that inventory and the staging plan.
+**Status: promoted (M-153/M-154).** This replaces the previous Docker/
+GHCR-image deploy entirely - `dsh.local-ai-machine.johnsonlab.dev` now
+routes here. The old container is stopped (`docker-compose down`) but its
+image/volumes are left in place in case investigation is ever needed; see
+the M-153/M-154 fleet cards on `local-ai-machine` for the full port/drop
+history (`dsh-claude-cli` and `@goodandready/dsh-image-gen` were dropped
+per Chris's explicit decision; everything else - patches, the GitHub App
+credential system, Playwright, bundle-plugin dependencies - was ported
+and is live).
 
 ## What dsh is
 
@@ -37,17 +37,39 @@ repo runs its `web` subcommand (`dsh web`) as a long-running native process.
   state/secret subpaths (`sessions/`, `attachments/`, `cache/`, `storages/`,
   `keys/`, credentials) that must never be committed.
 - **`init.sh`**: standalone, manually-run setup/re-init script (symlinks
-  `~/.dsh`, runs `pnpm install`). **Not** wired into the systemd service —
+  `~/.dsh`, runs `pnpm install`, links the `gh` wrapper, sets up git
+  identity/credential.helper). **Not** wired into the systemd service —
   run it by hand over SSH whenever you actually want to (re)initialize.
+- **`patches/`**: `pnpm patch` diffs against specific installed package
+  versions, applied automatically via `pnpm-workspace.yaml`'s
+  `patchedDependencies` on every `pnpm install` — real upstream bugs
+  fixed without forking, not local customization.
+- **`github-app-token.mjs` / `github-app-git-credential-helper.mjs` /
+  `gh-wrapper.sh`**: dsh's git/gh identity is a GitHub App installation
+  (not Chris's personal account) - scoped access, auto-rotating ~1h
+  tokens, commits/PRs attributable to the App rather than Chris
+  personally. `dsh-gh-token-refresh.service`/`.timer`
+  (`local-ai-machine`'s `configuration.nix`) keeps the token fresh;
+  `gh-wrapper.sh` self-heals if that timer ever misses a beat.
+- **`.dsh/profiles/web/plugins/`**: local, plain-file plugins (not npm
+  packages) - `continue-kicker.mjs` (auto-continue on interrupted/
+  max-tokens turns), `image-search-searxng.mjs`, `model-switch.mjs`,
+  `semantic-loop-kicker.mjs`.
 
 ## Running it
 
 The box's NixOS config declares a `dsh` systemd service (`User = "dsh"`,
 the same account that's long handled this repo's self-redeploy trigger)
-that runs `dsh web --host 127.0.0.1 --port 3081` — a different port from
-the existing Docker container's `3080`, so both can run side by side.
-Reached the same way every other unauthenticated local service on this box
-is: an SSH tunnel to the loopback bind, never a reverse proxy (dsh's
-frontend needs a secure browser context and pins its own config to a
-literal `localhost`/`127.0.0.1` Host header — no proxy topology satisfies
-both at once).
+that runs `dsh web --host 127.0.0.1 --port 3081`. Two ways to reach it:
+
+- **`https://dsh.local-ai-machine.johnsonlab.dev`** — Caddy reverse-proxies
+  to `127.0.0.1:3081` with a Host/Origin header rewrite (both forced to
+  `localhost:3081`), since dsh's own loopback fence
+  (`dsh-client-connection`'s `isTrustedApiRequest`) hard-pins its
+  privileged settings/credentials plane to a literal `localhost`/
+  `127.0.0.1` Host header - no proxy topology satisfies that without the
+  rewrite.
+- **An SSH tunnel straight to the loopback bind** (`ssh -L
+  3081:127.0.0.1:3081 local-ai-machine`) - the same access pattern every
+  other unauthenticated local service on this box uses, useful when you
+  want to bypass Caddy entirely (e.g. debugging the proxy itself).

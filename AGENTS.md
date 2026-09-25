@@ -2,31 +2,30 @@
 
 ## What this repo is
 
-**M-153, minimal bootstrap on `native-no-docker`.** This branch replaces
-the previous Docker/GHCR-image deploy entirely: dsh runs as a native NixOS
-systemd service (`User = "dsh"`), and this repo *is* the checkout that
-service runs from — `.dsh/` (dsh's own `DSH_HOME`) lives inside it, so
-config state is plain git-tracked instead of seed-copied into a container
-bind mount. See `README.md` for the current layout. The GitHub App
-credential system, all patches, and every bundle-plugin dependency the old
-`main` carried are deliberately not present yet — cataloged for a
-follow-up port/drop review (see the M-153 fleet card on `local-ai-machine`),
-not lost.
+**M-153/M-154: native NixOS systemd service, promoted to `main`.** dsh
+runs directly on `local-ai-machine` (`User = "dsh"`, no Docker), and this
+repo *is* the checkout that service runs from — `.dsh/` (dsh's own
+`DSH_HOME`) lives inside it, so config state is plain git-tracked instead
+of seed-copied into a container bind mount. See `README.md` for the
+current layout. The previous Docker/GHCR-image deploy is gone entirely
+(Dockerfile, docker-compose.yml, docker-entrypoint.sh, the CI image-build
+workflow) - see the M-153/M-154 fleet cards on `local-ai-machine` for the
+full port/drop history of what carried over from that setup and what was
+deliberately dropped (`dsh-claude-cli`, `@goodandready/dsh-image-gen`).
 
 ## Deploy mechanism
 
-No CI image build on this branch (`.github/workflows/build.yml` still
-targets the old Docker path on `main`). Deploying a change here means:
-`git pull` (or `init.sh`'s clone) into `/home/dsh/dsh-deploy` on the box,
-run `init.sh` by hand if `package.json`/`pnpm-workspace.yaml` changed, then
-restart the `dsh` systemd service — see `README.md`'s "Running it".
+No CI at all currently - there's no image to build. Deploying a change
+here means: `git pull` (or `init.sh`'s clone) into `/home/dsh/dsh-deploy`
+on the box, run `init.sh` by hand if `package.json`/`pnpm-workspace.yaml`
+changed, then restart the `dsh` systemd service - see `README.md`'s
+"Running it".
 
 ## Git workflow
 
 **Direct pushes to `main` are explicitly authorized in this repo** — no
 PR workflow, no worktree-branch requirement, same as `local-ai-machine`
-itself. CI builds and publishes an image on every push to any branch, not
-just `main`.
+itself.
 
 ## Upgrading the dsh version
 
@@ -69,13 +68,14 @@ way to audit each range by hand.
    (`node-pty`, `koffi`, etc.) if the package set changed; writes to
    `pnpm-workspace.yaml`'s `allowBuilds`. Skipping this silently leaves
    those modules unbuilt rather than failing loudly.
-5. Test the built image locally before pushing — see the Dockerfile's
-   comment above the install step for the `nodeLinker: hoisted` reasoning
-   (required for `dsh-web-search-searxng`'s peer deps to resolve); a real
-   `docker build` + `docker run` smoke test (mount throwaway `/dsh-home`
-   and `/dsh-home-seed` dirs, set `LOCAL_AI_MACHINE_API_KEY` to any
-   value, check `dsh --version` and that `dsh web` stays up) catches
-   anything the lockfile alone wouldn't.
+5. Test locally before pushing: `pnpm install`, then boot the real
+   profile against a throwaway `HOME` (`DSH_HOME="$(pwd)/.dsh" HOME=/tmp/x
+   node node_modules/@deepseek-ai/dsh/lib/bin.js --profile web
+   --dump-config` to check composition, then the same without
+   `--dump-config` plus a real port to confirm it actually serves) - catches
+   anything the lockfile alone wouldn't, no Docker build needed.
+   `nodeLinker: hoisted` (`pnpm-workspace.yaml`) is required for
+   `dsh-web-search-searxng`'s peer deps to resolve - don't remove it.
 
 Do not fall back to `npm ci --legacy-peer-deps` as a shortcut: it looks
 like it resolves fine, but silently skips auto-installing genuinely-
