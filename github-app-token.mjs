@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 // Mints a fresh GitHub App installation access token and prints it to
-// stdout, nothing else. Used two ways: directly by the gh-CLI
-// background refresh loop in docker-entrypoint.sh, and imported as the
-// core of github-app-git-credential-helper.mjs. Never caches to disk —
-// every invocation mints a genuinely fresh token, valid ~1h per GitHub's
-// own (non-configurable) installation-token lifetime.
+// stdout, nothing else. Used two ways: directly by the dsh-gh-token-
+// refresh systemd timer, and imported as the core of
+// github-app-git-credential-helper.mjs. Never caches to disk — every
+// invocation mints a genuinely fresh token, valid ~1h per GitHub's own
+// (non-configurable) installation-token lifetime.
 import { createAppAuth } from "@octokit/auth-app";
 import { readFileSync } from "node:fs";
 
-// dsh-deploy's docker-compose.yml always mounts the App private key at
-// this fixed container path (read-only). It's the fallback in
-// mintInstallationToken because the env var that names it is NOT
-// reliably present in the process that needs it most (see there).
-export const DEFAULT_PRIVATE_KEY_PATH = "/run/secrets/github-app-agent-key.pem";
+// The box keeps a dsh-readable copy of the App private key at this fixed
+// path (see local-ai-machine/configuration.nix's dsh-github-app-key
+// secret). It's the fallback in mintInstallationToken because the env
+// var that names it is NOT reliably present in the process that needs
+// it most (see there).
+export const DEFAULT_PRIVATE_KEY_PATH = "/etc/nixos/secrets/dsh-github-app-key.pem";
 
 export async function mintInstallationToken() {
   const appId = process.env.GITHUB_APP_ID;

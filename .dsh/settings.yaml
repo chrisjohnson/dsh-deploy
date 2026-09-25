@@ -1,27 +1,3 @@
-# dsh's own bundled DeepSeek connection, explicitly disabled (2026-09-14,
-# Chris's explicit direction). @deepseek-ai/dsh ships a built-in
-# "deepseek-official" provider (package @deepseek-ai/dsh-llm-deepseek,
-# settings namespace "llm-deepseek") that talks directly to
-# https://api.deepseek.com, completely bypassing litellm - a second,
-# uncoordinated path to the same vendor that this box's docker/litellm/
-# config.yaml deepseek-flash route now owns instead (same reasoning as
-# every other model in this file: one gateway, one place to see cost/
-# usage/logs, not a parallel direct connection). Confirmed via the
-# plugin's own source (lib/index.js in the dsh container) that it
-# activates purely off DEEPSEEK_API_KEY being resolvable in dsh's own
-# process env - dsh-deploy's docker-compose.yml never passes that
-# through to the dsh service (only litellm's own environment: block in
-# local-ai-machine/docker/docker-compose.yml does, deliberately scoped
-# there and nowhere else) - so this is already structurally inert, but
-# disabled here explicitly rather than relying on that alone. Two belts:
-# apiKeyEnv repointed at a name that's never set anywhere, and its
-# DEFAULT_MODELS catalog (deepseek-v4-flash, deepseek-v4-pro - already
-# stale API names per DeepSeek's own docs, superseded by deepseek-flash)
-# emptied out so there's nothing to select even if it somehow loaded.
-llm-deepseek:
-  apiKeyEnv: DEEPSEEK_OFFICIAL_ROUTE_INTENTIONALLY_DISABLED
-  models: []
-
 llm-pi-ai:
   providers:
     # Two providers, but as of 2026-08-21 BOTH talk directly to litellm
@@ -144,69 +120,15 @@ llm-pi-ai:
       # n_slots: 3, and a real 250,018-token completion). 262144 here is
       # once again the real, full, correct value — not a workaround.
       models:
-        - id: small-moe
-          # 2026-09-24: briefly reassigned to minicpm5-2b, then moved back
-          # to glm-4.7-flash-awq once minicpm turned out to be dense, not
-          # MoE - it now lives under small-dense instead (see below), which
-          # matches the role naming semantics. Reverted to glm-4.7-flash-awq's
-          # original values. glm-4.7-flash-awq's own container isn't
-          # currently running (Chris's explicit call - "point small-moe at
-          # something else, knowing that it will break") - bring that
-          # backend back up via modelctl before this role works again.
-          contextWindow: 65536
-          # reasoningEfforts (2026-09-06): confirmed via
-          # /var/lib/ai-models/glm-4.7-flash-awq/chat_template.jinja
-          # (vLLM-served AWQ) — binary `enable_thinking` only (`</think>`
-          # if `enable_thinking is defined and not enable_thinking` else
-          # `<think>`), no reasoning_effort. See this file's header
-          # comment for the chat-template/$var mechanism this needs.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-        - id: small-dense
-          # small-dense reassigned qwen2.5-vl-7b-instruct -> minicpm5-2b-llamacpp
-          # (2026-09-24, strix-apu, via scripts/set-role.sh) - moved here
-          # from small-moe once minicpm turned out to be a plain dense model,
-          # not MoE, matching this role's actual naming semantics. Real
-          # tradeoff, not free: this DROPS vision input entirely -
-          # minicpm5-2b (this build) is text-only per its own build.yaml, no
-          # vision_config. `input: [text, image]` removed accordingly - no
-          # vision-capable "small" tier exists on this box until/unless
-          # qwen2.5-vl-7b-instruct gets its own role again.
-          # contextWindow 32768 -> 131072, maxTokens (previously unset) ->
-          # 8192, matching minicpm's real -c 131072 -n 8192 (build.yaml:
-          # minicpm5-2b--llamacpp-vulkan-radv-strix-apu-v1). reasoningEfforts
-          # changed from `false` (qwen2.5-vl-7b has no thinking support) to
-          # the binary enable_thinking mechanism - minicpm's own GGUF
-          # chat_template has the identical `enable_thinking is defined`/
-          # `is true`/`is false` toggle (grepped directly from the model
-          # file), so it's a real, working control here, not a dead one.
-          contextWindow: 131072
-          maxTokens: 8192
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
         - id: medium-moe
           contextWindow: 262144
           maxTokens: 8192
-          input: [text, image]
+          input: [ text, image ]
           # reasoningEfforts (2026-09-06): confirmed live via Ornith's own
           # /props chat_template — binary `enable_thinking` only (`<think>`
           # unless `enable_thinking is defined and enable_thinking is
           # false`; thinking ON by default), same chat-template/$var
-          # mechanism as small-moe above, not medium-dense's bare
+          # mechanism, not medium-dense's bare
           # reasoning_effort field.
           reasoningEfforts:
             "off":
@@ -217,92 +139,10 @@ llm-pi-ai:
               enable_thinking:
                 $var: thinking.enabled
                 omitWhenOff: true
-        - id: big-moe
-          contextWindow: 131072
-          maxTokens: 8192
-          # reasoningEfforts (2026-09-06): confirmed via the GGUF's own
-          # embedded tokenizer.chat_template ("laguna_glm_thinking_v8") —
-          # binary `enable_thinking` only (defaults true), same mechanism
-          # as medium-moe/small-moe above.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-        - id: big-moe-continue-json
-          contextWindow: 131072
-          maxTokens: 8192
-          # reasoningEfforts: same backend as big-moe above, see its comment.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-        - id: medium-moe-continue-json
-          # Also needs to track medium-moe's real value (missed in the
-          # 2026-09-03 87552 fix, caught when Ornith v9 superseded it) —
-          # set-role.sh auto-pairs this route to the same backend as
-          # medium-moe, so the two must always agree.
-          contextWindow: 262144
-          maxTokens: 8192
-          # reasoningEfforts: same backend as medium-moe above, see its comment.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
-    # r9700-egpu-dock roles - only roles currently pinned to a build
-    # running on that GPU belong here. Today that's just medium-dense
-    # (Qwen3.8-27B-MTP) - most roles (especially big-moe, Laguna-S-2.1
-    # 118B) will likely never fit r9700-egpu-dock's 32GB dedicated VRAM
-    # at all, so this list is expected to stay short. Same litellm
-    # instance as local-ai-machine above (:4000, direct, no haproxy) -
-    # see header comment.
-    local-ai-machine-r9700:
-      displayName: local-ai-machine (r9700-egpu-dock)
-      apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
-      api: openai-completions
-      baseURL: http://127.0.0.1:4000/v1
-      # See the local-ai-machine provider's contextWindow/maxTokens comment
-      # above - same fix, same root cause. This is the role that actually
-      # surfaced the bug (2026-08-21).
-      #
-      # contextWindow bumped 131072 -> 262144 (2026-08-22): medium-dense now
-      # routes to qwen3.8-27b-q6kl--llamacpp-vulkan-radv-r9700-mtp-v1
-      # (Q6_K_L, full native context, q4_0 KV cache - see that build's
-      # build.yaml), which really runs -c 262144, not 131072. maxTokens
-      # unchanged (still -n 8192 on the new build too).
-      # See the local-ai-machine provider's `input: [text, image]` comment
-      # above - same fix, same root cause (missing capability declaration
-      # on a hand-declared route, not a real backend gap).
-      models:
         - id: medium-dense
           contextWindow: 262144
-          # maxTokens (2026-09-15): 8192 -> 16384, matching Dirk v6's real
-          # -n 16384 (doubled from v4's -n 8192 - see that build's build.yaml
-          # for the full writeup: v4's 8192 was traced back to two OTHER
-          # models' real incidents, never independently re-derived for
-          # Dirk). Confirmed live via docker inspect on the v6 container's
-          # actual Cmd, then a real completion through litellm
-          # (finish_reason: stop, not length). Leaving this stale after the
-          # server-side bump would silently cap every request back to 8192
-          # regardless of the backend's real capacity - same failure mode
-          # this file's other maxTokens/contextWindow comments already
-          # document (declared value drifting from real backend capability).
           maxTokens: 16384
-          input: [text, image]
+          input: [ text, image ]
           # reasoningEfforts (2026-09-06): confirmed live via Dirk's own
           # /props chat_template — graduated `reasoning_effort` (not the
           # binary switch every strix-apu role above uses). Unrecognized
@@ -319,14 +159,6 @@ llm-pi-ai:
             xhigh: xhigh
           compat:
             supportsReasoningEffort: true
-    # Cloud proxy provider (2026-09-14, Chris's explicit request) — deliberately
-    # separate from the two GPU-backed providers above so the picker makes clear
-    # this isn't bound by APU/R9700 VRAM or thermal limits the way those two are.
-    # Same mechanism as both: talks to litellm (:4000), not to any cloud vendor
-    # directly. Currently just deepseek-flash; claude-sonnet already exists as a
-    # static route in docker/litellm/config.yaml but was never exposed as a DSH-
-    # selectable model before this - not added here since Chris didn't ask for it,
-    # but this is the natural place for it if that ever comes up.
     local-ai-machine-cloud:
       displayName: local-ai-machine (cloud proxy)
       apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
@@ -385,74 +217,25 @@ llm-pi-ai:
             max: max
           compat:
             supportsReasoningEffort: true
-# dsh-image-gen (M-149 follow-on, 2026-09-21): pointed at this box's own
-# litellm image-gen role (qwen-image-2.1, stable-diffusion.cpp), not a
-# cloud provider - same "one gateway" reasoning the llm-pi-ai providers
-# above follow. Reuses LOCAL_AI_MACHINE_API_KEY (already resolvable in
-# this container's env, same credential the chat providers above use) -
-# no new secret needed. litellm's /v1/images/generations doesn't accept
-# a steps override (confirmed real - see strix-halo-r9700-llm-builds'
-# M-149 build.yaml, a "20 vs 40 steps" A/B came back identical), so
-# every call through this route runs at the server's own baked-in
-# default (20 steps, ~135s at 1024x1024 with easycache) regardless of
-# what a caller here asks for.
-#
-# timeoutMs (2026-09-23): package default is 180000 (+30000 internal buffer
-# = 210000ms enforced tool-call timeout). Confirmed live this is too short
-# for this backend at 1024x1024: real generations there take 140-190s
-# (matches the ~135s baseline above plus VRAM-pressure decode slowdown -
-# a "Failed to allocate pinned memory: ErrorOutOfDeviceMemory" Vulkan
-# warning appears every time at this size), landing right at or over the
-# 210s cap - two consecutive real attempts hit
-# "ToolCallError: tool call timed out after 210000ms" while the backend
-# kept generating anyway, unaware the tool call above it had already given
-# up. Raised well past what even a much larger (4K-class) generation on
-# this hardware should plausibly need; lower again if that turns out to
-# be excessive once real timings at larger sizes are known.
-dsh-image-gen:
-  provider: custom
-  customBaseURL: "http://127.0.0.1:4000/v1"
-  customModel: "image-gen"
-  customKeyEnv: "LOCAL_AI_MACHINE_API_KEY"
-  timeoutMs: 1770000
 
 agent-default-model:
   provider: local-ai-machine
   model: medium-moe
-# Default set to ptc (PTC mode), matching actual daily usage on this box.
-agent-presets:
-  default: ptc
-ui-onboarding:
-  welcomeNoticeVersion: 2026-08-13.1
 locale:
   preference: en
-
-# Host-owned opt-in for the tool-subagent's model-facing provider/model/
-# reasoning_effort override (dsh-web-app's cordis.patch.yml mounts
-# `@deepseek-ai/dsh-tool-subagent/model-selection-settings` at the Host
-# plane with no config, so it defaults to enabled: false / allowedModels:
-# [] - any subagent call naming an explicit model fails at runtime with
-# "child model selection is disabled for this tool instance", separate
-# from and in addition to the per-preset `modelSelectionSettings: true`
-# on the tool-subagent row itself (the ptc preset already ships that).
-# 2026-09-23: this used to be masked by the now-deleted code-local preset
-# never actually exercising this path in daily use; surfaced once ptc
-# became the default. allowedModels intentionally trimmed to the
-# general-purpose roles (Chris's explicit choice) rather than the full
-# picker roster - deepseek-flash/the two *-continue-json routes are left
-# out. small-moe swapped for small-dense (2026-09-24): small-moe currently
-# points at a non-running backend (glm-4.7-flash-awq, Chris's explicit
-# call, see that role's own comment above) while small-dense now hosts the
-# working minicpm5-2b - keeping small-moe here would let a subagent
-# dispatch land on a dead backend.
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
 subagent-model-selection:
   enabled: true
   allowedModels:
     - provider: local-ai-machine
-      model: small-dense
-    - provider: local-ai-machine
       model: medium-moe
     - provider: local-ai-machine
-      model: big-moe
-    - provider: local-ai-machine-r9700
       model: medium-dense
+    - provider: local-ai-machine-cloud
+      model: deepseek-flash
+dsh-better-sidebar:
+  titleBarScheme: auto
+  titleBarCompat: false
+  viewersEnabled:
+    code: true

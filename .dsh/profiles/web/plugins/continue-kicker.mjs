@@ -113,7 +113,7 @@
 //
 // Every decision - kicks AND skips - is logged with its reason, so the
 // next "why didn't the plugin fire" question is answerable from
-// `docker logs dsh | grep continue-kicker` instead of session-file
+// `journalctl -u dsh | grep continue-kicker` instead of session-file
 // archaeology.
 //
 // Config:
