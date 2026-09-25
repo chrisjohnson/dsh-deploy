@@ -67,3 +67,34 @@
         baseURL: !!js process.env.SEARXNG_BASE_URL ?? 'http://localhost:8888'
         maxResults: !!js Number(process.env.SEARXNG_NUM_RESULTS ?? 8)
         apiKey: !!js process.env.SEARXNG_API_KEY
+
+    # "System 1" semantic loop watchdog.
+    # Intercepts the agent loop before each turn, analyzes the recent
+    # trajectory (last 6 events), and asks the orchestrator model
+    # (medium-moe, local-ai-machine) to classify it as PROGRESS or LOOP
+    # in a single non-autoregressive prefill pass (maxTokens: 1,
+    # temperature: 0.0). On LOOP, injects a developer correction message.
+    # Fail-open: LLM errors/timeouts are logged and the turn proceeds
+    # natively. Per-session cooldown prevents performance drag.
+    - id: semantic-loop-kicker
+      name: ./plugins/semantic-loop-kicker.mjs
+      config:
+        cooldownMs: 30000
+        maxTranscriptLines: 6
+        includeSubagents: false
+        interventionEnabled: true
+
+    # In-session model switching for the agent itself: `switch_model`
+    # (agent picks provider/model + the first message the new model receives)
+    # and `switch_model_escalate` (escape hatch - no arguments needed;
+    # deployment policy picks the route). Reuses the
+    # sessionController.selectModel path (same validation, durable
+    # model/selection event, "model changed" boundary notice, default-model
+    # persistence as the UI) plus agent.steer() so the notice is delivered
+    # immediately after the switch, before the new model picks up other work.
+    # See plugins/model-switch.mjs for the full rationale.
+    - id: model-switch
+      name: ./plugins/model-switch.mjs
+      config:
+        escalationProvider: local-ai-machine
+        escalationModel: medium-dense
