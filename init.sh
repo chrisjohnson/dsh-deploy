@@ -48,6 +48,16 @@ mkdir -p "$REPO_DIR/.bin"
 ln -sfn "$REPO_DIR/gh-wrapper.sh" "$REPO_DIR/.bin/gh"
 echo "gh wrapper linked: $REPO_DIR/.bin/gh -> gh-wrapper.sh"
 
+# Default git identity (M-154, ported from the old Docker entrypoint) so
+# `git commit` works out of the box - without it EVERY commit fails with
+# "Please tell me who you are", a wall that stops a session cold. Only if
+# not already configured: a human/agent-provided identity always wins and
+# is never clobbered on a later init.sh re-run. Confirmed this was a real,
+# live gap on the native install (not just theoretical) - dsh had no git
+# identity at all until this ran.
+git config --global --get user.name  >/dev/null 2>&1 || git config --global user.name  "dsh agent"
+git config --global --get user.email >/dev/null 2>&1 || git config --global user.email "dsh-agent@users.noreply.github.com"
+
 # git credential helper + insteadOf rewrites (M-154, ported from the old
 # Docker entrypoint's per-boot setup). --unset-all before --add each time:
 # url.<base>.insteadOf is multi-valued, so a later plain `git config` call
