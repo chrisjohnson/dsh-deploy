@@ -16,10 +16,23 @@
 # remember to pass every time. 1920x1080 (Chris's explicit choice) vs the
 # plugin's own 1280x800 default - was producing screenshots at a scale
 # noticeably smaller than Chris's own display.
+#
+# executablePath (not a plain PLAYWRIGHT_BROWSERS_PATH download): NixOS
+# can't run Playwright's own generically-linked downloaded Chromium at
+# all (confirmed live - "NixOS cannot run dynamically linked executables
+# intended for generic linux environments out of the box"). nixpkgs'
+# own playwright-driver.browsers is properly patched for NixOS, but its
+# pinned chromium revision doesn't match what this checkout's installed
+# playwright expects by directory-name lookup - bypassing that lookup
+# with an explicit executablePath (set via PLAYWRIGHT_CHROME_PATH, a
+# small glob-based wrapper script defined in local-ai-machine's
+# configuration.nix) works fine despite the version skew - confirmed
+# live with a real page load + DOM read.
 - id: playwright-browser
   config:
     viewportWidth: 1920
     viewportHeight: 1080
+    executablePath: !!js process.env.PLAYWRIGHT_CHROME_PATH
 #
 # No settings-path redirect here (the old Docker cordis.patch.yml carried
 # one): that was purely a bind-mount rename limitation
