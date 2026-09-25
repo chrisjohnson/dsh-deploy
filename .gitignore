@@ -9,6 +9,11 @@ pnpm-store/
 # the dsh systemd unit's PATH. Not tracked - it's just a link, not content.
 .bin/
 
+# dsh-playwright-browser's downloaded Chromium binary (M-154), scoped to
+# this checkout via PLAYWRIGHT_BROWSERS_PATH rather than installed
+# system-wide - real binary content, not config, never tracked.
+.playwright-browsers/
+
 # .dsh/ is dsh's own DSH_HOME, symlinked in from /home/dsh/.dsh and living
 # inside this checkout on purpose (M-153) so config edits - ours or dsh's
 # own "creator mode" - show up as plain git diffs. These are the known

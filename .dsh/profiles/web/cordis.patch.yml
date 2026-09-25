@@ -3,9 +3,23 @@
 # in `bundles` below - switches ctx.web's search provider to searxng and
 # mounts the plugin row) via its `dsh.bundle.patch` package.json field, so
 # no hand-written insert is needed for that. dsh-context, dsh-better-sidebar,
-# and dsh-git-worktree work the same way - all three ship their own
-# `dsh.bundle.patch` and mount purely from inclusion in `bundles` below, so
-# none of them needs a row here either.
+# dsh-git-worktree, and dsh-playwright-browser work the same way - all four
+# ship their own `dsh.bundle.patch` and mount purely from inclusion in
+# `bundles` below, so none of them needs an `insert:` row here either -
+# playwright-browser gets a plain config-override row instead (see below),
+# since it self-mounts under id `playwright-browser` already.
+
+# Chris's explicit request (M-154, replaces the old Docker image's bare
+# global playwright CLI): dsh-playwright-browser gives dsh proper
+# browser_* tools instead of shell-invoked one-liners, and unlike the CLI
+# has a real persistent viewport config the agent doesn't have to
+# remember to pass every time. 1920x1080 (Chris's explicit choice) vs the
+# plugin's own 1280x800 default - was producing screenshots at a scale
+# noticeably smaller than Chris's own display.
+- id: playwright-browser
+  config:
+    viewportWidth: 1920
+    viewportHeight: 1080
 #
 # No settings-path redirect here (the old Docker cordis.patch.yml carried
 # one): that was purely a bind-mount rename limitation
