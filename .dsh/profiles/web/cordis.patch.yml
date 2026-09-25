@@ -95,21 +95,47 @@
         maxResults: !!js Number(process.env.SEARXNG_NUM_RESULTS ?? 8)
         apiKey: !!js process.env.SEARXNG_API_KEY
 
-    # "System 1" semantic loop watchdog.
-    # Intercepts the agent loop before each turn, analyzes the recent
-    # trajectory (last 6 events), and asks the orchestrator model
-    # (medium-moe, local-ai-machine) to classify it as PROGRESS or LOOP
-    # in a single non-autoregressive prefill pass (maxTokens: 1,
-    # temperature: 0.0). On LOOP, injects a developer correction message.
-    # Fail-open: LLM errors/timeouts are logged and the turn proceeds
-    # natively. Per-session cooldown prevents performance drag.
+    # "System 1" STUCK SIGNAL (re-steered per scratch/kicker-brief.md): the
+    # goal is a trustworthy "this session is stuck" signal the operator
+    # leaves armed - precision over recall. Two layers:
+    #
+    #   1. Deterministic fingerprint fast path (no LLM, no GPU): over the
+    #      last fpWindowEvents raw events, hash (tool, normalized args) and
+    #      flag repetition with NO new information (>=3 repeats with <=1
+    #      distinct result, or >=5 with <=2). Primary trigger.
+    #   2. LLM adjudication for ambiguous windows: medium-moe (direct
+    #      litellm, thinking off via chat_template_kwargs) judges whether
+    #      the last 6 substantive events produced NEW information, replying
+    #      "PROGRESS:<0-100>" or "LOOP:<0-100>" (lenient parse).
+    #
+    # Every check appends one JSON line to
+    # /tmp/semantic-loop-kicker-decisions.jsonl (verdict, confidence, band,
+    # fingerprints, window, latency, outcome) - the single readable place a
+    # future model-escalation consumer reads.
+    #
+    # Bands: conf>=bandStuck -> "stuck" (actionable), >=bandWatch -> "watch",
+    # else "noise". Intervention (OFF - log-only while observed) is one
+    # consumer of the signal: stuck band only, non-destructive text,
+    # agent.steer (immediate, not queued), capped at one per cooldownMs per
+    # session. Busy-yield: after a slow LLM call (>busyYieldMs) the next
+    # check skips rather than competing with the session's own work.
+    #
+    # Offline-tuned 2026-09-25 on 11 real-session anchors (3 iters each):
+    # 30/33, ZERO false positives, 3 false negatives (one ambiguous anchor,
+    # all in the non-actionable noise band). Harness:
+    # scratch/wd-tune/wd-tune.mjs.
     - id: semantic-loop-kicker
       name: ./plugins/semantic-loop-kicker.mjs
       config:
         cooldownMs: 30000
         maxTranscriptLines: 6
         includeSubagents: false
-        interventionEnabled: true
+        interventionEnabled: false
+        watchdogTimeoutMs: 25000
+        fpWindowEvents: 60
+        busyYieldMs: 15000
+        bandStuck: 90
+        bandWatch: 70
 
     # In-session model switching for the agent itself: `switch_model`
     # (agent picks provider/model + the first message the new model receives)
