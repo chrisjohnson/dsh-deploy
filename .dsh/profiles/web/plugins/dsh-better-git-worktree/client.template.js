@@ -64,7 +64,8 @@ window.__ModuleLoader__.load({
 			+ ".bgw-presession{display:inline-flex;align-items:center;gap:6px;flex:none}"
 			+ ".bgw-presession-label{font:500 12px/16px Inter,sans-serif;color:var(--dsw-alias-label-secondary,#666);cursor:default;user-select:none}"
 			+ ".bgw-modal-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}"
-			+ ".bgw-menu-summary{display:flex;flex-direction:column;gap:2px;max-width:280px;white-space:normal;font:400 11px/15px Inter,sans-serif;color:var(--dsw-alias-label-secondary,#666)}"
+			+ ".bgw-menu-summary{display:flex;flex-direction:column;gap:2px;max-width:280px;white-space:normal;font:400 11px/15px Inter,sans-serif;color:var(--dsw-alias-label-primary,#333)}"
+			+ ".bgw-menu-summary span{opacity:.85}"
 			+ ".bgw-menu-summary strong{font:600 12px/16px Inter,sans-serif;color:var(--dsw-alias-label-primary,#222)}"
 			+ ".bgw-menu-error{color:var(--dsw-alias-state-error-primary,#c00)}"
 			+ ".bgw-menu-notice{color:var(--bgw-done)}"
@@ -1033,7 +1034,9 @@ window.__ModuleLoader__.load({
 
 			var branchReview = function () {
 				patch({ open: false });
-				if (!openSidebarTab(services, { type: "git-worktree-review", title: "Branch review" }, sessionId)) {
+				// The tab seat is narrow — it clips "Branch review" — so the tab is "Branch"
+				// while the panel's own header carries the full title.
+				if (!openSidebarTab(services, { type: "git-worktree-review", title: "Branch" }, sessionId)) {
 					patch({ reviewOpen: true, error: null });
 				}
 			};

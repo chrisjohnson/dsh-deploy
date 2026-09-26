@@ -7,16 +7,58 @@ escalation that implies) lives in the plugin `README.md`.
 
 ## Gallery
 
-| | |
-| --- | --- |
-| ![Composer with a draft typed](screenshots/01a-composer-with-draft.png) | ![Worktree switch confirmation](screenshots/01-composer-worktree-switch.png) |
-| A draft typed before switching — it is carried into the new session. | Turning on **Worktree** confirms once, then creates the branch and working copy. |
-| ![Session list statuses](screenshots/02-session-list-statuses.png) | ![Worktree session pill](screenshots/03-worktree-pill.png) |
-| Every status in the session list: Progressing, Up To Date, In Sync, Behind. | A worktree session's header pill, coloured like its sidebar badge. |
-| ![Worktree session menu](screenshots/04-worktree-menu.png) | ![Plain checkout menu](screenshots/06-checkout-menu.png) |
-| Worktree sessions add *Copy worktree path* and *Open worktree folder*. | The same menu works for a session in a plain checkout. |
-| ![Branch review panel](screenshots/05-branch-review.png) | ![Archive prompt](screenshots/07-archive-worktree-prompt.png) |
-| *Review branch vs origin/main* with its **Refresh** action. | Archiving a worktree session asks what happens to the working copy. |
+Every screenshot below is captured from a running harness, one per status, with
+and without a managed worktree.
+
+### New session in a worktree
+
+![Composer holding a draft, sidebar showing every status](screenshots/01a-composer-with-draft.png)
+
+*The new-session composer holding a draft message, with sidebar status badges
+Progressing, Up To Date, In Sync, Behind, and a yellow REBASE tag on the
+rebase-needing branch.*
+
+![Worktree confirmation dialog](screenshots/01-composer-worktree-switch.png)
+
+*Confirmation dialog shown when the composer is switched into a new git
+worktree.*
+
+### The session list
+
+![Session list with status badges](screenshots/02-session-list-statuses.png)
+
+*Composer in a worktree workspace (chips `rebase-sunny-crane` and
+`Standard mode`) with each session group showing its status badge in the
+sidebar.*
+
+![Worktree session pill](screenshots/03-worktree-pill.png)
+
+*Worktree session view with the amber `lively-sparrow - Behind` header pill and
+a hover tooltip over a sidebar session row.*
+
+### The header menu
+
+![Worktree session menu](screenshots/04-worktree-menu.png)
+
+*Header-pill dropdown for a worktree session: Git Changes, Review branch vs
+origin/main, git fetch, Copy worktree path, Open worktree folder.*
+
+![Plain checkout menu](screenshots/06-checkout-menu.png)
+
+*Header-pill dropdown for a main-checkout session: Git Changes, Review branch vs
+origin/main, git fetch, Move this session into a worktree.*
+
+### Reviewing and retiring
+
+![Branch review panel](screenshots/05-branch-review.png)
+
+*Branch-review panel comparing the worktree branch with `origin/main`
+(2 commits ahead, 0 behind) with commits, changed files, and diffstat.*
+
+![Archive worktree dialog](screenshots/07-archive-worktree-prompt.png)
+
+*Archive-worktree dialog with the worktree path, branch, and unpushed-commits
+warning; actions are Cancel, Keep, and Remove.*
 
 ## The mental model
 
