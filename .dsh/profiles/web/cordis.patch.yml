@@ -114,11 +114,16 @@
     # future model-escalation consumer reads.
     #
     # Bands: conf>=bandStuck -> "stuck" (actionable), >=bandWatch -> "watch",
-    # else "noise". Intervention (OFF - log-only while observed) is one
-    # consumer of the signal: stuck band only, non-destructive text,
-    # agent.steer (immediate, not queued), capped at one per cooldownMs per
-    # session. Busy-yield: after a slow LLM call (>busyYieldMs) the next
-    # check skips rather than competing with the session's own work.
+    # else "noise". Intervention is one consumer of the signal, gated by ALL:
+    # stuck band + SUSTAINED (>=2 consecutive stuck decisions) + act mode +
+    # not already acted in this streak. Non-destructive text, agent.steer
+    # (immediate, not queued). One nudge per stuck episode.
+    # Act/log mode: interventionEnabled here is the DEFAULT; the UI settings
+    # row (dynamic plugin) writes profiles/web/watchdog-mode.json, which the
+    # watchdog reads on every check - a toggle takes effect within one
+    # cooldown window, no restart.
+    # Busy-yield: after a slow LLM call (>busyYieldMs) the next check skips
+    # rather than competing with the session's own work.
     #
     # Offline-tuned 2026-09-25 on 11 real-session anchors (3 iters each):
     # 30/33, ZERO false positives, 3 false negatives (one ambiguous anchor,

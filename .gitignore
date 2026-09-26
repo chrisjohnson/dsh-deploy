@@ -37,3 +37,7 @@ pnpm-store/
 # derived from package.json's bundles + cordis.patch.yml, not meant to be
 # hand-edited or tracked.
 .dsh/profiles/*/cordis.yml
+
+# Watchdog act/log mode override - written by the UI settings row,
+# read by semantic-loop-kicker on every check. Runtime state, not config.
+.dsh/profiles/*/watchdog-mode.json

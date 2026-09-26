@@ -51,7 +51,7 @@ const PLUGIN_NAME = 'semantic-loop-kicker'
 // journal), so ctx.logger lines are hard to see externally. We write a copy
 // of every log line to a file we can tail, in addition to the console.
 // ================================================================
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, readFileSync } from 'node:fs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 const LOG_FILE = '/tmp/semantic-loop-kicker.log'
 
@@ -98,6 +98,25 @@ function logDecision(record) {
     appendFileSync(DECISIONS_FILE, JSON.stringify(record) + '\n')
   } catch {
     // best effort
+  }
+}
+
+// ================================================================
+// RUNTIME MODE OVERRIDE
+// The act/log switch is managed from the UI settings row (dynamic
+// plugin) by writing this small JSON file. The watchdog reads it on
+// EVERY check, so a toggle takes effect within one cooldown window
+// without a restart. The yml config is the default when the file is
+// absent (e.g. before the UI is ever used).
+// ================================================================
+const MODE_FILE = '/home/dsh/.dsh/profiles/web/watchdog-mode.json'
+
+function readModeOverride() {
+  try {
+    const o = JSON.parse(readFileSync(MODE_FILE, 'utf8'))
+    return typeof o?.interventionEnabled === 'boolean' ? o.interventionEnabled : null
+  } catch {
+    return null // absent or corrupt -> fall back to yml config
   }
 }
 
@@ -359,6 +378,15 @@ export default {
       const lastCheck = new Map()
       // Last LLM-check latency per session id (busy-yield gate).
       const lastLlmLatency = new Map()
+      // Hysteresis for intervention: a single stuck check is a signal, but
+      // acting requires SUSTAINED stuck (>= 2 consecutive stuck-band
+      // decisions ~ brief: "sustained >=90"). After one intervention per
+      // stuck streak the watchdog stays silent until the streak breaks -
+      // repeating the same note every 30s adds no information to the agent.
+      const stuckStreak = new Map()
+      const intervenedInStreak = new Set()
+      // Effective-mode change log (UI toggle takes effect without restart).
+      let lastEffectiveMode = null
 
       // Scope guard: skip subagent sessions unless includeSubagents is true.
       // (dsh-scope: subagent sessions carry header.origin === 'subagent' or
@@ -601,9 +629,33 @@ export default {
           }
           const band = bandOf(decision.confidence)
 
+          // Runtime mode: the UI override file wins over the yml default.
+          // Read every check so a toggle takes effect within one cooldown
+          // window, no restart. A change is logged the moment it is seen.
+          const override = readModeOverride()
+          const interventionOn = override ?? interventionEnabled
+          const effectiveMode = interventionOn ? 'act' : 'log'
+          if (lastEffectiveMode !== null && lastEffectiveMode !== effectiveMode) {
+            logBoth('[A] MODE CHANGED %s -> %s (source: %s)', lastEffectiveMode, effectiveMode, override !== null ? 'ui-override' : 'yml-default')
+            log.info('[A] MODE CHANGED %s -> %s', lastEffectiveMode, effectiveMode)
+          }
+          lastEffectiveMode = effectiveMode
+
+          // Hysteresis: count consecutive stuck-band decisions. A non-stuck
+          // decision (or a missing verdict) breaks the streak and re-arms.
+          if (band === 'stuck') {
+            stuckStreak.set(sessionId, (stuckStreak.get(sessionId) ?? 0) + 1)
+          } else {
+            stuckStreak.set(sessionId, 0)
+            intervenedInStreak.delete(sessionId)
+          }
+          const streak = stuckStreak.get(sessionId) ?? 0
+          const sustained = streak >= 2
+          const alreadyActed = intervenedInStreak.has(sessionId)
+
           // 6. DECISION RECORD: one JSON line per check - verdict,
           //    confidence, band, matched fingerprints, transcript window,
-          //    latency, outcome. The single readable place a future
+          //    latency, streak, outcome. The single readable place a future
           //    consumer (model escalation, UI indicator, re-plan prompt)
           //    reads from.
           const record = {
@@ -613,6 +665,8 @@ export default {
             verdict: decision.verdict,
             confidence: decision.confidence,
             band,
+            streak,
+            mode: effectiveMode,
             fingerprints: matchedFps.map((f) => ({ fp: f.fp, count: f.count, distinctResults: f.distinctResults })),
             latencyMs: decision.latencyMs ?? 0,
             window: transcript,
@@ -622,14 +676,17 @@ export default {
           // ================================================================
           // STAGE E: act (or log) on the decision.
           // Intervention (off by default) is ONE consumer of the signal, not
-          // its purpose: only in the 'stuck' band, non-destructive text,
-          // and the cooldown caps it at one action per cooldownMs per
-          // session (the circuit breaker).
+          // its purpose. It fires only when ALL hold: stuck band, SUSTAINED
+          // (>=2 consecutive stuck decisions), act mode, and not already
+          // acted in this streak. One nudge per stuck episode - the cooldown
+          // then caps any future repetition, and the note itself is
+          // non-destructive.
           // ================================================================
-          if (decision.verdict === 'LOOP' && band === 'stuck' && interventionEnabled) {
+          if (decision.verdict === 'LOOP' && band === 'stuck' && sustained && interventionOn && !alreadyActed) {
             record.outcome = 'intervened'
-            logBoth('[E] DECISION LOOP conf=%d band=stuck source=%s - STEERING session %s (fps: %s)', decision.confidence, decision.source, sessionId, decision.raw)
-            log.warn('[E] DECISION LOOP conf=%d band=stuck source=%s - steering session %s', decision.confidence, decision.source, sessionId)
+            intervenedInStreak.add(sessionId)
+            logBoth('[E] DECISION LOOP conf=%d band=stuck streak=%d source=%s - STEERING session %s (fps: %s)', decision.confidence, streak, decision.source, sessionId, decision.raw)
+            log.warn('[E] DECISION LOOP conf=%d band=stuck streak=%d source=%s - steering session %s', decision.confidence, streak, decision.source, sessionId)
             try {
               const message = createUserMessage({
                 content: [{ type: 'text', text: INTERVENTION_MESSAGE }],
@@ -651,25 +708,33 @@ export default {
             }
           } else {
             // LOG ONLY: the verdict + band + fingerprints are the product.
+            const reason = band !== 'stuck'
+              ? `band=${band}`
+              : !sustained
+                ? `streak=${streak}<2`
+                : !interventionOn
+                  ? 'mode=log'
+                  : 'already-acted-in-streak'
             const fpsShort = matchedFps.map((f) => `${f.fp.slice(0, 40)} x${f.count}`)
             logBoth(
-              '[E] DECISION %s conf=%s band=%s source=%s fps=%j - session %s (intervention %s)',
+              '[E] DECISION %s conf=%s band=%s streak=%d source=%s fps=%j - session %s (no action: %s)',
               decision.verdict ?? 'UNPARSEABLE',
               decision.confidence ?? '-',
               band,
+              streak,
               decision.source,
               fpsShort,
               sessionId,
-              interventionEnabled ? 'enabled, not stuck-band' : 'disabled')
+              reason)
             if (decision.verdict === 'LOOP') {
-              log.warn('[E] DECISION LOOP conf=%s band=%s session %s', decision.confidence, band, sessionId)
+              log.warn('[E] DECISION LOOP conf=%s band=%s streak=%d session %s', decision.confidence, band, streak, sessionId)
             }
           }
 
           logDecision(record)
           log.info(
-            '[E] decision recorded: %s conf=%s band=%s source=%s outcome=%s session %s',
-            record.verdict, record.confidence, band, decision.source, record.outcome, sessionId,
+            '[E] decision recorded: %s conf=%s band=%s streak=%d source=%s outcome=%s session %s',
+            record.verdict, record.confidence, band, record.streak, decision.source, record.outcome, sessionId,
           )
         } catch (err) {
           // Fail open: log a warning and let the main session turn proceed natively.
