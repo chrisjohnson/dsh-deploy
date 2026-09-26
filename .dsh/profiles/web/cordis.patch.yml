@@ -81,6 +81,17 @@
         kickOnMaxTokens: true
         includeSubagents: false
 
+    # dsh-better-git-worktree: the deployment's own git-worktree session
+    # plugin (source under ./plugins/dsh-better-git-worktree, README there).
+    # Host half owns the session -> worktree registry, the cached status
+    # pipeline, the model-facing `worktree_convert` tool, and the private
+    # /betterGitWorktree JSON route; the Client half is served from the
+    # package's ./client export. It targets a *revisioned* entry (rather than
+    # index.mjs) so host code can be reloaded live by
+    # `node scripts/dev-reload-host.mjs` - see the plugin README.
+    - id: better-git-worktree
+      name: ./plugins/dsh-better-git-worktree/entry-r30.mjs
+
     # Model-facing image_search tool over the same self-hosted SearXNG
     # instance dsh-web-search-searxng uses for text search, querying its
     # `images` category. Same env-var convention as dsh-web-search-searxng
@@ -156,3 +167,19 @@
       config:
         escalationProvider: local-ai-machine
         escalationModel: medium-dense
+
+
+# ── dsh-better-git-worktree takes over the Workspace surface ────────────────
+#
+# The original dsh-git-worktree is disabled: its review/acceptance lifecycle is
+# replaced by dsh-better-git-worktree's immediate, permanent worktree sessions.
+# (Left installed on disk so it can be re-enabled from this file alone.)
+- id: dsh-git-worktree
+  disabled: true
+
+# The official Workspace row needs no row here: dsh-better-git-worktree stands
+# in for it (see the plugin's host `mountWorkspaceProviderElection`), because
+# the sidebar browsing region is a `single` slot whose child seat
+# (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
+# declared it. The plugin disables the official row on activation and restores
+# its composed `disabled` option on teardown, so this stays self-contained.
