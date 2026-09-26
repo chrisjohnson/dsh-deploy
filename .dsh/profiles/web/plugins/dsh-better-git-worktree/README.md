@@ -9,6 +9,11 @@ the sidebar browser integration) and drops everything else: there is no review
 checkpoint, no preview/apply, no delivery handoff. A worktree here is simply
 where the session works.
 
+**Usage guide:** [`docs/USAGE.md`](docs/USAGE.md) — surfaces, statuses,
+workflows, and a screenshot gallery.
+
+![Session list statuses](docs/screenshots/02-session-list-statuses.png)
+
 ## What it does
 
 - **Composer switch (blank sessions).** A `Worktree` toggle sits in the composer
