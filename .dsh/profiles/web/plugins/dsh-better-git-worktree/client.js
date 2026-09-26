@@ -3008,7 +3008,9 @@ window.__ModuleLoader__.load({
 					return state;
 				},
 				entryFor: function (sessionId) {
-					for (var entry of state.entries) if (entry && entry.sessionId === sessionId) return entry;
+					for (var entry of state.entries) {
+						if (entry && (entry.sessionId === sessionId || entry.targetSessionId === sessionId)) return entry;
+					}
 					return state.current[sessionId];
 				},
 				/** Ask for this session's checkout status on every refresh. */
@@ -3037,9 +3039,13 @@ window.__ModuleLoader__.load({
 								var decorations = {};
 								var entries = result.value.worktrees || [];
 								for (var entry of entries) {
-									if (entry && typeof entry.sessionId === "string") {
-										decorations[entry.sessionId] = decorationOf(entry);
-									}
+									if (!entry || typeof entry.sessionId !== "string") continue;
+									var decoration = decorationOf(entry);
+									decorations[entry.sessionId] = decoration;
+									// A converted session keeps its record under the source
+									// id; the session actually living in the worktree is
+									// `targetSessionId`.
+									if (typeof entry.targetSessionId === "string") decorations[entry.targetSessionId] = decoration;
 								}
 								state = Object.assign({}, state, {
 									decorations: decorations,

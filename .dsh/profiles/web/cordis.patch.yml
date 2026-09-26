@@ -90,7 +90,7 @@
     # index.mjs) so host code can be reloaded live by
     # `node scripts/dev-reload-host.mjs` - see the plugin README.
     - id: better-git-worktree
-      name: ./plugins/dsh-better-git-worktree/entry-r30.mjs
+      name: ./plugins/dsh-better-git-worktree/entry-r35.mjs
 
     # Model-facing image_search tool over the same self-hosted SearXNG
     # instance dsh-web-search-searxng uses for text search, querying its

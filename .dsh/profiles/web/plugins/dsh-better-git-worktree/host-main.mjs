@@ -32,10 +32,10 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=35';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=35';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=35';
+import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=35';
 
 export const name = 'dsh-better-git-worktree';
 
@@ -805,8 +805,8 @@ function mountWorkspaceProviderElection(ctx, log) {
  * session in the worktree is still better than nothing, and the caller reports
  * which one happened.
  */
-async function createWorktreeSessionFor(ctx, source, record) {
-  const sessionId = `session-${randomUUID()}`;
+async function createWorktreeSessionFor(ctx, source, record, requestedSessionId) {
+  const sessionId = requestedSessionId ?? `session-${randomUUID()}`;
   const agentLoop = ctx.get('agentLoop');
   if (agentLoop === undefined || typeof agentLoop.createAgent !== 'function') {
     throw new Error('ctx.agentLoop is unavailable, so a worktree session cannot be created');

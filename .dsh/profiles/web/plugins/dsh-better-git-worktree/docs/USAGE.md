@@ -5,6 +5,19 @@ the operator's view: what each surface shows, what every action does, and what
 the statuses mean. The design rationale (real linked worktrees, and the sandbox
 escalation that implies) lives in the plugin `README.md`.
 
+## Gallery
+
+| | |
+| --- | --- |
+| ![Composer with a draft typed](screenshots/01a-composer-with-draft.png) | ![Worktree switch confirmation](screenshots/01-composer-worktree-switch.png) |
+| A draft typed before switching — it is carried into the new session. | Turning on **Worktree** confirms once, then creates the branch and working copy. |
+| ![Session list statuses](screenshots/02-session-list-statuses.png) | ![Worktree session pill](screenshots/03-worktree-pill.png) |
+| Every status in the session list: Progressing, Up To Date, In Sync, Behind. | A worktree session's header pill, coloured like its sidebar badge. |
+| ![Worktree session menu](screenshots/04-worktree-menu.png) | ![Plain checkout menu](screenshots/06-checkout-menu.png) |
+| Worktree sessions add *Copy worktree path* and *Open worktree folder*. | The same menu works for a session in a plain checkout. |
+| ![Branch review panel](screenshots/05-branch-review.png) | ![Archive prompt](screenshots/07-archive-worktree-prompt.png) |
+| *Review branch vs origin/main* with its **Refresh** action. | Archiving a worktree session asks what happens to the working copy. |
+
 ## The mental model
 
 Every session has a **checkout**: the directory it works in. For most sessions
