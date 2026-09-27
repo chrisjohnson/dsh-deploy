@@ -64,6 +64,15 @@ llm-pi-ai:
       # service comment), so it shares the host's own network namespace directly,
       # same as litellm (also network_mode: host, bound straight to the host's
       # :4000) - direct, no haproxy queue in between (see header above).
+      # streamIdleTimeoutMs (2026-09-15, task 2.2): default 300 000 ms is too
+      # short for this APU. A 7 035-token cold prefill measured 36.1 s at 728
+      # prompt tok/s (harness-tuning-plan.md §0); a 150 000-token context
+      # prefill is ~200 s, and under contention (another session or the
+      # watchdog) it crosses 300 s — causing `pi-ai stream idle timeout after
+      # 300000ms`, failed compactions, and retry storms (28 x 300 s ≈ 2.3 h
+      # lost in one session). Set to 900 000 ms (15 min) so a genuine long
+      # prefill is not treated as a failure.
+      streamIdleTimeoutMs: 900000
       baseURL: http://127.0.0.1:4000/v1
       # contextWindow/maxTokens (2026-08-21): pi-ai's own README is explicit
       # that a hand-declared route (neither of these providers is in pi-ai's
@@ -110,35 +119,36 @@ llm-pi-ai:
       # exact role name). small-dense (qwen2.5-vl-7b-instruct) was ALSO
       # missing this the whole time - it's a real vision model, this was
       # never applied when the route was added.
-      # medium-moe contextWindow (2026-09-03, superseded same day): Ornith
-      # v8's -c 262144 -np 3 divided total context evenly across slots
-      # (real per-request limit 87552, confirmed via /props after a real
-      # ContextWindowExceededError) — briefly declared as 87552 here to
-      # match. Ornith v9 fixes the underlying problem instead of just
-      # documenting it: --kv-unified-per-slot 262144 gives every slot the
-      # FULL 262144 with no division (confirmed via /props: n_ctx: 262144,
-      # n_slots: 3, and a real 250,018-token completion). 262144 here is
-      # once again the real, full, correct value — not a workaround.
+      # medium-moe contextWindow: 262144 is the declared value in this
+      # route. The previous comment justified it by citing Ornith v9's
+      # --kv-unified-per-slot 262144, but medium-moe now runs on occamy,
+      # not Ornith — that justification was stale. Per AGENTS.md's
+      # "Model list settings" rule, contextWindow should be re-verified
+      # against the live backend after any role reassignment; that cannot
+      # be done here without backend archaeology (out of scope), so the
+      # Ornith citation is removed rather than restated. The 262144
+      # declaration stands as the route's current settings.yaml value.
       models:
         - id: medium-moe
           contextWindow: 262144
           maxTokens: 8192
           input: [ text, image ]
-          # reasoningEfforts (2026-09-06): confirmed live via Ornith's own
-          # /props chat_template — binary `enable_thinking` only (`<think>`
-          # unless `enable_thinking is defined and enable_thinking is
-          # false`; thinking ON by default), same chat-template/$var
-          # mechanism, not medium-dense's bare
-          # reasoning_effort field.
-          reasoningEfforts:
-            "off":
-            medium: "on"
-          compat:
-            thinkingFormat: chat-template
-            chatTemplateKwargs:
-              enable_thinking:
-                $var: thinking.enabled
-                omitWhenOff: true
+          # reasoningEfforts (2026-09-15, task 2.1): the declared off/medium
+          # toggle was a silent no-op — selecting "off" still thinks.
+          # Confirmed from source: dsh-llm-pi-ai's resolveReasoningLevel
+          # (lib/index.js:1691) returns the selected level name; profileOptions
+          # (lib/index.js:1661) converts "off" to undefined; pi-ai's
+          # resolveChatTemplateKwargValue (dist/api/openai-completions.js:794)
+          # reads options.reasoningEffort and, at line 798, returns
+          # `!!reasoningEffort` for the `$var: thinking.enabled` sentinel.
+          # When "off" is selected reasoningEffort is undefined, so
+          # omitWhenOff drops the key entirely; the llama.cpp template guard
+          # `{%- if enable_thinking is defined and is false %}` treats
+          # omission as thinking ON. When "medium" is selected, !!reasoningEffort
+          # is true → enable_thinking: true. Either way the model thinks.
+          # The mechanism cannot express "thinking off", so stop offering
+          # levels that cannot work rather than relabeling them.
+          reasoningEfforts: false
         - id: medium-dense
           contextWindow: 262144
           maxTokens: 16384
@@ -239,3 +249,29 @@ dsh-better-sidebar:
   titleBarCompat: false
   viewersEnabled:
     code: true
+llm-deepseek:
+  models:
+    - id: deepseek-flash
+      name: DeepSeek-V41-Flash
+      contextWindow: 1000000
+      inputModalities:
+        - text
+        - image
+      imagePixelBudget: 640000
+      imageMaxBytes: 1048576
+      systemPromptUpdate: in-history
+    - id: deepseek-v4-flash
+      name: DeepSeek-V4-Flash
+      description: Fast, efficient, and economical; suited to focused, routine, or
+        parallel tasks.
+      contextWindow: 1000000
+      inputModalities:
+        - text
+    - id: deepseek-v4-flash-vision-exp
+      name: DeepSeek-V4-Flash-Vision-Exp
+      contextWindow: 1000000
+      inputModalities:
+        - text
+        - image
+      imagePixelBudget: 640000
+      imageMaxBytes: 1048576

@@ -1,0 +1,18 @@
+{
+  "name": "dsh-scheduled-queue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Composer scheduled-send: a clock button in the composer schedules the draft for later delivery; central durable queue file under $DSH_HOME/storages; dock visualization in the composer input strip.",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.mjs",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  }
+}
