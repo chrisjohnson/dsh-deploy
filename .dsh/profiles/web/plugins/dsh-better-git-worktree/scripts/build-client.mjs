@@ -89,7 +89,7 @@ export function decorateOfficialWorkspaceClient(source) {
   derived = replaceExactlyOnce(
     derived,
     '\t\t\t\t\t\tchildren: displayTitle(node, t)\n\t\t\t\t\t}),\n\t\t\t\t\t!node.blank',
-    '\t\t\t\t\t\tchildren: displayTitle(node, t)\n\t\t\t\t\t}),\n\t\t\t\t\tbgwHover !== void 0 && (0, react_jsx_runtime.jsxs)("div", {\n\t\t\t\t\t\tclassName: Rows_module_css_default.hoverStatus,\n\t\t\t\t\t\tchildren: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, {}), (0, react_jsx_runtime.jsx)("span", { children: bgwHover.tooltip })]\n\t\t\t\t\t}),\n\t\t\t\t\t!node.blank',
+    '\t\t\t\t\t\tchildren: displayTitle(node, t)\n\t\t\t\t\t}),\n\t\t\t\t\tbgwHover !== void 0 && (0, react_jsx_runtime.jsxs)("div", {\n\t\t\t\t\t\tclassName: Rows_module_css_default.hoverStatus,\n\t\t\t\t\t\tchildren: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, {}), (0, react_jsx_runtime.jsx)("span", { className: "bgw-hover-status", children: bgwHover.tooltip })]\n\t\t\t\t\t}),\n\t\t\t\t\t!node.blank',
     'hover status line',
   );
   derived = replaceExactlyOnce(

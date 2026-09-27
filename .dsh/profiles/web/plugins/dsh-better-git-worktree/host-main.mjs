@@ -32,10 +32,10 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=39';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=39';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=39';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=39';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=41';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=41';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=41';
+import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=41';
 
 export const name = 'dsh-better-git-worktree';
 

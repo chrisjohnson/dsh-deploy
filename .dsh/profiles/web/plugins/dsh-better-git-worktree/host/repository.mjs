@@ -211,49 +211,54 @@ export async function readWorktreeStatus(path, options = {}) {
 }
 
 /**
- * One-line-per-fact human summary of a status object — the tooltip. Deliberately
- * complete rather than terse: it is only ever shown on hover.
+ * The hover-card / tooltip summary of a status object.
+ *
+ * Two lines on purpose: the first says which checkout this is, the second how it
+ * stands — upstream, working tree, comparison with the default branch. One
+ * run-on line is unreadable at hover-card width, and both the harness hover card
+ * and a native `title` render the newline.
  */
 export function statusSummary(status, options = {}) {
-  const parts = [];
+  const head = [];
   const branch = status.branch ?? '(detached HEAD)';
-  if (options.petName) parts.push(`Worktree ${options.petName}`);
-  parts.push(`branch ${branch}`);
-  if (options.managedRoot) parts.push(`at ${options.managedRoot}`);
+  if (options.petName) head.push(`Worktree ${options.petName}`);
+  head.push(`branch ${branch}`);
+  if (options.managedRoot) head.push(`at ${options.managedRoot}`);
 
+  const body = [];
   if (status.state === 'progressing') {
     if (status.upstream === undefined) {
       const ahead = status.aheadBase ?? 0;
-      parts.push(
+      body.push(
         ahead > 0
           ? `Progressing: ${ahead} commit${ahead === 1 ? '' : 's'} ahead of ${status.baseRef ?? 'the base branch'}, nothing published yet`
           : 'Progressing: not published yet (no upstream)',
       );
     } else {
-      parts.push(`Progressing: ${status.aheadUpstream} unpushed commit${status.aheadUpstream === 1 ? '' : 's'} on ${status.upstream}`);
+      body.push(`Progressing: ${status.aheadUpstream} unpushed commit${status.aheadUpstream === 1 ? '' : 's'} on ${status.upstream}`);
     }
   } else if (status.state === 'behind') {
-    parts.push(`Behind ${status.upstream} by ${status.behindUpstream} commit${status.behindUpstream === 1 ? '' : 's'}`);
+    body.push(`Behind ${status.upstream} by ${status.behindUpstream} commit${status.behindUpstream === 1 ? '' : 's'}`);
   } else if (status.state === 'up_to_date') {
-    parts.push(`Up to date with ${status.upstream}`);
-  } else {
-    parts.push(`In sync with ${status.upstream}`);
+    body.push(`Up to date with ${status.upstream}`);
+  } else if (status.state === 'in_sync') {
+    body.push(`In sync with ${status.upstream}`);
   }
 
   const dirtyParts = [];
   if (status.staged > 0) dirtyParts.push(`${status.staged} staged`);
   if (status.unstaged > 0) dirtyParts.push(`${status.unstaged} modified`);
   if (status.untracked > 0) dirtyParts.push(`${status.untracked} untracked`);
-  parts.push(dirtyParts.length > 0 ? `Working tree: ${dirtyParts.join(', ')}` : 'Working tree: clean');
+  body.push(dirtyParts.length > 0 ? `Working tree: ${dirtyParts.join(', ')}` : 'Working tree: clean');
 
   if (status.needsRebase) {
-    parts.push(`Needs rebasing: ${status.baseRef} has ${status.behindBase} commit${status.behindBase === 1 ? '' : 's'} this branch does not have`);
+    body.push(`Needs rebasing: ${status.baseRef} has ${status.behindBase} commit${status.behindBase === 1 ? '' : 's'} this branch does not have`);
   } else if (status.baseRef !== undefined && (status.aheadBase ?? 0) === 0 && (status.behindBase ?? 0) === 0) {
-    parts.push(`Same commit as ${status.baseRef}`);
+    body.push(`Same commit as ${status.baseRef}`);
   } else if (status.baseRef !== undefined && (status.aheadBase ?? 0) > 0) {
-    parts.push(`${status.aheadBase} commit${status.aheadBase === 1 ? '' : 's'} ahead of ${status.baseRef}, not merged`);
+    body.push(`${status.aheadBase} commit${status.aheadBase === 1 ? '' : 's'} ahead of ${status.baseRef}, not merged`);
   }
+  if (status.lastCommit) body.push(status.lastCommit);
 
-  if (status.lastCommit) parts.push(status.lastCommit);
-  return parts.join(' · ');
+  return [head.join(' · '), body.join(' · ')].join('\n');
 }

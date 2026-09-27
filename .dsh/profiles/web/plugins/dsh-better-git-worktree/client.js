@@ -907,7 +907,7 @@ window.__ModuleLoader__.load({
 					}),
 					bgwHover !== void 0 && (0, react_jsx_runtime.jsxs)("div", {
 						className: Rows_module_css_default.hoverStatus,
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, {}), (0, react_jsx_runtime.jsx)("span", { children: bgwHover.tooltip })]
+						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconBranchOutline16, {}), (0, react_jsx_runtime.jsx)("span", { className: "bgw-hover-status", children: bgwHover.tooltip })]
 					}),
 					!node.blank && (0, react_jsx_runtime.jsx)("div", {
 						className: Rows_module_css_default.hoverTime,
@@ -2919,6 +2919,11 @@ window.__ModuleLoader__.load({
 			+ ".bgw-menu-summary strong{font:600 12px/16px Inter,sans-serif;color:var(--dsw-alias-label-primary,#222)}"
 			+ ".bgw-menu-error{color:var(--dsw-alias-state-error-primary,#c00)}"
 			+ ".bgw-menu-notice{color:var(--bgw-done)}"
+			// The status tooltip is a sentence, not a label: keep the line breaks the
+			// Host writes, and give the harness hover card 1.5x its width.
+			+ ".bgw-hover-status{white-space:pre-line}"
+			+ "[class*='_card_']:has(.bgw-hover-status){width:366px;max-width:366px}"
+			+ "[class*='hoverContent']:has(.bgw-hover-status){width:100%}"
 			+ "button[role=menuitem]:disabled:has(.bgw-menu-summary){opacity:1;cursor:default}"
 			+ ".bgw-panel{display:flex;flex-direction:column;gap:10px;padding:10px 12px;height:100%;overflow:auto;font:400 12px/18px Inter,sans-serif;color:var(--dsw-alias-label-primary,#333)}"
 			+ ".bgw-panel h4{margin:0;font:600 12px/18px Inter,sans-serif;color:var(--dsw-alias-label-primary,#222)}"
