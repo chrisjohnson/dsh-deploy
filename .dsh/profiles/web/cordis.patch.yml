@@ -90,7 +90,7 @@
     # index.mjs) so host code can be reloaded live by
     # `node scripts/dev-reload-host.mjs` - see the plugin README.
     - id: better-git-worktree
-      name: ./plugins/dsh-better-git-worktree/entry-r36.mjs
+      name: ./plugins/dsh-better-git-worktree/entry-r39.mjs
 
     # Model-facing image_search tool over the same self-hosted SearXNG
     # instance dsh-web-search-searxng uses for text search, querying its
@@ -169,13 +169,17 @@
         escalationModel: medium-dense
 
 
-# ── dsh-better-git-worktree takes over the Workspace surface ────────────────
-#
-# The original dsh-git-worktree is disabled: its review/acceptance lifecycle is
-# replaced by dsh-better-git-worktree's immediate, permanent worktree sessions.
-# (Left installed on disk so it can be re-enabled from this file alone.)
-- id: dsh-git-worktree
-  disabled: true
+# The sidebar browsing region is a `single` slot whose child seat
+# (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
+# declared it, so dsh-better-git-worktree cannot sit beside the official
+# Workspace row — it stands in for it. The plugin publishes the
+# `betterGitWorktreeWorkspaceProvider` marker on the ROOT context while it is
+# active, which is what elects the official row out here at boot (and what puts
+# it back when the plugin is not mounted). Its Host half also re-evaluates this
+# row through the Loader on activation and restores the composed option on
+# teardown.
+- id: ui-workspace
+  disabled: !!js "!!get('betterGitWorktreeWorkspaceProvider')"
 
 # The official Workspace row needs no row here: dsh-better-git-worktree stands
 # in for it (see the plugin's host `mountWorkspaceProviderElection`), because

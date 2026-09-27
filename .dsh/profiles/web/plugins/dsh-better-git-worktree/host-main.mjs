@@ -32,12 +32,31 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=36';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=36';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=36';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=36';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=39';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=39';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=39';
+import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=39';
 
 export const name = 'dsh-better-git-worktree';
+
+/**
+ * Stand down a loader row left over from the retired `dsh-git-worktree` bundle.
+ *
+ * A process that booted while that package was still installed keeps the row in
+ * memory, but its client bundle is gone from disk, so the entry has to leave the
+ * client graph. On any later boot the row does not exist and this is a no-op.
+ */
+function retireLegacyPluginRow(ctx, log) {
+  const loader = ctx.get('loader');
+  if (loader === undefined) return;
+  for (const entry of [...loader.entries()]) {
+    if (entry.options?.name !== 'dsh-git-worktree' || entry.disabled) continue;
+    void entry
+      .update({ disabled: true }, false, true)
+      .then(() => log.info('stood down the stale dsh-git-worktree row (package uninstalled)'))
+      .catch((error) => log.warn(`could not stand down the stale dsh-git-worktree row: ${error instanceof Error ? error.message : String(error)}`));
+  }
+}
 
 /** `connection` is required (the client transport); `loader` is only needed for the Workspace election. */
 export const inject = { connection: {}, loader: { await: false } };
@@ -729,6 +748,7 @@ export default async function apply(ctx, config = {}) {
   // ── Workspace election + background refresh ───────────────────────────────
 
   mountWorkspaceProviderElection(ctx, log);
+  retireLegacyPluginRow(ctx, log);
 
   const timer = ctx.get('timer');
   if (timer !== undefined && typeof timer.interval === 'function') {
@@ -782,6 +802,12 @@ function mountWorkspaceProviderElection(ctx, log) {
     return pending;
   };
 
+  // The marker the profile patch's `disabled` expression tests. It is published
+  // on the ROOT context because that expression is evaluated from the official
+  // row's own context, which only sees services on its ancestor chain — a
+  // sibling `ctx.provide` would be invisible to it, and the official Browser
+  // would then mount alongside this plugin's inlined copy at boot.
+  const releaseMarker = ctx.root.provide('betterGitWorktreeWorkspaceProvider', true);
   ctx.effect(() => {
     void elect().catch(() => {});
     ctx.on('internal/plugin', (fiber) => {
@@ -795,6 +821,9 @@ function mountWorkspaceProviderElection(ctx, log) {
     return async () => {
       released = true;
       await pending.catch(() => {});
+      // Drop the marker before re-electing, so the expression reads false and
+      // the official Browser comes back.
+      if (typeof releaseMarker === 'function') releaseMarker();
       released = false;
       const entry = owned();
       if (entry === undefined) return;

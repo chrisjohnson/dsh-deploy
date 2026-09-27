@@ -6,8 +6,8 @@ allowBuilds:
   protobufjs: true
 nodeLinker: hoisted
 overrides:
-  # Single cordis instance for the whole graph: dsh-git-worktree's peer dep
-  # (and dsh-better-sidebar's) both declare a caret range against cordis;
+  # Single cordis instance for the whole graph: the out-of-tree plugin bundles
+  # (dsh-better-sidebar and friends) declare a caret range against cordis;
   # pinning explicitly avoids pnpm resolving a second copy, which would
   # split entry/context identity at runtime.
   '@deepseek-ai/cordis': '4.0.2'
