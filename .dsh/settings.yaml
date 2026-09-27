@@ -149,6 +149,48 @@ llm-pi-ai:
           # The mechanism cannot express "thinking off", so stop offering
           # levels that cannot work rather than relabeling them.
           reasoningEfforts: false
+        - id: big-moe
+          contextWindow: 262144
+          # maxTokens: left unset, same as small-moe/small-dense above - the
+          # build's own launch command has no -n output cap, so there is no
+          # real serving-side limit to mirror here and pi-ai's 32,768 route
+          # default fits comfortably under the real context window.
+          # contextWindow: 262144 is the live value, not a copy - verified
+          # 2026-09-27 against the backend's own /props (n_ctx: 262144) and
+          # that build's docker-compose.yaml (-c 262144, the model's full
+          # native training context).
+          # input: big-moe's build mounts no --mmproj/vision adapter (only the
+          # text GGUF plus an MTP draft head), so it is text-only and is
+          # declared as such rather than left to pi-ai's text-only default.
+          input: [ text ]
+          # reasoningEfforts (2026-09-27): big-moe currently backs onto
+          # qwen3.8-flash-next-iq4xs--llamacpp-rocm714-strixhalo-mtp-v1 on the
+          # APU (litellm /model/info, cross-checked against that build's
+          # -dev ROCm0). Its chat template takes a graduated top-level
+          # `reasoning_effort` string - the same wire mechanism as
+          # medium-dense/Dirk below, NOT the binary enable_thinking /
+          # chat-template path the older strix-apu roles declared. The
+          # template's own validation accepts xhigh (its default), medium and
+          # low, and aliases `high` onto xhigh, so those three are the only
+          # distinct spellings worth offering. There is deliberately no "off":
+          # this template's real thinking-off switch is the separate binary
+          # `enable_thinking` template variable, and pi-ai's dispatch takes
+          # exactly one thinkingFormat per route, so the graduated and
+          # chat-template mechanisms cannot be combined (a chatTemplateKwargs
+          # value must carry a $var, leaving no way to send reasoning_effort
+          # alongside it). Declaring "off" under the graduated mechanism would
+          # send nothing and silently leave thinking on - the same no-op
+          # medium-moe's comment above documents - so the level is omitted
+          # rather than declared broken. Verified live through litellm:
+          # reasoning_effort low/medium/xhigh all reach the backend and change
+          # the request, and omitting it leaves the template's xhigh default
+          # in force.
+          reasoningEfforts:
+            low: low
+            medium: medium
+            xhigh: xhigh
+          compat:
+            supportsReasoningEffort: true
         - id: medium-dense
           contextWindow: 262144
           maxTokens: 16384
@@ -240,6 +282,8 @@ subagent-model-selection:
   allowedModels:
     - provider: local-ai-machine
       model: medium-moe
+    - provider: local-ai-machine
+      model: big-moe
     - provider: local-ai-machine
       model: medium-dense
     - provider: local-ai-machine-cloud
