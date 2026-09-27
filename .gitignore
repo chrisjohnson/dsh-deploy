@@ -25,6 +25,10 @@ pnpm-store/
 .dsh/attachments/
 .dsh/cache/
 .dsh/storages/
+# Per-plugin runtime state (dsh-git-worktree's registry and disabled-hooks dir
+# used to live here; dsh-better-git-worktree keeps its session -> worktree
+# registry here). Runtime state, never config.
+.dsh/plugins/
 .dsh/keys/
 .dsh/.pnpm-store/
 .dsh/profile-node-modules/
