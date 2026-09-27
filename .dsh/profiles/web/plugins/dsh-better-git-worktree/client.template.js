@@ -290,7 +290,11 @@ window.__ModuleLoader__.load({
 		 */
 		function requestArchive(sessionId, proceed) {
 			var entry = typeof sessionId === "string" ? statusStore.entryFor(sessionId) : undefined;
-			if (entry === undefined || entry.missing === true) return Promise.resolve(proceed(sessionId));
+			// Only a session with a managed working copy has anything to decide:
+			// a plain checkout session is archived straight away, keeping its
+			// directory (which is the workspace itself).
+			var managed = entry !== undefined && entry.missing !== true && typeof entry.managedRoot === "string";
+			if (!managed) return Promise.resolve(proceed(sessionId));
 			return new Promise(function (resolve, reject) {
 				archivePrompt.open(sessionId, function (id) {
 					Promise.resolve(proceed(id)).then(resolve, reject);

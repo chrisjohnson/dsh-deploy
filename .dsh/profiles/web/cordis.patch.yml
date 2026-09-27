@@ -168,20 +168,6 @@
         escalationProvider: local-ai-machine
         escalationModel: medium-dense
 
-    # Composer scheduled-send: a clock button between the model dropdown and
-    # the send action schedules the current composer draft for later delivery
-    # (minutes + optional force-steer). The Host half (index.mjs) owns the
-    # central durable queue file at $DSH_HOME/storages/scheduled-queue.json, a
-    # 5s scanner, and delivery of due items (agent.steer for force-steer,
-    # agent.inbox.append('next-turn') otherwise); undeliverable items stay
-    # queued and retry. The Client half (client.mjs, mounted automatically via
-    # the package's dsh.client declaration) renders the clock button and a
-    # dock entry below the real queue dock, and talks to the Host over the
-    # private /scheduledQueue connection channel - a plain authenticated
-    # HTTP route, no typert stack. Survives restarts; queue items carry over
-    # across DSH restarts via the file.
-    - id: scheduled-queue
-      name: ./plugins/scheduled-queue/index.mjs
 
 # The sidebar browsing region is a `single` slot whose child seat
 # (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
