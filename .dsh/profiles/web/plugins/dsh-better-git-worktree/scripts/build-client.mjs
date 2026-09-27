@@ -45,7 +45,6 @@ const HELPERS = `		function betterGitWorktreeDecoration(node) {
 				className: "bgw-badge",
 				"data-bgw-state": decoration.state,
 				"data-bgw-rebase": decoration.needsRebase === true ? "true" : "false",
-				title: decoration.tooltip,
 				"aria-label": \`Worktree \${decoration.label}\${decoration.needsRebase === true ? ", needs rebasing" : ""}\`,
 				children: [(0, react_jsx_runtime.jsx)("span", {
 					className: "bgw-icon",

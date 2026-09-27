@@ -886,7 +886,6 @@ window.__ModuleLoader__.load({
 				className: "bgw-badge",
 				"data-bgw-state": decoration.state,
 				"data-bgw-rebase": decoration.needsRebase === true ? "true" : "false",
-				title: decoration.tooltip,
 				"aria-label": `Worktree ${decoration.label}${decoration.needsRebase === true ? ", needs rebasing" : ""}`,
 				children: [(0, react_jsx_runtime.jsx)("span", {
 					className: "bgw-icon",
@@ -2899,11 +2898,18 @@ window.__ModuleLoader__.load({
 			+ "@keyframes bgw-rebase-pulse{0%,100%{box-shadow:0 0 0 2px rgba(234,179,8,.5),0 0 5px 1px rgba(234,179,8,.35)}50%{box-shadow:0 0 0 3px rgba(234,179,8,.7),0 0 12px 3px rgba(234,179,8,.55)}}"
 			+ "@media (prefers-color-scheme:dark){.bgw-badge[data-bgw-state=progressing]{color:#93c5fd}.bgw-badge[data-bgw-state=up_to_date],.bgw-badge[data-bgw-state=in_sync]{color:#86efac}.bgw-badge[data-bgw-state=behind]{color:#fcd34d}.bgw-badge[data-bgw-rebase=true]::after{color:#fde047}}"
 			// The header pill carries the same status colour as the sidebar badge.
-			+ ".bgw-header-action{background:transparent}"
-			+ ".bgw-header-action[data-bgw-state=progressing]{color:var(--bgw-progressing)}"
-			+ ".bgw-header-action[data-bgw-state=up_to_date],.bgw-header-action[data-bgw-state=in_sync]{color:var(--bgw-done)}"
-			+ ".bgw-header-action[data-bgw-state=behind]{color:var(--bgw-behind)}"
-			+ ".bgw-header-action[data-bgw-state=unknown]{color:var(--dsw-alias-label-secondary,#444)}"
+			// The pill carries the same fill, border and text colour as the sidebar
+			// badge, including on hover (the harness button's grey hover would
+			// otherwise wash the status colour out).
+			+ ".bgw-header-action{border:1px solid transparent}"
+			+ ".bgw-header-action:hover:not(:disabled){filter:brightness(.96)}"
+			+ ".bgw-header-action[data-bgw-state=progressing]{color:var(--bgw-progressing);background:var(--bgw-progressing-bg);border-color:var(--bgw-progressing-line)}"
+			+ ".bgw-header-action[data-bgw-state=up_to_date],.bgw-header-action[data-bgw-state=in_sync]{color:var(--bgw-done);background:var(--bgw-done-bg);border-color:var(--bgw-done-line)}"
+			+ ".bgw-header-action[data-bgw-state=behind]{color:var(--bgw-behind);background:var(--bgw-behind-bg);border-color:var(--bgw-behind-line)}"
+			+ ".bgw-header-action[data-bgw-state=unknown]{color:var(--dsw-alias-label-primary,#333);background:rgba(120,120,120,.12);border-color:rgba(120,120,120,.3)}"
+			+ ".bgw-header-action:hover:not(:disabled)[data-bgw-state=progressing]{background:var(--bgw-progressing-bg)}"
+			+ ".bgw-header-action:hover:not(:disabled)[data-bgw-state=up_to_date],.bgw-header-action:hover:not(:disabled)[data-bgw-state=in_sync]{background:var(--bgw-done-bg)}"
+			+ ".bgw-header-action:hover:not(:disabled)[data-bgw-state=behind]{background:var(--bgw-behind-bg)}"
 			+ ".bgw-header-action .bgw-pill-name{font-weight:600}"
 			+ ".bgw-presession{display:inline-flex;align-items:center;gap:6px;flex:none}"
 			+ ".bgw-presession-label{font:500 12px/16px Inter,sans-serif;color:var(--dsw-alias-label-secondary,#666);cursor:default;user-select:none}"
@@ -2913,6 +2919,7 @@ window.__ModuleLoader__.load({
 			+ ".bgw-menu-summary strong{font:600 12px/16px Inter,sans-serif;color:var(--dsw-alias-label-primary,#222)}"
 			+ ".bgw-menu-error{color:var(--dsw-alias-state-error-primary,#c00)}"
 			+ ".bgw-menu-notice{color:var(--bgw-done)}"
+			+ "button[role=menuitem]:disabled:has(.bgw-menu-summary){opacity:1;cursor:default}"
 			+ ".bgw-panel{display:flex;flex-direction:column;gap:10px;padding:10px 12px;height:100%;overflow:auto;font:400 12px/18px Inter,sans-serif;color:var(--dsw-alias-label-primary,#333)}"
 			+ ".bgw-panel h4{margin:0;font:600 12px/18px Inter,sans-serif;color:var(--dsw-alias-label-primary,#222)}"
 			+ ".bgw-panel .bgw-note{color:var(--dsw-alias-label-secondary,#666)}"
@@ -2993,7 +3000,7 @@ window.__ModuleLoader__.load({
 			// `entries` are the managed worktrees (sidebar badges); `tracked` is a
 			// status read for the session on screen, which need not be a worktree
 			// session at all — the header pill describes any checkout.
-			var state = { decorations: {}, entries: [], current: {}, at: 0, error: null, ready: false };
+			var state = { decorations: {}, entries: [], current: {}, capabilities: {}, at: 0, error: null, ready: false };
 			var tracked = null;
 			function emit() {
 				for (var listener of Array.from(listeners)) {
@@ -3051,6 +3058,7 @@ window.__ModuleLoader__.load({
 								state = Object.assign({}, state, {
 									decorations: decorations,
 									entries: entries,
+									capabilities: result.value.capabilities || {},
 									at: result.value.at,
 									error: null,
 									ready: true,
@@ -3940,12 +3948,14 @@ window.__ModuleLoader__.load({
 					icon: jsxRuntime.jsx(primitives.IconCopyOutline16, {}),
 					disabled: state.busy !== null,
 				});
-				items.push({
-					id: "open",
-					label: "Open worktree folder",
-					icon: jsxRuntime.jsx(primitives.IconFolderOpenOutline16, {}),
-					disabled: state.busy !== null,
-				});
+				if (statusStore.get().capabilities.folderOpener) {
+					items.push({
+						id: "open",
+						label: "Open worktree folder",
+						icon: jsxRuntime.jsx(primitives.IconFolderOpenOutline16, {}),
+						disabled: state.busy !== null,
+					});
+				}
 			} else {
 				items.push({
 					id: "convert",

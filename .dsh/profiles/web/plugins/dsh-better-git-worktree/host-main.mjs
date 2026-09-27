@@ -32,10 +32,10 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=35';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=35';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=35';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=35';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=36';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=36';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=36';
+import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=36';
 
 export const name = 'dsh-better-git-worktree';
 
@@ -426,7 +426,16 @@ export default async function apply(ctx, config = {}) {
         for (const record of registry.list()) {
           entries.push(await statusFor(record.sessionId));
         }
-        return { ok: true, value: { worktrees: entries, at: Date.now() } };
+        return {
+          ok: true,
+          value: {
+            worktrees: entries,
+            at: Date.now(),
+            // What this host can actually do, so the client can offer only the
+            // actions that would work.
+            capabilities: { folderOpener: findOpener()?.command ?? null },
+          },
+        };
       }
       case 'status': {
         if (sessionId === undefined) return fail('bad-request', 'status needs a sessionId');
@@ -505,7 +514,11 @@ export default async function apply(ctx, config = {}) {
         if (checkout === undefined || checkout.path === undefined) {
           return fail('no-session', `session ${sessionId} has no working directory`);
         }
-        await openFolder(checkout.path);
+        try {
+          await openFolder(checkout.path);
+        } catch (error) {
+          return fail('no-folder-opener', error instanceof Error ? error.message : String(error));
+        }
         return { ok: true, value: { opened: checkout.path } };
       }
       case 'workingTree': {
