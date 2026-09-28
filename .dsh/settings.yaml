@@ -302,7 +302,7 @@ llm-pi-ai:
 
 agent-default-model:
   provider: local-ai-machine
-  model: medium-moe
+  model: big-moe
 locale:
   preference: en
 ui-onboarding:
