@@ -260,7 +260,7 @@ function forbiddenArgument(segment, args, worktreeRoot) {
  * @param options.worktreeRoot - the managed working copy the command must stay inside.
  * @returns `{ allow: true }` or `{ allow: false, reason }`.
  */
-export function confinedGitArgv(argv, options) {
+function confinedGitArgv(argv, options) {
   const worktreeRoot = options?.worktreeRoot;
   if (typeof worktreeRoot !== 'string' || worktreeRoot === '') return { allow: false, reason: 'no worktree root' };
   if (!Array.isArray(argv) || argv.length === 0 || argv.some((word) => typeof word !== 'string')) {
