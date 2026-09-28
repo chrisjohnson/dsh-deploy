@@ -301,8 +301,8 @@ llm-pi-ai:
             supportsReasoningEffort: true
 
 agent-default-model:
-  provider: local-ai-machine
-  model: medium-moe
+  provider: local-ai-machine-cloud
+  model: deepseek-flash
 locale:
   preference: en
 ui-onboarding:

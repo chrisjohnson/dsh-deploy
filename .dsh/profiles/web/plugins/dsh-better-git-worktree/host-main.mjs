@@ -32,10 +32,11 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=41';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=41';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=41';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=41';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=42';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=42';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=42';
+import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=42';
+import { confinedGitDecision, createCallMemory } from './host/approval.mjs?r=42';
 
 export const name = 'dsh-better-git-worktree';
 
@@ -113,6 +114,49 @@ export default async function apply(ctx, config = {}) {
   const registry = new WorktreeRegistry(join(stateRoot, 'worktrees.json'));
   const cache = new TtlCache();
   const log = typeof ctx.logger === 'function' ? ctx.logger(name) : console;
+
+  // ── Narrow pre-approval for git work inside a managed worktree ────────────
+  // A linked worktree's index and refs live in the source repository's git
+  // directory, which is outside the session's single writable root, so every
+  // `git add`/`commit`/`push` would otherwise stop for the human. This answers
+  // exactly that class of request, and only that: the decision is made from the
+  // *actual* tool call matched by `callId` (never the model's justification
+  // text), through the allowlist in host/approval.mjs. Everything else — other
+  // tools, other commands, other sessions — falls through to the normal
+  // answerers.
+  const callMemory = createCallMemory();
+  ctx.on('session/event', (session, event) => {
+    if (event?.type !== 'tool/call') return;
+    const data = event.data;
+    if (data?.name !== 'bash' || typeof data.arguments !== 'string') return;
+    try {
+      const parsed = JSON.parse(data.arguments);
+      if (typeof parsed?.command === 'string') callMemory.remember(session.id, data.callId, parsed.command);
+    } catch {
+      // A malformed call payload simply never earns a pre-approval.
+    }
+  });
+  ctx.on('agent/disposed', (payload) => {
+    const sessionId = payload?.agent?.id;
+    if (typeof sessionId === 'string') callMemory.forget(sessionId);
+  });
+  ctx.on('approval/request', (request, next) => {
+    if (request?.toolName !== 'bash' || typeof request.callId !== 'string') return next();
+    const sessionId = request.agent?.id;
+    if (typeof sessionId !== 'string') return next();
+    const checkout = checkoutForSession(sessionId);
+    const managedRoot = checkout?.missing === true ? undefined : checkout?.record?.managedRoot;
+    if (typeof managedRoot !== 'string') return next();
+    const command = callMemory.commandFor(sessionId, request.callId);
+    if (command === undefined) return next();
+    const decision = confinedGitDecision(command, { worktreeRoot: managedRoot });
+    if (decision.allow !== true) {
+      log.info(`not pre-approving (${decision.reason}): ${command}`);
+      return next();
+    }
+    log.info(`pre-approved git work in ${managedRoot}: ${command}`);
+    return 'allowed-once';
+  });
 
   /** sessionId → decoration/capability object the client renders and the tool guards on. */
   const lastStatus = new Map();
