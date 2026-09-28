@@ -4,7 +4,15 @@
 // 5-second scanner, and delivery of due items:
 //
 //   - forceSteer items   -> agent.steer(message)      (interrupts the current turn)
-//   - ordinary items     -> agent.inbox.append('next-turn', message)
+//   - normal items       -> agent.followup(message)   (next-turn insert + driver
+//     WAKE - plain inbox.append parks the message and never starts an idle agent)
+//
+// When the agent is NOT live (the model is stopped), the item is admitted
+// through sessionController.prompt() instead - the same resolve-or-resume path
+// the GUI send button uses (mode 'steer' vs 'queue') - so the session resumes
+// and the message is processed exactly like a normal composer send. prompt()
+// dedupes by requestId (= item.messageId), so a retry after a half-failed
+// admission cannot double-deliver.
 //
 // The client half (client.mjs, mounted by the same row via this package's
 // dsh.client declaration) reaches this Host through the same handler via two
@@ -42,18 +50,19 @@ const PLUGIN_NAME = "dsh-scheduled-queue";
 // `apply(ctx, config)`). Cordis will not call apply until every injected
 // service is available in this context.
 export default {
-	inject: ["agents", "fs", "timer", "connection"],
+	inject: ["agents", "fs", "timer", "connection", "sessionController"],
 	apply(ctx, config = {}) {
 		try {
 			const log = ctx.logger(PLUGIN_NAME);
 			// Inject is declared above, so a service still missing here is a
 			// real misconfiguration: name it loudly and bail - never a silent
-			// no-op.
+			// exit.
 			const services = {
 				agents: ctx.get("agents"),
 				fs: ctx.get("fs"),
 				timer: ctx.get("timer"),
 				connection: ctx.get("connection"),
+				sessionController: ctx.get("sessionController"),
 			};
 			const missing = Object.keys(services).filter((name) => !services[name]);
 			if (missing.length > 0) {
