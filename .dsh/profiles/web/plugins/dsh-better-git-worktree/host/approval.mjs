@@ -250,6 +250,38 @@ function forbiddenArgument(segment, args, worktreeRoot) {
 }
 
 /**
+ * Decide whether one git invocation may run unattended.
+ *
+ * This is the single source of truth for every entry point: the `worktree_git`
+ * tool passes a structured argv (no shell involved at all), and the shell-form
+ * {@link confinedGitDecision} tokenizes a command and defers here per segment.
+ *
+ * @param argv - git arguments only, without the leading `git` word.
+ * @param options.worktreeRoot - the managed working copy the command must stay inside.
+ * @returns `{ allow: true }` or `{ allow: false, reason }`.
+ */
+export function confinedGitArgv(argv, options) {
+  const worktreeRoot = options?.worktreeRoot;
+  if (typeof worktreeRoot !== 'string' || worktreeRoot === '') return { allow: false, reason: 'no worktree root' };
+  if (!Array.isArray(argv) || argv.length === 0 || argv.some((word) => typeof word !== 'string')) {
+    return { allow: false, reason: 'no git arguments' };
+  }
+  const subcommand = argv.find((word) => !word.startsWith('-'));
+  if (subcommand === undefined || !ALLOWED_SUBCOMMANDS.has(subcommand)) {
+    return { allow: false, reason: `git ${subcommand ?? '(none)'}` };
+  }
+  const args = argv.filter((word) => word !== subcommand);
+  const forbidden = forbiddenArgument(argv, args, worktreeRoot);
+  if (forbidden !== undefined) return { allow: false, reason: forbidden };
+  const rule = SUBCOMMAND_RULES[subcommand];
+  if (rule !== undefined) {
+    const refused = rule({ args });
+    if (refused !== undefined) return { allow: false, reason: `git ${refused}` };
+  }
+  return { allow: true };
+}
+
+/**
  * Decide whether one command may run without asking the human.
  *
  * @param command - the raw bash command from the pending tool call.
@@ -283,20 +315,8 @@ export function confinedGitDecision(command, options) {
       continue;
     }
     if (head !== 'git') return { allow: false, reason: `command ${head}` };
-    const rest = words.slice(1);
-    if (rest.length === 0) return { allow: false, reason: 'bare git' };
-    const subcommand = rest.find((word) => !word.startsWith('-'));
-    if (subcommand === undefined || !ALLOWED_SUBCOMMANDS.has(subcommand)) {
-      return { allow: false, reason: `git ${subcommand ?? '(none)'}` };
-    }
-    const args = rest.filter((word) => word !== subcommand);
-    const forbidden = forbiddenArgument(words, args, worktreeRoot);
-    if (forbidden !== undefined) return { allow: false, reason: forbidden };
-    const rule = SUBCOMMAND_RULES[subcommand];
-    if (rule !== undefined) {
-      const refused = rule({ args });
-      if (refused !== undefined) return { allow: false, reason: `git ${refused}` };
-    }
+    const judged = confinedGitArgv(words.slice(1), { worktreeRoot });
+    if (judged.allow !== true) return judged;
   }
   return { allow: true };
 }

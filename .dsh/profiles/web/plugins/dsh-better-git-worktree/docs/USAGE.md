@@ -143,6 +143,40 @@ status, and the tooltip spells out how many commits behind the default branch is
 The tooltip is always the complete answer — status, upstream, working-tree
 counts, comparison with the default branch, and the last commit.
 
+## Git work inside a worktree
+
+A linked worktree keeps its index and branch refs in the *source* repository's
+git directory, and the harness grants a session exactly one writable root — its
+own checkout. So the same `git add`/`commit`/`push` through `bash` writes outside
+that boundary and stops to ask you to widen the whole session to
+`danger-full-access`.
+
+Worktree sessions therefore get a **`worktree_git`** tool. The agent passes the
+git arguments as an argv array:
+
+```
+worktree_git { "args": ["add", "-A"], "description": "Stage all changes" }
+worktree_git { "args": ["commit", "-m", "Fix the log path"], ... }
+worktree_git { "args": ["push", "-u", "origin", "HEAD"], ... }
+```
+
+The plugin runs it from the Host, against that session's worktree, so no
+escalation is needed. The arguments are judged one by one first, and it refuses
+anything that is not plain git confined to the worktree:
+
+| refused | why |
+| --- | --- |
+| `-C`, `--git-dir`, `--work-tree` | points git at another repository |
+| `-c`, `--config-env`, `--exec-path` | configuration injection can execute code |
+| `push --force` / `-f` / `--delete` / `--mirror` / `+refspec` | rewrites or deletes published history |
+| `config`, `filter-branch`, `remote add/set-url`, `branch -D`, `tag -d` | mutates shared repository state |
+| any path outside the worktree, `..`, absolute paths | escapes the working copy |
+
+Everything else still goes through `bash` and its normal approval, so
+`sudo`, arbitrary writes and force-pushes stay behind a human decision. Every
+call and refusal is recorded in
+`$DSH_HOME/plugins/dsh-better-git-worktree/approvals.jsonl`.
+
 ## Workflows
 
 ### Start a new task in a worktree

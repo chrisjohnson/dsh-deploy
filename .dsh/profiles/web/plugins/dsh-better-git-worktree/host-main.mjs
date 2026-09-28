@@ -27,16 +27,16 @@
 
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
-import { existsSync, rmSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=42';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=42';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=42';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=42';
-import { confinedGitDecision, createCallMemory } from './host/approval.mjs?r=42';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=52';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=52';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=52';
+import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=52';
+import { confinedGitArgv, confinedGitDecision } from './host/approval.mjs?r=52';
 
 export const name = 'dsh-better-git-worktree';
 
@@ -115,48 +115,27 @@ export default async function apply(ctx, config = {}) {
   const cache = new TtlCache();
   const log = typeof ctx.logger === 'function' ? ctx.logger(name) : console;
 
-  // ── Narrow pre-approval for git work inside a managed worktree ────────────
-  // A linked worktree's index and refs live in the source repository's git
-  // directory, which is outside the session's single writable root, so every
-  // `git add`/`commit`/`push` would otherwise stop for the human. This answers
-  // exactly that class of request, and only that: the decision is made from the
-  // *actual* tool call matched by `callId` (never the model's justification
-  // text), through the allowlist in host/approval.mjs. Everything else — other
-  // tools, other commands, other sessions — falls through to the normal
-  // answerers.
-  const callMemory = createCallMemory();
-  ctx.on('session/event', (session, event) => {
-    if (event?.type !== 'tool/call') return;
-    const data = event.data;
-    if (data?.name !== 'bash' || typeof data.arguments !== 'string') return;
+  // ── Git work inside a managed worktree, without a sandbox approval ───────
+  // A linked worktree keeps its index and refs in the source repository's git
+  // directory, and `dsh-sandbox` derives the writable root from the immutable
+  // `session.header.cwd` — so the same git command through bash writes outside
+  // the session boundary and stops to ask the human for danger-full-access every
+  // time. The `worktree_git` tool below lets the agent do that work instead: it
+  // runs the command from the Host, against the session's worktree, judged
+  // argument-by-argument by host/approval.mjs. That module is deliberately
+  // paranoid (no redirection, no `-C`/`--git-dir`, no `-c` configuration, no
+  // force/delete pushes, nothing outside the worktree), and every call is
+  // recorded in `approvals.jsonl` next to the registry.
+  const approvalLogPath = join(stateRoot, 'approvals.jsonl');
+  const recordApproval = (entry) => {
     try {
-      const parsed = JSON.parse(data.arguments);
-      if (typeof parsed?.command === 'string') callMemory.remember(session.id, data.callId, parsed.command);
-    } catch {
-      // A malformed call payload simply never earns a pre-approval.
+      appendFileSync(approvalLogPath, `${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`);
+      const lines = readFileSync(approvalLogPath, 'utf8').split('\n');
+      if (lines.length > 512) writeFileSync(approvalLogPath, `${lines.slice(-256).join('\n')}`);
+    } catch (error) {
+      log.warn(`could not record a git tool call: ${error instanceof Error ? error.message : String(error)}`);
     }
-  });
-  ctx.on('agent/disposed', (payload) => {
-    const sessionId = payload?.agent?.id;
-    if (typeof sessionId === 'string') callMemory.forget(sessionId);
-  });
-  ctx.on('approval/request', (request, next) => {
-    if (request?.toolName !== 'bash' || typeof request.callId !== 'string') return next();
-    const sessionId = request.agent?.id;
-    if (typeof sessionId !== 'string') return next();
-    const checkout = checkoutForSession(sessionId);
-    const managedRoot = checkout?.missing === true ? undefined : checkout?.record?.managedRoot;
-    if (typeof managedRoot !== 'string') return next();
-    const command = callMemory.commandFor(sessionId, request.callId);
-    if (command === undefined) return next();
-    const decision = confinedGitDecision(command, { worktreeRoot: managedRoot });
-    if (decision.allow !== true) {
-      log.info(`not pre-approving (${decision.reason}): ${command}`);
-      return next();
-    }
-    log.info(`pre-approved git work in ${managedRoot}: ${command}`);
-    return 'allowed-once';
-  });
+  };
 
   /** sessionId → decoration/capability object the client renders and the tool guards on. */
   const lastStatus = new Map();
@@ -750,17 +729,113 @@ export default async function apply(ctx, config = {}) {
       'dsh-better-git-worktree: worktree_convert tool',
     );
 
+    // Git work in a worktree, run from the Host. See the module comment above.
+    ctx.effect(
+      () => {
+        try {
+          const dispose = scope.tools.register(
+          defineTool({
+            name: 'worktree_git',
+            description:
+              'Run one git command in this session\'s managed worktree. Pass the git arguments as an argv array '
+              + 'without the leading "git": ["add","-A"], ["commit","-m","message"], ["push","-u","origin","HEAD"], '
+              + '["status","--short"]. Use this for git work in a worktree session: the working copy keeps its git '
+              + 'database in the source repository, outside the session sandbox, so the same command through bash '
+              + 'stops and asks the user to widen the whole session. Refused: redirecting git elsewhere (-C, '
+              + '--git-dir, --work-tree), injecting configuration (-c), rewriting published history (push --force, '
+              + '--delete, --mirror), and any path outside this worktree.',
+            parameters: {
+              args: {
+                type: 'array',
+                items: { type: 'string' },
+                required: true,
+                description: 'Git arguments without the leading "git", e.g. ["add","-A"].',
+              },
+              description: {
+                type: 'string',
+                required: true,
+                description: 'Clear, concise description of what this command does in active voice, 5-10 words.',
+              },
+            },
+            output: {
+              schema: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  kind: { type: 'string', required: true },
+                  command: { type: 'string', required: true },
+                  exitCode: { type: 'number', required: true },
+                  output: { type: 'string', required: true },
+                  detail: { type: 'string', required: true },
+                },
+              },
+              render: (_args, value) => [{ type: 'text', text: value.detail }],
+            },
+            async execute(args, exec) {
+              const sessionId = exec?.agent?.session?.id;
+              if (typeof sessionId !== 'string') throw new Error('worktree_git can only run inside a DSH session');
+              const record = registry.get(sessionId);
+              if (record === undefined) {
+                throw new Error(
+                  'this session is not a worktree session; run git in the workspace checkout with the bash tool instead',
+                );
+              }
+              if (!worktreeExists(record)) throw new Error(`the worktree ${record.managedRoot} no longer exists`);
+              const argv = Array.isArray(args?.args) ? args.args : [];
+              const decision = confinedGitArgv(argv, { worktreeRoot: record.managedRoot });
+              if (decision.allow !== true) {
+                recordApproval({ outcome: 'refused', sessionId, worktreeRoot: record.managedRoot, argv, why: decision.reason });
+                throw new Error(
+                  `refused: ${decision.reason}. worktree_git only runs plain git commands inside ${record.managedRoot}; `
+                  + 'anything else has to go through bash (and its approval) so the user stays in the loop.',
+                );
+              }
+              const run = await runGit(record.managedRoot, argv, { timeoutMs: 300000 });
+              const output = [run.stdout, run.stderr].filter((part) => part !== '').join('\n').trim();
+              const command = `git ${argv.join(' ')}`;
+              recordApproval({ outcome: 'ran', sessionId, worktreeRoot: record.managedRoot, argv, exitCode: run.code });
+              return {
+                kind: 'worktree_git',
+                command,
+                exitCode: run.code,
+                output,
+                detail: `$ ${command}\n${output === '' ? '(no output)' : output}${run.ok ? '' : `\n[exit code: ${run.code}]`}`,
+              };
+            },
+            presentCall: (args) => ({
+              card: 'generic',
+              title: `git ${Array.isArray(args?.args) ? args.args.join(' ') : ''}`.trim(),
+              kind: 'other',
+              rawInput: {},
+            }),
+          }),
+          );
+          recordApproval({ outcome: 'registered', tool: 'worktree_git', visible: scope.tools.get('worktree_git') !== undefined });
+          return dispose;
+        } catch (error) {
+          recordApproval({ outcome: 'register-failed', tool: 'worktree_git', error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
+      },
+      'dsh-better-git-worktree: worktree_git tool',
+    );
+
     // Once a session is a worktree session the tool has done its job: deny it in
     // that agent's scope so it disappears from the model's tool list.
     const denyFor = (agent) => {
       const managedRoots = new Set(registry.list().map((record) => record.managedRoot));
       const cwd = agent?.session?.header?.cwd;
       const inWorktree = registry.get(agent.id) !== undefined || (typeof cwd === 'string' && managedRoots.has(cwd));
-      if (!inWorktree) return;
       try {
-        agent.ctx.tools.restrict({ deny: ['worktree_convert'] });
+        // Only `worktree_convert` is hidden here. `worktree_git` stays in every
+        // tool list on purpose: whether a session is a worktree session can still
+        // change after creation (a conversion registers the record afterwards),
+        // and a one-shot deny would then hide the tool for the rest of the
+        // session. Its own guard rejects a session without a managed worktree,
+        // which is the honest answer either way.
+        if (inWorktree) agent.ctx.tools.restrict({ deny: ['worktree_convert'] });
       } catch (error) {
-        log.warn(`could not hide worktree_convert for ${agent.id}: ${error instanceof Error ? error.message : String(error)}`);
+        log.warn(`could not scope the worktree tools for ${agent.id}: ${error instanceof Error ? error.message : String(error)}`);
       }
     };
     scope.on('agent/created', (payload) => {
@@ -783,7 +858,11 @@ export default async function apply(ctx, config = {}) {
           'This session works inside an isolated git worktree, not the main checkout.',
           `Authoritative working directory: ${record.managedRoot}`,
           `Branch: ${record.branch}${record.baseRef ? ` (compares against ${record.baseRef})` : ''}`,
-          'Run git through the normal tools; never write to the original checkout.',
+          'For git work here, call the `worktree_git` tool with the git arguments as an argv array '
+            + '(e.g. ["add","-A"], ["commit","-m","message"], ["push","-u","origin","HEAD"]). This worktree keeps its '
+            + 'git database inside the source repository, outside the session sandbox, so the same command through '
+            + 'bash stops and asks the user to widen the whole session for it; `worktree_git` runs it directly.',
+          'Never write to the original checkout.',
         ].join('\n');
       },
     });

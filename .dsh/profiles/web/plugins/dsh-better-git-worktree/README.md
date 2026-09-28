@@ -20,6 +20,13 @@ workflows, and a screenshot gallery.
   tool row. Turning it on opens one confirmation dialog; confirming creates the
   branch and worktree immediately and continues **that** session inside it. The
   toggle then reads ON and disabled, because the session is in a worktree.
+- **`worktree_git` tool.** Worktree sessions run git through the Host instead of
+  `bash`: a linked worktree's git database lives outside the session's single
+  writable root, so the same command in the shell would stop for a
+  `danger-full-access` escalation every time. The tool validates the arguments
+  first (`host/approval.mjs` — no `-C`/`--git-dir`, no `-c` configuration, no
+  force/delete pushes, nothing outside the worktree) and records every call in
+  `approvals.jsonl`. See `docs/USAGE.md`.
 - **`worktree_convert` tool.** Takes a session running in a checkout, creates a
   worktree, moves its uncommitted work into it (kept recoverable as a `git
   stash` entry), and continues the conversation in a session rooted there. Once
