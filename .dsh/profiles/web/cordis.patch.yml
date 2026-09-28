@@ -157,8 +157,19 @@
     # entry's own URL is the cache key the loader already holds.) Same lever as
     # dsh-better-git-worktree, see its scripts/dev-reload-host.mjs; preferred
     # here because other agent sessions may be mid-turn when it changes.
+    #
+    # Log sinks (the logConsole/logFile/logDsh/logDshErrors keys): this
+    # watchdog evaluated EVERY agent step of EVERY session and printed a
+    # stage line for each to stdout, which is the systemd journal - ~2700 of
+    # the last 4000 `journalctl -u dsh` lines were this plugin, burying the
+    # service's own output. Silenced 2026-09-28 by routing the whole verbose
+    # trail to the file log only. Re-enable by flipping logConsole (or
+    # logDsh) to true here - the watcher remounts the row live, so unlike a
+    # code change this needs no -rN bump and no restart. The evaluations.jsonl
+    # ledger is not a log and always writes: it is what the evals panel and
+    # any future escalation consumer read.
     - id: semantic-loop-kicker
-      name: ./plugins/semantic-loop-kicker-r3.mjs
+      name: ./plugins/semantic-loop-kicker-r5.mjs
       config:
         cooldownMs: 30000
         maxTranscriptLines: 6
@@ -169,6 +180,12 @@
         busyYieldMs: 15000
         bandStuck: 90
         bandWatch: 70
+        # Diagnostic sinks: stdout->journal off, /tmp/semantic-loop-kicker.log
+        # on, ctx.logger off except genuine errors.
+        logConsole: false
+        logFile: true
+        logDsh: false
+        logDshErrors: true
 
     # The ledger READER: a right-sidebar tab (registered through
     # dsh-better-sidebar's ctx.betterSidebar.registerTab, which its own bundle

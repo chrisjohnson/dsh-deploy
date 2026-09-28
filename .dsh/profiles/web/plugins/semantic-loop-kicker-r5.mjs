@@ -14,13 +14,13 @@
 // of the row (exactly what scripts/dev-reload-host.mjs does for
 // dsh-better-git-worktree, whose lever this is).
 //
-// TO RELOAD AFTER A HOST EDIT:
-//   1. cp semantic-loop-kicker-r3.mjs semantic-loop-kicker-r4.mjs
-//   2. bump the `?r=3` below to `?r=4` in the NEW file
+// TO RELOAD AFTER A HOST EDIT (current entry: r5, so the next one is r6):
+//   1. cp semantic-loop-kicker-r5.mjs semantic-loop-kicker-r6.mjs
+//   2. bump the `?r=5` below to `?r=6` in the NEW file
 //   3. repoint the semantic-loop-kicker row in cordis.patch.yml at it
 //   4. delete the superseded entry file
 // The profile watcher remounts the row automatically.
 //
 // The row id and config are unchanged: only the module URL differs.
 
-export { default } from './semantic-loop-kicker.mjs?r=3'
+export { default } from './semantic-loop-kicker.mjs?r=5'

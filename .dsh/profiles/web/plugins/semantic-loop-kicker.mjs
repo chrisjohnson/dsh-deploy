@@ -44,35 +44,82 @@
 //   [D] "MODEL RESPONSE"         -> Stage D: response came back
 //   [E] "DECISION:"              -> Stage E: verdict + action taken
 //   [X] "ERROR" / "FATAL"        -> Any error at any stage
+//
+// WHICH CHANNEL IS WHICH (measured live on this deployment, 2026-09-28):
+//   console.log  -> the systemd JOURNAL (`journalctl -u dsh`). This is the
+//                   expensive one: every stage line above is emitted on
+//                   EVERY agent step of EVERY session, so a chatty stage
+//                   buries the whole service log (it reached ~2700 of the
+//                   last 4000 journal lines).
+//   ctx.logger   -> DSH's own logger. Does NOT reach the journal, so it is
+//                   the right place for anything you want dsh to keep.
+//   fileLog      -> /tmp/semantic-loop-kicker.log, outside both.
 // ================================================================
 
 const PLUGIN_NAME = 'semantic-loop-kicker'
 
-// ================================================================
-// FILE-BASED LOGGING
-// The DSH process redirects stdout/stderr to a Unix domain socket (not the
-// journal), so ctx.logger lines are hard to see externally. We write a copy
-// of every log line to a file we can tail, in addition to the console.
-// ================================================================
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { format } from 'node:util'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
+
+// ================================================================
+// LOGGING / DIAGNOSTIC SWITCH
+// Three sinks, each independently toggleable. Change the booleans here and
+// live-reload the row (see semantic-loop-kicker-rN.mjs) - no dsh restart.
+//
+//   console : stdout -> the systemd journal. OFF. The stage logs below fire
+//             on every agent step of every session and were drowning the
+//             `journalctl -u dsh` view of everything else dsh does.
+//   file    : /tmp/semantic-loop-kicker.log. ON - the full diagnostic trail
+//             still lands here, so a stuck session is still debuggable
+//             externally (`tail -f`) without touching the journal. Note the
+//             pre-2026-09-28 assumption that stdout went to a socket rather
+//             than the journal was wrong; this file is now the ONLY place
+//             the verbose trail exists.
+//   dshLog  : ctx.logger, DSH's own logger (never reaches the journal). OFF
+//             except errors - see dshLogErrors.
+//
+// The JSONL evaluation ledger is NOT a log and is unaffected: consumers
+// (the sidebar evals panel, future escalation) read it, so it always writes.
+//
+// Every one of these is also a config key on the row (logConsole / logFile /
+// logDsh / logDshErrors), so re-enabling the journal normally means flipping
+// the value in cordis.patch.yml - which the profile watcher reloads live -
+// rather than bumping the -rN entry file to re-evaluate this module. The
+// booleans below are only the defaults for keys the row does not set.
+// ================================================================
+const DIAG = {
+  console: false,
+  file: true,
+  dshLog: false,
+  dshLogErrors: true,
+}
+
 const LOG_FILE = '/tmp/semantic-loop-kicker.log'
 
 function fileLog(...args) {
+  if (!DIAG.file) return
   try {
-    const line = `[${new Date().toISOString()}] ${args.map(a => String(a)).join(' ')}`
+    // util.format, not String(): the stage lines are written in printf style
+    // (%s/%d/%j, the same placeholders ctx.logger understands) because that
+    // is what the journal used to receive. Naively joining the args wrote the
+    // literal "%dms" followed by the bare values, which made the sole
+    // remaining diagnostic channel unreadable.
+    const line = `[${new Date().toISOString()}] ${format(...args)}`
     appendFileSync(LOG_FILE, line + '\n')
   } catch {
     // best effort - if file writing fails we still have the console
   }
 }
 
-// Wrapper that logs to BOTH console AND file.
+// Wrapper that fans one diagnostic line out to the enabled sinks. Call sites
+// are unchanged from the days when everything went to stdout: re-enabling the
+// journal is one flag above, not a hunt through this file.
 // NOTE: the old version took a single `msg` arg, so multi-arg calls silently
 // dropped everything after the first argument in the file log. This version
-// accepts ...args and joins them (console.log already handles multiple args).
+// accepts ...args and joins them.
 function logBoth(...args) {
-  console.log(...args)
+  if (DIAG.console) console.log(...args)
   fileLog(...args)
 }
 
@@ -401,7 +448,27 @@ export default {
       // 'noise'.)
       const bandStuck = config?.bandStuck ?? 90
       const bandWatch = config?.bandWatch ?? 70
-      const log = ctx.logger(PLUGIN_NAME)
+      // Log sinks (see the DIAG switch at the top of this file). Applied on
+      // every apply(), so a cordis.patch.yml edit takes effect as soon as the
+      // profile watcher remounts the row - no -rN bump, no dsh restart.
+      DIAG.console = config?.logConsole ?? DIAG.console
+      DIAG.file = config?.logFile ?? DIAG.file
+      DIAG.dshLog = config?.logDsh ?? DIAG.dshLog
+      DIAG.dshLogErrors = config?.logDshErrors ?? DIAG.dshLogErrors
+      // ctx.logger is DSH's own logger (never the journal - see DIAG header).
+      // Each level is gated by the switch so the plugin can be silenced
+      // without deleting a call site: DIAG.dshLog flips info/warn/debug on,
+      // DIAG.dshLogErrors keeps genuine failures. The facade has exactly
+      // these four methods (cordis LoggerType), so nothing is dropped.
+      const rawLog = ctx.logger(PLUGIN_NAME)
+      const level = (name, isError = false) =>
+        DIAG.dshLog || (isError && DIAG.dshLogErrors) ? rawLog[name].bind(rawLog) : () => {}
+      const log = {
+        debug: level('debug'),
+        info: level('info'),
+        warn: level('warn'),
+        error: level('error', true),
+      }
 
       function bandOf(confidence) {
         if (confidence == null) return 'noise'
@@ -410,7 +477,7 @@ export default {
         return 'noise'
       }
 
-      const cfgSummary = { cooldownMs, maxTranscriptLines, includeSubagents, interventionEnabled, watchdogTimeoutMs, fpWindowEvents, busyYieldMs, bandStuck, bandWatch }
+      const cfgSummary = { cooldownMs, maxTranscriptLines, includeSubagents, interventionEnabled, watchdogTimeoutMs, fpWindowEvents, busyYieldMs, bandStuck, bandWatch, diag: { ...DIAG } }
       logBoth('[A] PLUGIN LOADED: semantic-loop-kicker applied. config=', JSON.stringify(cfgSummary))
       log.info('[A] PLUGIN LOADED: semantic-loop-kicker applied. config=%j', cfgSummary)
 
@@ -876,8 +943,11 @@ export default {
       logBoth('[A] Registered agent/pre-step event listener')
       log.info('[A] Registered agent/pre-step event listener')
     } catch (err) {
-      // If the whole apply() body throws, we MUST log to the file because
-      // ctx.logger may not be wired yet and console goes to the journal socket.
+      // If the whole apply() body throws, write the file log AND keep the
+      // console.error even when DIAG.console is off: this is a one-shot
+      // startup failure, not a per-step diagnostic, and a plugin that
+      // mounted as a silent no-op is the worst outcome. Cordis also reports
+      // apply() errors on its own path; this line is the readable version.
       const errLine = `[X] FATAL: apply() body threw: ${err?.stack ?? err}`
       try { appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${errLine}\n`) } catch {}
       console.error(errLine)
