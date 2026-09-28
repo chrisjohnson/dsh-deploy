@@ -2919,6 +2919,7 @@ window.__ModuleLoader__.load({
 			+ ".bgw-menu-summary strong{font:600 12px/16px Inter,sans-serif;color:var(--dsw-alias-label-primary,#222)}"
 			+ ".bgw-menu-error{color:var(--dsw-alias-state-error-primary,#c00)}"
 			+ ".bgw-menu-notice{color:var(--bgw-done)}"
+			+ ".bgw-menu-warn{color:var(--bgw-behind)}"
 			// The status tooltip is a sentence, not a label: keep the line breaks the
 			// Host writes, and give the harness hover card 1.5x its width.
 			+ ".bgw-hover-status{white-space:pre-line}"
@@ -3932,6 +3933,9 @@ window.__ModuleLoader__.load({
 						entry !== undefined && entry.branch !== undefined
 							? jsxRuntime.jsxs("span", { children: ["Branch ", entry.branch, entry.baseRef ? " vs " + entry.baseRef : ""] })
 							: null,
+						needsIgnore && entry.repoRoot !== undefined
+							? jsxRuntime.jsx("span", { className: "bgw-menu-warn", children: "This checkout does not ignore " + entry.managedRoot.replace(entry.repoRoot + "/", "") + " yet — use the action below." })
+							: null,
 						state.notice !== null ? jsxRuntime.jsx("span", { className: "bgw-menu-notice", children: state.notice }) : null,
 						state.error !== null ? jsxRuntime.jsx("span", { className: "bgw-menu-error", children: state.error }) : null,
 					],
@@ -3957,7 +3961,8 @@ window.__ModuleLoader__.load({
 					icon: jsxRuntime.jsx(primitives.IconCopyOutline16, {}),
 					disabled: state.busy !== null,
 				});
-				if (isWorktree && entry.ignored === false) {
+				var needsIgnore = isWorktree && entry.nested === true && entry.ignored === false;
+				if (needsIgnore) {
 					items.push({
 						id: "ignore",
 						label: "Ignore worktrees in this checkout",

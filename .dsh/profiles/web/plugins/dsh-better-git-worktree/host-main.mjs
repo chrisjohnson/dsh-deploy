@@ -33,11 +33,11 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=59';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=59';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=59';
-import { branchReview, createWorktree, ensureWorktreesIgnored, managedRootBase, moveWorkingTreeChanges, worktreeExists, worktreesIgnored } from './host/working-copy.mjs?r=59';
-import { confinedGitDecision } from './host/approval.mjs?r=59';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=60';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=60';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=60';
+import { branchReview, createWorktree, ensureWorktreesIgnored, managedRootBase, moveWorkingTreeChanges, worktreeExists, worktreesIgnored } from './host/working-copy.mjs?r=60';
+import { confinedGitDecision } from './host/approval.mjs?r=60';
 
 export const name = 'dsh-better-git-worktree';
 
@@ -556,6 +556,11 @@ export default async function apply(ctx, config = {}) {
           value: {
             worktrees: entries.map((entry) => ({
             ...entry,
+            // `ignored` only matters for a copy nested inside the checkout; one
+            // that lives outside it (an older layout, or the home fallback) has
+            // nothing to ignore.
+            nested: typeof entry.repoRoot === 'string' && typeof entry.managedRoot === 'string'
+              && entry.managedRoot.startsWith(`${entry.repoRoot}/`),
             ignored: typeof entry.repoRoot === 'string' ? worktreesIgnored(entry.repoRoot) : true,
           })),
             at: Date.now(),
