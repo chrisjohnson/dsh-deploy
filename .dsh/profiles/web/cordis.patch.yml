@@ -168,6 +168,13 @@
         escalationProvider: local-ai-machine
         escalationModel: medium-dense
 
+    # Composer scheduled-send: DISABLED 2026-09-27.
+    # Root cause: scheduled messages appeared in every session window, not just
+    # the session they were scheduled for - the dock slot is not yet scoped to
+    # the target session in DSH itself. Source left on disk; re-enable once DSH
+    # adds per-session scoping for the dock slot.
+    # - id: scheduled-queue
+    #   name: ./plugins/scheduled-queue/index.mjs
 
 # The sidebar browsing region is a `single` slot whose child seat
 # (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
