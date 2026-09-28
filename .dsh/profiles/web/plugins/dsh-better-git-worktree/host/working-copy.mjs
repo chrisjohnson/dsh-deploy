@@ -26,7 +26,17 @@
 // its directory, its branch (`dsh/brave-otter`) and every surface that shows it
 // (see host/pet-name.mjs).
 
-import { existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
+import {
+  accessSync,
+  appendFileSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { allocatePetName } from './pet-name.mjs';
@@ -73,19 +83,57 @@ function nearestExisting(candidate) {
  * `~/.dsh-worktrees`.
  */
 export async function managedRootBase(homeDir, repoRoot) {
-  const preferred = join(homeDir, 'worktrees', 'dsh-better-git-worktree');
-  if (await isUsableBase(preferred, repoRoot)) return preferred;
-  const fallback = join(homedir(), '.dsh-worktrees', 'dsh-better-git-worktree');
-  if (await isUsableBase(fallback, repoRoot)) return fallback;
-  return join('/tmp', 'dsh-better-git-worktree');
+  // Nested inside the checkout on purpose: the working copy owns its own git
+  // database, so it costs nothing at runtime, and the entry this plugin writes to
+  // `<repo>/.git/info/exclude` keeps it out of the checkout's `git status`.
+  const nested = join(repoRoot, '.dsh-worktrees', 'dsh-better-git-worktree');
+  if (await isWritableDirectory(repoRoot) && (await isWritableDirectory(nested))) return nested;
+  return join(homedir(), '.dsh-worktrees', 'dsh-better-git-worktree');
 }
 
-/** A base is usable when it is outside the repository being branched *and* outside every other one. */
-async function isUsableBase(candidate, repoRoot) {
-  if (isInside(candidate, repoRoot)) return false;
-  const probe = nearestExisting(candidate);
-  const toplevel = await gitText(probe, ['rev-parse', '--show-toplevel']);
-  return toplevel === undefined;
+/** Whether this plugin can create and write the directory (creating it if absent). */
+async function isWritableDirectory(candidate) {
+  try {
+    mkdirSync(candidate, { recursive: true });
+    accessSync(candidate, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The line this plugin adds to the checkout's local exclude file. */
+const EXCLUDE_ENTRY = '.dsh-worktrees/';
+
+/**
+ * Whether the checkout already ignores this plugin's nested working copies.
+ *
+ * The entry goes into `.git/info/exclude` rather than `.gitignore`: it is local to
+ * this clone, touches no tracked file, needs no commit, and cannot disturb a
+ * branch that is mid-flight in the checkout.
+ */
+export function worktreesIgnored(repoRoot) {
+  try {
+    const text = readFileSync(join(repoRoot, '.git', 'info', 'exclude'), 'utf8');
+    return text.split('\n').some((line) => line.trim().replace(/\/$/, '') === '.dsh-worktrees');
+  } catch {
+    return false;
+  }
+}
+
+/** Ensure the checkout ignores this plugin's nested working copies. Idempotent. */
+export function ensureWorktreesIgnored(repoRoot) {
+  if (worktreesIgnored(repoRoot)) return false;
+  try {
+    const file = join(repoRoot, '.git', 'info', 'exclude');
+    mkdirSync(dirname(file), { recursive: true });
+    const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
+    const separator = existing === '' || existing.endsWith('\n') ? '' : '\n';
+    appendFileSync(file, `${separator}# dsh-better-git-worktree: nested working copies\n${EXCLUDE_ENTRY}\n`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The managed directory a pet name maps to under an already-resolved base. */
@@ -119,45 +167,43 @@ export async function createWorktree(options) {
       (await gitText(repoRoot, ['rev-parse', '--verify', '--quiet', `refs/heads/${branchFor(name)}`])) !== undefined,
   });
   const managedRoot = managedRootFor(base, project, petName);
-  if (existsSync(managedRoot)) {
-    throw new Error(`the managed worktree path ${managedRoot} already exists`);
-  }
-  mkdirSync(join(managedRoot, '..'), { recursive: true });
-
-  const added = await runGit(
-    repoRoot,
-    ['worktree', 'add', '-b', branchFor(petName), '--', managedRoot, baseOid],
-    { timeoutMs: 300000 },
-  );
-  if (!added.ok) {
-    throw new Error(`git worktree add failed: ${added.stderr.trim() || `exit ${added.code}`}`);
-  }
+  if (existsSync(managedRoot)) throw new Error(`the managed worktree path ${managedRoot} already exists`);
+  mkdirSync(managedRoot, { recursive: true });
+  const branch = branchFor(petName);
   try {
+    // A working copy that owns its git database: `git init` here, then read the
+    // source repository's objects through an alternate rather than copying them.
+    // Nothing is downloaded, no object is duplicated, and every write git makes —
+    // index, refs, new objects — stays inside this directory, which is why the
+    // session's single writable root is enough and no escalation is needed.
+    const initialized = await runGit(managedRoot, ['init', '-q', '-b', branch], { timeoutMs: 120000 });
+    if (!initialized.ok) throw new Error(`git init failed: ${initialized.stderr.trim() || `exit ${initialized.code}`}`);
+    mkdirSync(join(managedRoot, '.git', 'objects', 'info'), { recursive: true });
+    writeFileSync(join(managedRoot, '.git', 'objects', 'info', 'alternates'), `${join(repoRoot, '.git', 'objects')}\n`);
+    const pointed = await runGit(managedRoot, ['update-ref', `refs/heads/${branch}`, baseOid], { timeoutMs: 60000 });
+    if (!pointed.ok) throw new Error(`git update-ref failed: ${pointed.stderr.trim() || `exit ${pointed.code}`}`);
+    const populated = await runGit(managedRoot, ['reset', '-q', '--hard', 'HEAD'], { timeoutMs: 300000 });
+    if (!populated.ok) throw new Error(`git reset failed: ${populated.stderr.trim() || `exit ${populated.code}`}`);
+    const originUrl = await gitText(repoRoot, ['remote', 'get-url', 'origin']);
+    if (originUrl !== undefined && originUrl !== '') {
+      await runGit(managedRoot, ['remote', 'add', 'origin', originUrl], { timeoutMs: 30000 });
+    }
+    ensureWorktreesIgnored(repoRoot);
     return {
       repoRoot,
       managedRoot: realpathSync(managedRoot),
-      branch: branchFor(petName),
+      branch,
       petName,
       baseOid,
-      origin: (await gitText(repoRoot, ['remote', 'get-url', 'origin'])) ?? repoRoot,
+      origin: originUrl ?? repoRoot,
+      selfContained: true,
     };
   } catch (error) {
-    // Never leave a half-built worktree registered anywhere.
-    await runGit(repoRoot, ['worktree', 'remove', '--force', '--', managedRoot], { timeoutMs: 120000 });
     rmSync(managedRoot, { recursive: true, force: true });
-    await runGit(repoRoot, ['worktree', 'prune']);
     throw error;
   }
 }
 
-/**
- * Move the source checkout's uncommitted work into an existing working copy.
- *
- * The source is stashed first (the stash entry survives as a backup and its ref
- * is reported), then the same change is replayed into the target with
- * `git apply`. Returns `{ moved, stashRef, files }`; `moved: false` means the
- * source tree was already clean.
- */
 export async function moveWorkingTreeChanges(repoRoot, managedRoot, label) {
   const statusText = await gitText(repoRoot, ['status', '--porcelain=v1', '-z', '--untracked-files=normal']);
   if (statusText === undefined) throw new Error(`could not read the working tree status of ${repoRoot}`);

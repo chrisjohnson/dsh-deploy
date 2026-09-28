@@ -145,37 +145,24 @@ counts, comparison with the default branch, and the last commit.
 
 ## Git work inside a worktree
 
-A linked worktree keeps its index and branch refs in the *source* repository's
-git directory, and the harness grants a session exactly one writable root — its
-own checkout. So the same `git add`/`commit`/`push` through `bash` writes outside
-that boundary and stops to ask you to widen the whole session to
-`danger-full-access`.
+Each worktree session gets a self-contained working copy nested in the checkout
+it came from (`<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet>/`).
+It owns its git database and reads the checkout's objects through an alternate,
+so run git normally: `add`, `commit`, `push`, and anything that shells out to git
+(flake builds, package installs, hooks) all work under the plain
+`workspace-write` sandbox with no escalation, because every write lands inside
+the copy.
 
-Worktree sessions therefore get a **`worktree_git`** tool. The agent passes the
-git arguments as an argv array:
+Two things follow from that layout:
 
-```
-worktree_git { "args": ["add", "-A"], "description": "Stage all changes" }
-worktree_git { "args": ["commit", "-m", "Fix the log path"], ... }
-worktree_git { "args": ["push", "-u", "origin", "HEAD"], ... }
-```
-
-The plugin runs it from the Host, against that session's worktree, so no
-escalation is needed. The arguments are judged one by one first, and it refuses
-anything that is not plain git confined to the worktree:
-
-| refused | why |
-| --- | --- |
-| `-C`, `--git-dir`, `--work-tree` | points git at another repository |
-| `-c`, `--config-env`, `--exec-path` | configuration injection can execute code |
-| `push --force` / `-f` / `--delete` / `--mirror` / `+refspec` | rewrites or deletes published history |
-| `config`, `filter-branch`, `remote add/set-url`, `branch -D`, `tag -d` | mutates shared repository state |
-| any path outside the worktree, `..`, absolute paths | escapes the working copy |
-
-Everything else still goes through `bash` and its normal approval, so
-`sudo`, arbitrary writes and force-pushes stay behind a human decision. Every
-call and refusal is recorded in
-`$DSH_HOME/plugins/dsh-better-git-worktree/approvals.jsonl`.
+- The copy is not registered in the checkout, so `git worktree list` there does
+  not show it and its branch stays local until pushed. Pushes go to the same
+  `origin` as the checkout.
+- Creating a copy adds `.dsh-worktrees/` to `<repo>/.git/info/exclude`. That file
+  is local to the clone — no tracked file changes, no commit, nothing that can
+  disturb a branch mid-flight. If the entry is missing (you removed it, or the
+  copy predates it), the header menu shows **Ignore worktrees in this checkout**
+  and writes it again.
 
 ## Workflows
 
@@ -224,7 +211,7 @@ unpushed commits, so **Remove** is never a surprise.
 
 | what | where |
 | --- | --- |
-| working copies | `$DSH_HOME/worktrees/dsh-better-git-worktree/<project>-<pet>`, or `~/.dsh-worktrees/dsh-better-git-worktree/…` when `$DSH_HOME` is inside the repository being branched |
+| working copies | `<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet>` (nested in the checkout), falling back to `~/.dsh-worktrees/dsh-better-git-worktree/…` if the checkout cannot host it |
 | session → worktree registry | `$DSH_HOME/plugins/dsh-better-git-worktree/worktrees.json` |
 
 A working copy is a real linked worktree: its branch and objects live in the

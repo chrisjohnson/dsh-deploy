@@ -33,13 +33,14 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=56';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=56';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=56';
-import { branchReview, createWorktree, managedRootBase, moveWorkingTreeChanges, worktreeExists } from './host/working-copy.mjs?r=56';
-import { confinedGitDecision } from './host/approval.mjs?r=56';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=59';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=59';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=59';
+import { branchReview, createWorktree, ensureWorktreesIgnored, managedRootBase, moveWorkingTreeChanges, worktreeExists, worktreesIgnored } from './host/working-copy.mjs?r=59';
+import { confinedGitDecision } from './host/approval.mjs?r=59';
 
 export const name = 'dsh-better-git-worktree';
+
 
 /**
  * Stand down a loader row left over from the retired `dsh-git-worktree` bundle.
@@ -488,10 +489,22 @@ export default async function apply(ctx, config = {}) {
    * corrupted record can never turn this into an arbitrary `rm -rf`.
    */
   async function removeWorkingCopy(record) {
-    const base = await managedRootBase(homeDir, record.repoRoot);
     const resolved = resolve(record.managedRoot);
-    if (!resolved.startsWith(`${resolve(base)}${sep}`)) {
-      throw new Error(`refusing to remove ${resolved}: it is outside the managed worktree root ${base}`);
+    // A copy whose directory is already gone (removed by hand, or left by an
+    // older layout) has nothing to delete: drop the record and move on.
+    if (!existsSync(resolved)) {
+      registry.remove(record.sessionId);
+      cache.invalidatePrefix('status:');
+      lastStatus.delete(record.sessionId);
+      return { removed: false, managedRoot: resolved, reason: 'the working copy was already gone' };
+    }
+    const bases = [
+      resolve(await managedRootBase(homeDir, record.repoRoot)),
+      // copies made by the earlier home-rooted layout are still ours to remove
+      resolve(join(homedir(), '.dsh-worktrees', 'dsh-better-git-worktree')),
+    ];
+    if (!bases.some((base) => resolved.startsWith(`${base}${sep}`))) {
+      throw new Error(`refusing to remove ${resolved}: it is outside the managed worktree roots ${bases.join(', ')}`);
     }
     // Resolve the Workspace registration *before* deleting the directory:
     // resolveByPath canonicalizes the path and rejects once it is gone.
@@ -504,14 +517,10 @@ export default async function apply(ctx, config = {}) {
         workspace = undefined;
       }
     }
-    // A linked worktree is registered in the source repository and owns a real
-    // branch, so removing it means unregistering it and dropping that branch.
-    await runGit(record.repoRoot, ['worktree', 'remove', '--force', '--', resolved], { timeoutMs: 120000 });
+    // The copy owns its git database and its branch, so removing it is just
+    // deleting the directory: nothing is registered in the source repository and
+    // it holds no branch of ours.
     rmSync(resolved, { recursive: true, force: true });
-    await runGit(record.repoRoot, ['worktree', 'prune']);
-    if (typeof record.branch === 'string' && record.branch !== '') {
-      await runGit(record.repoRoot, ['branch', '-D', record.branch]);
-    }
     registry.remove(record.sessionId);
     cache.invalidatePrefix('status:');
     lastStatus.delete(record.sessionId);
@@ -545,7 +554,10 @@ export default async function apply(ctx, config = {}) {
         return {
           ok: true,
           value: {
-            worktrees: entries,
+            worktrees: entries.map((entry) => ({
+            ...entry,
+            ignored: typeof entry.repoRoot === 'string' ? worktreesIgnored(entry.repoRoot) : true,
+          })),
             at: Date.now(),
             // What this host can actually do, so the client can offer only the
             // actions that would work.
@@ -636,6 +648,17 @@ export default async function apply(ctx, config = {}) {
           return fail('no-folder-opener', error instanceof Error ? error.message : String(error));
         }
         return { ok: true, value: { opened: checkout.path } };
+      }
+      // Add this plugin's nested copies to the checkout's own exclude file.
+      case 'ignore': {
+        if (sessionId === undefined) return fail('bad-request', 'ignore needs a sessionId');
+        const checkout = checkoutForSession(sessionId);
+        const repo = checkout?.record?.repoRoot ?? checkout?.path;
+        if (typeof repo !== 'string') return fail('no-session', `session ${sessionId} has no checkout`);
+        const root = await repoRoot(repo);
+        if (root === undefined) return fail('not-a-repo', `${repo} is not inside a git repository`);
+        ensureWorktreesIgnored(root);
+        return { ok: true, value: { ignored: worktreesIgnored(root), repoRoot: root } };
       }
       case 'workingTree': {
         if (sessionId === undefined) return fail('bad-request', 'workingTree needs a sessionId');

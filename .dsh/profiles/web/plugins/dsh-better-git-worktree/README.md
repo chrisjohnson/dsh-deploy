@@ -20,13 +20,6 @@ workflows, and a screenshot gallery.
   tool row. Turning it on opens one confirmation dialog; confirming creates the
   branch and worktree immediately and continues **that** session inside it. The
   toggle then reads ON and disabled, because the session is in a worktree.
-- **`worktree_git` tool.** Worktree sessions run git through the Host instead of
-  `bash`: a linked worktree's git database lives outside the session's single
-  writable root, so the same command in the shell would stop for a
-  `danger-full-access` escalation every time. The tool validates the arguments
-  first (`host/approval.mjs` — no `-C`/`--git-dir`, no `-c` configuration, no
-  force/delete pushes, nothing outside the worktree) and records every call in
-  `approvals.jsonl`. See `docs/USAGE.md`.
 - **`worktree_convert` tool.** Takes a session running in a checkout, creates a
   worktree, moves its uncommitted work into it (kept recoverable as a `git
   stash` entry), and continues the conversation in a session rooted there. Once
@@ -57,26 +50,41 @@ workflows, and a screenshot gallery.
   stale-while-revalidate), a 15 s background refresher, and a 90 s-throttled
   `git fetch` that never blocks a read.
 
-## Working copies are real git worktrees
+## Working copies
 
-A session in a worktree gets a genuine `git worktree add` checkout: the branch
-and object store stay in the source repository, so there is nothing to clone and
-nothing to keep in sync. Each one is named with a two-part pet name
-(`brave-otter`), used for its directory, its branch (`dsh/brave-otter`) and every
-surface that shows it.
+A worktree session gets its own **self-contained working copy**, nested inside
+the checkout it was branched from:
 
-The trade-off is deliberate. A linked worktree keeps its **index** and its
-**branch ref** in the source repository's `.git`, and the harness confines a
-session to its own checkout (`dsh-sandbox-policy`: the workspace root is the
-session cwd). So the agent's first `git add` or `git commit` inside a worktree is
-a write outside that boundary, and it asks for the standard sandbox escalation.
-That is the intended shape here — read widely, write locally, escalate
-explicitly — rather than something to work around by copying the repository.
+```
+<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet-name>/
+```
 
-Working copies live outside every repository: `$DSH_HOME/worktrees/…` normally,
-`~/.dsh-worktrees/…` when `$DSH_HOME` (or any candidate base) sits inside a git
-working tree, so a worktree can never show up as untracked files in some other
-checkout.
+It owns its git database (`git init` in place) and reads the checkout's objects
+through `.git/objects/info/alternates`, so nothing is downloaded, no object is
+duplicated, and no file is copied by a clone. The working tree is materialised
+from the session's starting commit.
+
+That layout is what makes the sandbox sufficient. `dsh-sandbox` grants a session
+exactly one writable root — its own cwd — and a *linked* worktree keeps its index
+and refs in the source repository, one directory outside it, so `git add`,
+`commit`, `push` and anything that shells out to git (flake builds, package
+installs, hooks) writes outside the boundary and stops for a
+`danger-full-access` escalation. Here every write git makes — index, refs, new
+objects — lands inside the copy, so plain `workspace-write` is enough and
+nothing prompts.
+
+Two trade-offs, deliberately accepted:
+
+- It is not a linked worktree: the checkout's `git worktree list` does not show
+  it, and its branch lives in the copy until it is pushed (pushes go to the same
+  `origin` the checkout uses).
+- It borrows the checkout's object store, so deleting that checkout loses
+  history the copy has not republished.
+
+The checkout's own `git status` stays clean because creating a copy writes
+`.dsh-worktrees/` into `<repo>/.git/info/exclude` — local to the clone, no
+tracked file touched, no commit, nothing that can disturb a branch mid-flight.
+If that entry is ever missing, the header menu offers to write it again.
 
 ## Status semantics
 

@@ -3957,6 +3957,14 @@ window.__ModuleLoader__.load({
 					icon: jsxRuntime.jsx(primitives.IconCopyOutline16, {}),
 					disabled: state.busy !== null,
 				});
+				if (isWorktree && entry.ignored === false) {
+					items.push({
+						id: "ignore",
+						label: "Ignore worktrees in this checkout",
+						icon: jsxRuntime.jsx(primitives.IconFolderOpenOutline16, {}),
+						disabled: state.busy !== null,
+					});
+				}
 				if (statusStore.get().capabilities.folderOpener) {
 					items.push({
 						id: "open",
@@ -4000,6 +4008,15 @@ window.__ModuleLoader__.load({
 								} else {
 									patch({ error: "Clipboard access is unavailable here." });
 								}
+							}
+							if (id === "ignore") {
+								void run("ignore", async function () {
+									var result = await rpc("ignore", { sessionId: sessionId });
+									if (!result || result.ok !== true) {
+										throw new Error((result && result.error && result.error.message) || "the exclude entry could not be written");
+									}
+									patch({ open: false, notice: "Nested worktrees are now ignored by this checkout" });
+								});
 							}
 							if (id === "open") {
 								void run("open", async function () {
