@@ -119,6 +119,14 @@ llm-pi-ai:
       # exact role name). small-dense (qwen2.5-vl-7b-instruct) was ALSO
       # missing this the whole time - it's a real vision model, this was
       # never applied when the route was added.
+      # medium-moe BACKED ONTO occamy-1.0-mtp-q4--llamacpp-vulkan-radv-r9700-mtp-v2
+      # (port 8171) on 2026-09-28, replacing a route that pointed at a dead
+      # backend. All four settings re-verified against it: n_ctx 262144 live from
+      # /props, -n 8192, an mmproj IS mounted (it is a real vision model, so
+      # input: [text, image] is correct), and a chat template that carries
+      # enable_thinking rather than reasoning_effort. That last one is why
+      # reasoningEfforts stays false below.
+      #
       # medium-moe contextWindow: 262144 is the declared value in this
       # route. The previous comment justified it by citing Ornith v9's
       # --kv-unified-per-slot 262144, but medium-moe now runs on occamy,
@@ -164,9 +172,24 @@ llm-pi-ai:
           # declared as such rather than left to pi-ai's text-only default.
           input: [ text ]
           # reasoningEfforts (2026-09-27): big-moe currently backs onto
-          # qwen3.8-flash-next-iq4xs--llamacpp-rocm714-strixhalo-mtp-v1 on the
-          # APU (litellm /model/info, cross-checked against that build's
-          # -dev ROCm0). Its chat template takes a graduated top-level
+          # qwen3.8-flash-next-iq4xs--llamacpp-rocm100-lazy-direct-budget-
+          # strixhalo-mtp-v1 on the APU, port 8184 (litellm /model/info,
+          # cross-checked against that build's -dev ROCm0). SWAPPED 2026-09-28
+          # from ...-rocm714-strixhalo-mtp-v1 after measuring the replacement at
+          # 2.62x its prefill and 2.36x its decode at 64k context, and 41% faster
+          # on an agentic compaction. All four settings below were re-verified
+          # against the new backend and all four stand unchanged: -c 262144, no
+          # -n cap, no mmproj mounted (text-only), and a chat template that is
+          # byte-identical because it comes from the GGUF.
+          #
+          # The "-budget" in the build name is load-bearing, not decoration: the
+          # engine has --reasoning-budget 8192. Without it the model's thinking
+          # block consumes the whole max_tokens budget and `content` comes back
+          # EMPTY with finish_reason=length - measured on this role through
+          # litellm at max_tokens=600, at low/medium/xhigh alike. big-moe leaves
+          # maxTokens unset, so pi-ai's 32768 default applies and the failure
+          # needs >32k of thinking to bite: rare, but it is the failed-compaction
+          # shape, and the harness reads it as slowness rather than as an error. Its chat template takes a graduated top-level
           # `reasoning_effort` string - the same wire mechanism as
           # medium-dense/Dirk below, NOT the binary enable_thinking /
           # chat-template path the older strix-apu roles declared. The
