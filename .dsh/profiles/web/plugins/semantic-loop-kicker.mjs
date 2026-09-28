@@ -17,9 +17,12 @@
 //      a completed step) or re-ran work that already failed. medium-moe via
 //      direct litellm fetch, thinking disabled via chat_template_kwargs.
 //
-// Every check appends one JSON line to /tmp/semantic-loop-kicker-decisions.jsonl
-// carrying verdict, confidence, band, matched fingerprints, and the transcript
-// window - the single readable place a future escalation consumer reads.
+// Every evaluation appends one JSON line to
+// $DSH_HOME/storages/semantic-loop-kicker/evaluations.jsonl carrying BOTH
+// layers (the deterministic fingerprint result and, when it ran, the model's
+// verdict) plus verdict, confidence, band, matched fingerprints and the
+// transcript window - the single readable place a future escalation consumer
+// or the sidebar evals panel reads.
 //
 // The optional in-session intervention (off by default) is ONE consumer of
 // the signal, not its purpose: it steers the current step (agent.steer,
@@ -51,7 +54,7 @@ const PLUGIN_NAME = 'semantic-loop-kicker'
 // journal), so ctx.logger lines are hard to see externally. We write a copy
 // of every log line to a file we can tail, in addition to the console.
 // ================================================================
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 const LOG_FILE = '/tmp/semantic-loop-kicker.log'
 
@@ -88,16 +91,56 @@ const WATCHDOG_PROMPT =
 const INTERVENTION_MESSAGE =
   '[WATCHDOG NOTE]: A pattern check flagged possible repetition in your recent steps (same actions, no new results). Do not treat this as a verdict. In one short paragraph, state what you have established so far, then take the single cheapest check that could falsify your current approach - or tell the operator what is blocking you.'
 
-// One JSON line per check: verdict, confidence, band, matched fingerprints,
-// transcript window, latency, outcome. The single readable place for future
-// consumers (model escalation, UI indicator, re-plan prompt).
-const DECISIONS_FILE = '/tmp/semantic-loop-kicker-decisions.jsonl'
+// One JSON line per EVALUATION (schema v2; v1 recorded decisions only). Each
+// record carries BOTH layers, so a reader can see which layer actually
+// decided:
+//   code  - the deterministic fingerprint result, present whenever the code
+//           layer ran - INCLUDING "found nothing", which is a real evaluation
+//           and not a non-event
+//   model - the LLM verdict, present only when the code layer was
+//           inconclusive and the model was actually consulted
+// plus the transcript window, latency, streak and outcome. This is the single
+// readable place for consumers (the sidebar evals panel, model escalation, a
+// re-plan prompt).
+//
+// Persistent by design: /tmp is wiped on reboot and the panel is a long-lived
+// reader. $DSH_HOME/storages is gitignored runtime state.
+const HOME = (process.env.DSH_HOME || '').trim() || '/home/dsh/.dsh'
+const LEDGER_DIR = `${HOME}/storages/semantic-loop-kicker`
+const DECISIONS_FILE = `${LEDGER_DIR}/evaluations.jsonl`
 
-function logDecision(record) {
+function writeEval(record) {
   try {
+    mkdirSync(LEDGER_DIR, { recursive: true })
     appendFileSync(DECISIONS_FILE, JSON.stringify(record) + '\n')
   } catch {
     // best effort
+  }
+}
+
+// Canonical shape of one ledger record. Kept in one place so every
+// early-return path can emit a well-formed (if sparse) evaluation rather than
+// a ragged partial line - the reader should never have to guess at a field's
+// absence.
+function evalRecord(sessionId, events) {
+  return {
+    v: 2,
+    ts: new Date().toISOString(),
+    sessionId,
+    skip: null,
+    events: events ?? null,
+    code: null,
+    model: null,
+    source: null,
+    verdict: null,
+    confidence: null,
+    band: null,
+    streak: 0,
+    mode: null,
+    fingerprints: [],
+    latencyMs: 0,
+    window: '',
+    outcome: 'logged',
   }
 }
 
@@ -261,9 +304,15 @@ function extractCalls(events) {
   return calls
 }
 
+// Returns the FULL code-layer result, not just the stuck subset: the evals
+// panel needs to show what the deterministic layer actually saw (how many
+// tool calls, how many distinct fingerprints, and which repeated) so a
+// "found nothing" verdict is inspectable rather than invisible.
 function fingerprintReport(events) {
   const groups = new Map()
+  let calls = 0
   for (const c of extractCalls(events)) {
+    calls++
     const fp = `${c.name}|${c.args.slice(0, 120)}`
     if (!groups.has(fp)) groups.set(fp, { fp, count: 0, results: new Set() })
     const g = groups.get(fp)
@@ -271,13 +320,15 @@ function fingerprintReport(events) {
     g.results.add(c.result || '(empty)')
   }
   const stuck = []
+  const all = []
   for (const g of groups.values()) {
     const d = g.results.size
-    if ((g.count >= 3 && d <= 1) || (g.count >= 5 && d <= 2)) {
-      stuck.push({ fp: g.fp, count: g.count, distinctResults: d })
-    }
+    const entry = { fp: g.fp, count: g.count, distinctResults: d }
+    all.push(entry)
+    if ((g.count >= 3 && d <= 1) || (g.count >= 5 && d <= 2)) stuck.push(entry)
   }
-  return { stuck }
+  all.sort((a, b) => b.count - a.count)
+  return { stuck, groups: all, calls }
 }
 
 // ================================================================
@@ -378,6 +429,13 @@ export default {
       const lastCheck = new Map()
       // Last LLM-check latency per session id (busy-yield gate).
       const lastLlmLatency = new Map()
+      // Last skip kind recorded per session id. Steps arrive far more often
+      // than the cooldown allows, so recording EVERY rate-limited step would
+      // add a ledger row every few seconds and bury the real evaluations in
+      // them. Only the START of a skip stretch is recorded: one row marks
+      // "evaluations were suppressed from here", and a real evaluation clears
+      // it so the next stretch gets its own marker.
+      const lastSkipKind = new Map()
       // Hysteresis for intervention: a single stuck check is a signal, but
       // acting requires SUSTAINED stuck (>= 2 consecutive stuck-band
       // decisions ~ brief: "sustained >=90"). After one intervention per
@@ -451,6 +509,7 @@ export default {
         )
 
         let text = ''
+        let hasReasoning = false
         try {
           const res = await fetch('http://127.0.0.1:4000/v1/chat/completions', {
             method: 'POST',
@@ -471,6 +530,7 @@ export default {
           const choice = json?.choices?.[0]
           text = choice?.message?.content ?? ''
           const reasoning = choice?.message?.reasoning_content
+          hasReasoning = reasoning !== undefined
           logBoth(
             '[D] MODEL RESPONSE RECEIVED (took %dms, raw=%j, has_reasoning=%s):',
             Date.now() - start,
@@ -500,7 +560,7 @@ export default {
           logBoth('[D] PARSE_FAIL - could not extract a verdict from raw=%j', text.trim())
           log.warn('[D] PARSE_FAIL: raw=%j', text.trim())
         }
-        return { verdict, confidence, inferred, raw: text.trim(), latencyMs: Date.now() - start }
+        return { verdict, confidence, inferred, raw: text.trim(), hasReasoning, latencyMs: Date.now() - start }
       }
 
       // Core watchdog check for one session.
@@ -570,6 +630,14 @@ export default {
           if (recentEvents.length < 2) {
             logBoth('[B] skip %s - only %d substantive events (need >= 2) - not enough signal', sessionId, recentEvents.length)
             log.info('[B] skip %s - only %d substantive events (need >= 2)', sessionId, recentEvents.length)
+            if (lastSkipKind.get(sessionId) !== 'no-signal') {
+              lastSkipKind.set(sessionId, 'no-signal')
+              writeEval({
+                ...evalRecord(sessionId, { total: allEvents.length, substantive: substantive.length }),
+                skip: 'no-signal',
+                outcome: 'skipped',
+              })
+            }
             return
           }
 
@@ -582,6 +650,17 @@ export default {
           if (elapsed < cooldownMs) {
             logBoth('[B] COOLDOWN_SKIP %s (%dms elapsed < %dms cooldown, %dms remaining)', sessionId, elapsed, cooldownMs, cooldownMs - elapsed)
             log.info('[B] COOLDOWN_SKIP %s (%dms < %dms)', sessionId, elapsed, cooldownMs)
+            // Recorded so the panel can show WHY a step has no evaluation:
+            // a gap in the timeline is information, not noise. Only the first
+            // skip of a stretch is written (see lastSkipKind).
+            if (lastSkipKind.get(sessionId) !== 'cooldown') {
+              lastSkipKind.set(sessionId, 'cooldown')
+              writeEval({
+                ...evalRecord(sessionId, { total: allEvents.length, substantive: substantive.length }),
+                skip: 'cooldown',
+                outcome: 'skipped',
+              })
+            }
             return
           }
 
@@ -592,9 +671,23 @@ export default {
           //    definition - it cannot hallucinate confidence. A busy backend
           //    is no obstacle to a deterministic check, so this runs before
           //    the busy-yield gate.
-          const { stuck: matchedFps } = fingerprintReport(allEvents.slice(-fpWindowEvents))
+          const fpReport = fingerprintReport(allEvents.slice(-fpWindowEvents))
+          const matchedFps = fpReport.stuck
+          // The code layer's full result, recorded whether or not it fired:
+          // "ran, scanned N calls, found no qualifying repetition" is a real
+          // evaluation and the panel exists to make it inspectable.
+          const codePhase = {
+            ran: true,
+            calls: fpReport.calls,
+            groupCount: fpReport.groups.length,
+            stuckGroups: matchedFps.map((f) => ({ ...f })),
+            stuck: matchedFps.length > 0,
+            scannedEvents: Math.min(allEvents.length, fpWindowEvents),
+            topGroups: fpReport.groups.slice(0, 6).map((f) => ({ ...f })),
+          }
 
           let decision
+          let modelPhase = null
           if (matchedFps.length > 0) {
             lastCheck.set(sessionId, now)
             decision = {
@@ -616,6 +709,15 @@ export default {
             if (prevLatency != null && prevLatency > busyYieldMs) {
               logBoth('[B] BUSY_SKIP %s - previous LLM check took %dms (> %dms), yielding to backend', sessionId, prevLatency, busyYieldMs)
               log.info('[B] BUSY_SKIP %s (prev %dms > %dms)', sessionId, prevLatency, busyYieldMs)
+              if (lastSkipKind.get(sessionId) !== 'busy') {
+                lastSkipKind.set(sessionId, 'busy')
+                writeEval({
+                  ...evalRecord(sessionId, { total: allEvents.length, substantive: substantive.length }),
+                  skip: 'busy',
+                  code: codePhase,
+                  outcome: 'skipped',
+                })
+              }
               return
             }
             lastCheck.set(sessionId, now)
@@ -625,6 +727,14 @@ export default {
             //    TIMEOUT are logged distinctly there.
             const r = await classifyTrajectory(transcript)
             decision = { source: 'llm', ...r }
+            modelPhase = {
+              verdict: r.verdict ?? null,
+              confidence: r.confidence ?? null,
+              inferred: r.inferred ?? false,
+              latencyMs: r.latencyMs ?? 0,
+              raw: r.raw ?? '',
+              hasReasoning: r.hasReasoning ?? false,
+            }
             lastLlmLatency.set(sessionId, r.latencyMs ?? 0)
           }
           const band = bandOf(decision.confidence)
@@ -659,11 +769,12 @@ export default {
           //    consumer (model escalation, UI indicator, re-plan prompt)
           //    reads from.
           const record = {
-            ts: new Date().toISOString(),
-            sessionId,
+            ...evalRecord(sessionId, { total: allEvents.length, substantive: substantive.length }),
+            code: codePhase,
+            model: modelPhase,
             source: decision.source,
-            verdict: decision.verdict,
-            confidence: decision.confidence,
+            verdict: decision.verdict ?? null,
+            confidence: decision.confidence ?? null,
             band,
             streak,
             mode: effectiveMode,
@@ -731,7 +842,10 @@ export default {
             }
           }
 
-          logDecision(record)
+          // A real evaluation ends any skip stretch, so the next one gets its
+          // own marker instead of being swallowed by the previous.
+          lastSkipKind.delete(sessionId)
+          writeEval(record)
           log.info(
             '[E] decision recorded: %s conf=%s band=%s streak=%d source=%s outcome=%s session %s',
             record.verdict, record.confidence, band, record.streak, decision.source, record.outcome, sessionId,

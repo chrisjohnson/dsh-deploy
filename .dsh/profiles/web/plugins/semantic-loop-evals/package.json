@@ -1,0 +1,18 @@
+{
+  "name": "dsh-semantic-loop-evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reader/visualizer for the semantic-loop-kicker evaluation ledger: a dsh-better-sidebar right-sidebar tab showing a synced timing graph + ledger of code-layer (deterministic fingerprint) and model-layer (LLM) evaluations for the current session, with per-evaluation inspection.",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.mjs",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  }
+}

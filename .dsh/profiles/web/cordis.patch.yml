@@ -119,10 +119,15 @@
     #      the last 6 substantive events produced NEW information, replying
     #      "PROGRESS:<0-100>" or "LOOP:<0-100>" (lenient parse).
     #
-    # Every check appends one JSON line to
-    # /tmp/semantic-loop-kicker-decisions.jsonl (verdict, confidence, band,
-    # fingerprints, window, latency, outcome) - the single readable place a
-    # future model-escalation consumer reads.
+    # Every evaluation appends one JSON line to
+    # $DSH_HOME/storages/semantic-loop-kicker/evaluations.jsonl carrying BOTH
+    # layers - the deterministic fingerprint result (including "ran and found
+    # no repetition", which decides nothing and used to leave no trace) and,
+    # when the code layer was inconclusive, the model's verdict - plus band,
+    # fingerprints, window, latency and outcome. That ledger is the interface
+    # every consumer reads; the evals panel row below is the first one. The
+    # path is persistent so the panel can read history across restarts (the
+    # old /tmp location was wiped on reboot).
     #
     # Bands: conf>=bandStuck -> "stuck" (actionable), >=bandWatch -> "watch",
     # else "noise". Intervention is one consumer of the signal, gated by ALL:
@@ -135,13 +140,25 @@
     # cooldown window, no restart.
     # Busy-yield: after a slow LLM call (>busyYieldMs) the next check skips
     # rather than competing with the session's own work.
+    # Skip coalescing: steps arrive far more often than the cooldown allows,
+    # so only the FIRST skip of a stretch is recorded - otherwise the ledger
+    # gains a row every few seconds and buries the real evaluations. A real
+    # evaluation ends the stretch, so the next one gets its own marker.
     #
     # Offline-tuned 2026-09-25 on 11 real-session anchors (3 iters each):
     # 30/33, ZERO false positives, 3 false negatives (one ambiguous anchor,
     # all in the non-actionable noise band). Harness:
     # scratch/wd-tune/wd-tune.mjs.
+    # Host edits are invisible without a restart (node caches ES modules by
+    # URL), so the row points at a versioned re-export of the real module. To
+    # reload after an edit: copy the current -rN.mjs entry to -rN+1.mjs, bump
+    # the `?r=` inside the copy, repoint this row at it, delete the old one.
+    # (Bumping only the query inside the same entry file does nothing - the
+    # entry's own URL is the cache key the loader already holds.) Same lever as
+    # dsh-better-git-worktree, see its scripts/dev-reload-host.mjs; preferred
+    # here because other agent sessions may be mid-turn when it changes.
     - id: semantic-loop-kicker
-      name: ./plugins/semantic-loop-kicker.mjs
+      name: ./plugins/semantic-loop-kicker-r3.mjs
       config:
         cooldownMs: 30000
         maxTranscriptLines: 6
@@ -152,6 +169,35 @@
         busyYieldMs: 15000
         bandStuck: 90
         bandWatch: 70
+
+    # The ledger READER: a right-sidebar tab (registered through
+    # dsh-better-sidebar's ctx.betterSidebar.registerTab, which its own bundle
+    # mounts) visualizing the watchdog's evaluations for the CURRENT session.
+    # It is a pure consumer - it never writes the ledger and never influences a
+    # decision, which is what keeps the signal consumer-agnostic.
+    #
+    # The panel is split along the signal's own two layers, which is the point:
+    #   code lane  - the deterministic fingerprint layer, including the "ran and
+    #                found no repetition" evaluations that decide nothing and
+    #                would otherwise be invisible
+    #   model lane - the LLM adjudications, drawn linked to the code marker they
+    #                escalated from
+    #   skip lane  - steps deliberately not evaluated (no-signal / cooldown /
+    #                busy-yield), so gaps in coverage are explicit, not silent
+    # A synced ledger lists the same evaluations in time order; selecting a
+    # marker or a row in either view opens that evaluation's full record:
+    # fingerprint groups, the model's raw reply, confidence, band, streak,
+    # latency, and the exact transcript window it judged.
+    #
+    # Host half (index.mjs) exposes the ledger over the /api fence
+    # (/api/semanticLoopEvals/{list,sessions,detail}): compact rows for the
+    # graph and ledger, and ONE full record (with its KB-sized transcript
+    # window) only for the row being inspected. Client half (client.mjs) is
+    # auto-mounted from this package's dsh.client declaration - same pattern as
+    # scheduled-queue. It also normalizes the older decisions-only (v1) ledger
+    # records into the current two-phase shape, so the panel reads both eras.
+    - id: semantic-loop-evals
+      name: ./plugins/semantic-loop-evals/index.mjs
 
     # In-session model switching for the agent itself: `switch_model`
     # (agent picks provider/model + the first message the new model receives)
