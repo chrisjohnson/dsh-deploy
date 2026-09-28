@@ -167,10 +167,17 @@ llm-pi-ai:
           # 2026-09-27 against the backend's own /props (n_ctx: 262144) and
           # that build's docker-compose.yaml (-c 262144, the model's full
           # native training context).
-          # input: big-moe's build mounts no --mmproj/vision adapter (only the
-          # text GGUF plus an MTP draft head), so it is text-only and is
-          # declared as such rather than left to pi-ai's text-only default.
-          input: [ text ]
+          # input (2026-09-28): big-moe's build now MOUNTS a vision projector and
+          # passes --mmproj, so this is no longer text-only. Verified two ways:
+          # the server log says "loaded multimodal model, '/mmproj/mmproj-BF16.gguf'",
+          # and two screenshots were described accurately, including their on-screen
+          # text. The projector (mmproj-BF16.gguf, 908MB) comes from the same unsloth
+          # repo as the weights.
+          #
+          # Vision needs BOTH halves: this declaration, and the mount on the server.
+          # Either alone is a silent no-op - pi-ai will not send an image the route
+          # does not advertise, and a server with no projector cannot read one.
+          input: [ text, image ]
           # reasoningEfforts (2026-09-27): big-moe currently backs onto
           # qwen3.8-flash-next-iq4xs--llamacpp-rocm100-lazy-direct-budget-
           # strixhalo-mtp-v1 on the APU, port 8184 (litellm /model/info,
@@ -295,7 +302,7 @@ llm-pi-ai:
 
 agent-default-model:
   provider: local-ai-machine
-  model: big-moe
+  model: medium-moe
 locale:
   preference: en
 ui-onboarding:
