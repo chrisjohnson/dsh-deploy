@@ -178,6 +178,16 @@ llm-pi-ai:
           # Either alone is a silent no-op - pi-ai will not send an image the route
           # does not advertise, and a server with no projector cannot read one.
           input: [ text, image ]
+          # reasoningEfforts (2026-09-28): the levels below are still the right
+          # DECLARATION, but the sentence further down saying "omitting it leaves
+          # the template's xhigh default in force" is now STALE. The server default
+          # is medium: the build added 2026-09-28 passes `--reasoning-effort medium`,
+          # so a request that names no level gets medium, and a request that names
+          # one still wins. That change was worth 6.2x on wall time for the standard
+          # probe (257.1 s -> 41.6 s, 24,376 -> 2,224 characters of thinking) with
+          # the answer still correct, because ~90% of what this model generates is
+          # thinking. Keep xhigh available for work that warrants it.
+          #
           # reasoningEfforts (2026-09-27): big-moe currently backs onto
           # qwen3.8-flash-next-iq4xs--llamacpp-rocm100-lazy-direct-budget-
           # strixhalo-mtp-v1 on the APU, port 8184 (litellm /model/info,
@@ -301,8 +311,8 @@ llm-pi-ai:
             supportsReasoningEffort: true
 
 agent-default-model:
-  provider: local-ai-machine-cloud
-  model: deepseek-flash
+  provider: local-ai-machine
+  model: big-moe
 locale:
   preference: en
 ui-onboarding:

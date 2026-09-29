@@ -90,7 +90,7 @@
     # index.mjs) so host code can be reloaded live by
     # `node scripts/dev-reload-host.mjs` - see the plugin README.
     - id: better-git-worktree
-      name: ./plugins/dsh-better-git-worktree/entry-r60.mjs
+      name: ./plugins/dsh-better-git-worktree/entry-r61.mjs
 
     # Model-facing image_search tool over the same self-hosted SearXNG
     # instance dsh-web-search-searxng uses for text search, querying its
@@ -224,12 +224,42 @@
     # model/selection event, "model changed" boundary notice, default-model
     # persistence as the UI) plus agent.steer() so the notice is delivered
     # immediately after the switch, before the new model picks up other work.
-    # See plugins/model-switch.mjs for the full rationale.
+    #
+    # As of 2026-09-28 the row also carries a CONTEXT-WINDOW FIT GUARD, because a
+    # downward switch (deepseek-flash 1M -> a local 262k role) used to strand the
+    # session: the first request on the smaller route dies with
+    # ContextWindowExceededError, and dsh's own overflow recovery cannot save it
+    # because it summarizes with the very model that overflowed. A model must
+    # READ a conversation in order to compact it, so the only moment a
+    # 421k-token session can be condensed is while a big-window model is still
+    # routed. The guard therefore compacts to fit BEFORE the route changes, or
+    # refuses the switch with numbers and points at subagent delegation. See
+    # plugins/model-switch/host.mjs for the full incident write-up.
+    #
+    # The row is now a package (versioned host entry + client.mjs) rather than a
+    # bare .mjs, because the interactive half needs a browser bundle: a pill
+    # beside the model picker, and an actionable banner under the composer
+    # offering the one-click "compact on a big-window route, then come back"
+    # repair, for the switches the guard cannot intercept (the composer picker
+    # calls sessionController.selectModel directly). See the entry's own header
+    # for the -rN reload ritual; the package's `dsh.client` declaration mounts
+    # client.mjs, so no `dsh.client` key belongs here.
+    #
+    # escalationProvider/Model is the escape-hatch route. readerProvider/Model is
+    # the big-window route the interactive repair moves to before compacting; it
+    # must be able to hold the whole conversation. fitRatio/summaryReserveTokens
+    # are the guard's safety margins; autoCompact: false downgrades the guard to
+    # warn-and-refuse without compacting.
     - id: model-switch
-      name: ./plugins/model-switch.mjs
+      name: ./plugins/model-switch/entry-r5.mjs
       config:
         escalationProvider: local-ai-machine
         escalationModel: medium-dense
+        readerProvider: local-ai-machine-cloud
+        readerModel: deepseek-flash
+        fitRatio: 0.8
+        summaryReserveTokens: 10000
+        autoCompact: true
 
     # Composer scheduled-send: DISABLED 2026-09-27.
     # Root cause: scheduled messages appeared in every session window, not just

@@ -1,0 +1,18 @@
+{
+  "name": "dsh-model-switch",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "In-session model switching for the agent (switch_model / switch_model_escalate) with a context-window fit guard, plus the Client half that warns before a switch strands the session and offers a one-click compact-then-switch repair.",
+  "main": "entry-r5.mjs",
+  "exports": {
+    ".": "./entry-r5.mjs",
+    "./client": "./client.mjs",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  }
+}
