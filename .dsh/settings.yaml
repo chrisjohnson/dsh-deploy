@@ -310,9 +310,15 @@ llm-pi-ai:
           compat:
             supportsReasoningEffort: true
 
+# Default model for newly composed Sessions, set to medium-moe on 2026-09-28.
+# It is the fast/light role (occamy q5 on the R9700, port 8191) rather than the
+# maximum-intelligence one, which is the intent: interactive agent loops want
+# latency, and big-moe remains selectable per session and per subagent.
+# Subagents that name no route inherit the parent Session's route, so this also
+# makes medium-moe the subagent default.
 agent-default-model:
   provider: local-ai-machine
-  model: big-moe
+  model: medium-moe
 locale:
   preference: en
 ui-onboarding:
@@ -324,8 +330,9 @@ subagent-model-selection:
       model: medium-moe
     - provider: local-ai-machine
       model: big-moe
-    - provider: local-ai-machine
-      model: medium-dense
+    # medium-dense REMOVED 2026-09-28: it routes to dirk on 8161, which is stopped,
+    # so offering it handed a delegate a route that cannot answer. Re-add it if dirk
+    # is brought back.
     - provider: local-ai-machine-cloud
       model: deepseek-flash
 dsh-better-sidebar:

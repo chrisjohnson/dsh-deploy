@@ -254,7 +254,13 @@
       name: ./plugins/model-switch/entry-r5.mjs
       config:
         escalationProvider: local-ai-machine
-        escalationModel: medium-dense
+        # medium-dense until 2026-09-28, when it was found to route to a stopped
+        # build (dirk, port 8161) - so the escape hatch was broken. big-moe is the
+        # semantic fit rather than medium-moe: an escalation the agent reaches for
+        # when stuck should be the strongest model available, and medium-moe is the
+        # fast/light role. readerModel stays on the cloud route deliberately - it
+        # has to hold a whole conversation to compact it.
+        escalationModel: big-moe
         readerProvider: local-ai-machine-cloud
         readerModel: deepseek-flash
         fitRatio: 0.8
