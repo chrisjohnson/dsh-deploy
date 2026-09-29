@@ -33,11 +33,11 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 
-import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=60';
-import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=60';
-import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=60';
-import { branchReview, createWorktree, ensureWorktreesIgnored, managedRootBase, moveWorkingTreeChanges, worktreeExists, worktreesIgnored } from './host/working-copy.mjs?r=60';
-import { confinedGitDecision } from './host/approval.mjs?r=60';
+import { TtlCache, gitFetch, runGit } from './host/git-runner.mjs?r=61';
+import { baseRefFor, currentBranch, defaultBranch, readWorktreeStatus, repoRoot, statusSummary } from './host/repository.mjs?r=61';
+import { WorktreeRegistry, stateDir } from './host/registry.mjs?r=61';
+import { branchReview, createWorktree, ensureWorktreesIgnored, moveWorkingTreeChanges, worktreeExists, worktreesIgnored } from './host/working-copy.mjs?r=61';
+import { confinedGitDecision } from './host/approval.mjs?r=61';
 
 export const name = 'dsh-better-git-worktree';
 
@@ -498,9 +498,16 @@ export default async function apply(ctx, config = {}) {
       lastStatus.delete(record.sessionId);
       return { removed: false, managedRoot: resolved, reason: 'the working copy was already gone' };
     }
+    // Every root this plugin has ever written to. The current layout is
+    // `<base>/<pet-name>`, where `<base>` is `<repo>/.dsh-worktrees` — or the
+    // same name under the home directory for a checkout that cannot host one.
+    // Copies made before that layout carry this plugin's name as an extra
+    // segment, one level deeper inside a base this list already covers.
     const bases = [
-      resolve(await managedRootBase(homeDir, record.repoRoot)),
-      // copies made by the earlier home-rooted layout are still ours to remove
+      resolve(join(record.repoRoot, '.dsh-worktrees')),
+      resolve(join(homedir(), '.dsh-worktrees')),
+      // copies made before the flat layout carry this plugin's name as an extra
+      // segment, one level deeper inside a base this list already covers
       resolve(join(homedir(), '.dsh-worktrees', 'dsh-better-git-worktree')),
     ];
     if (!bases.some((base) => resolved.startsWith(`${base}${sep}`))) {

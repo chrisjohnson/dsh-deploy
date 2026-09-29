@@ -38,14 +38,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import { allocatePetName } from './pet-name.mjs';
 import { gitText, runGit } from './git-runner.mjs';
 import { headOid } from './repository.mjs';
 
 const BRANCH_PREFIX = 'dsh';
 
-/** Slug a project name into a branch- and path-safe token. */
+/** Slug a name into a branch- and path-safe single directory segment. */
 function slugify(value) {
   const slug = String(value ?? '')
     .toLowerCase()
@@ -73,22 +73,25 @@ function nearestExisting(candidate) {
 }
 
 /**
- * Directory that holds this plugin's managed worktrees.
+ * Directory that holds this plugin's managed worktrees: `<repo>/.dsh-worktrees`,
+ * one working copy per pet name, and nothing in between.
  *
- * `$DSH_HOME/worktrees` is the obvious home, but it is unusable when it lands
- * inside *any* git working tree — a deployment that keeps `$DSH_HOME` inside a
- * checkout (this one does) would otherwise scatter the working copies into that
- * repository's own `git status`, and a working copy inside an unrelated
- * repository is just as bad. In either case the managed trees move to
- * `~/.dsh-worktrees`.
+ * Nothing here needs a longer path. The plugin's name would say nothing the
+ * directory does not already say, and the repository name is already in the
+ * prefix — `<repo>/.dsh-worktrees/brave-otter` is unambiguous on its own, while
+ * `<repo>/.dsh-worktrees/dsh-better-git-worktree/<repo>-brave-otter` just buries
+ * the one part that varies.
+ *
+ * The copy is nested inside the checkout on purpose: it owns its own git
+ * database, so it costs nothing at runtime, and the entry this plugin writes to
+ * `<repo>/.git/info/exclude` keeps it out of the checkout's `git status`. A
+ * checkout that cannot host it (not writable) falls back to the same flat layout
+ * under `~/.dsh-worktrees`.
  */
 export async function managedRootBase(homeDir, repoRoot) {
-  // Nested inside the checkout on purpose: the working copy owns its own git
-  // database, so it costs nothing at runtime, and the entry this plugin writes to
-  // `<repo>/.git/info/exclude` keeps it out of the checkout's `git status`.
-  const nested = join(repoRoot, '.dsh-worktrees', 'dsh-better-git-worktree');
+  const nested = join(repoRoot, '.dsh-worktrees');
   if (await isWritableDirectory(repoRoot) && (await isWritableDirectory(nested))) return nested;
-  return join(homedir(), '.dsh-worktrees', 'dsh-better-git-worktree');
+  return join(homedir(), '.dsh-worktrees');
 }
 
 /** Whether this plugin can create and write the directory (creating it if absent). */
@@ -136,9 +139,13 @@ export function ensureWorktreesIgnored(repoRoot) {
   }
 }
 
-/** The managed directory a pet name maps to under an already-resolved base. */
-export function managedRootFor(base, project, petName) {
-  return join(base, `${slugify(project)}-${petName}`);
+/**
+ * The managed directory a pet name maps to under an already-resolved base. The
+ * name is the whole path segment — it is already `[a-z0-9-]`, and slugging it
+ * again only guarantees the segment can never escape `base`.
+ */
+export function managedRootFor(base, petName) {
+  return join(base, slugify(petName));
 }
 
 /** The branch a pet name maps to. */
@@ -158,15 +165,14 @@ export async function createWorktree(options) {
       `${repoRoot} has no commit yet (unborn HEAD); commit once before creating a worktree session`,
     );
   }
-  const project = basename(repoRoot);
   const base = await managedRootBase(homeDir, repoRoot);
   const petName = await allocatePetName({
     managedRoot: base,
-    exists: (name) => existsSync(managedRootFor(base, project, name)),
+    exists: (name) => existsSync(managedRootFor(base, name)),
     hasBranch: async (name) =>
       (await gitText(repoRoot, ['rev-parse', '--verify', '--quiet', `refs/heads/${branchFor(name)}`])) !== undefined,
   });
-  const managedRoot = managedRootFor(base, project, petName);
+  const managedRoot = managedRootFor(base, petName);
   if (existsSync(managedRoot)) throw new Error(`the managed worktree path ${managedRoot} already exists`);
   mkdirSync(managedRoot, { recursive: true });
   const branch = branchFor(petName);

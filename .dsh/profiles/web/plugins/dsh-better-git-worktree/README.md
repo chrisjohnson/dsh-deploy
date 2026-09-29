@@ -56,7 +56,7 @@ A worktree session gets its own **self-contained working copy**, nested inside
 the checkout it was branched from:
 
 ```
-<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet-name>/
+<repo>/.dsh-worktrees/<pet-name>/
 ```
 
 It owns its git database (`git init` in place) and reads the checkout's objects
@@ -137,11 +137,21 @@ teardown), because it has to stand in for it — see `NOTICE`.
 
 ### The managed worktree root
 
-`$DSH_HOME/worktrees/dsh-better-git-worktree/…`, **unless that path is inside the
-repository being branched** — which it is in this deployment, where `$DSH_HOME`
-is `dsh-deploy/.dsh`. A working copy there would flood the source repository's
-`git status` with untracked files, so in that case the managed trees go to
-`~/.dsh-worktrees/dsh-better-git-worktree/`.
+`<repo>/.dsh-worktrees/<pet-name>` — one directory per working copy, and nothing
+in between. This plugin's own name would say nothing the directory does not
+already say, and the repository name is already in the prefix.
+
+`$DSH_HOME` is deliberately not the base: a working copy is a checkout, and one
+that lands inside an unrelated repository (which is where `$DSH_HOME/worktrees`
+points in a deployment that keeps `$DSH_HOME` under a checkout, as here) floods
+that repository's `git status`. The nested root is excluded instead, via the
+`.dsh-worktrees/` entry this plugin writes to `<repo>/.git/info/exclude`. Only a
+checkout that cannot be written to falls back to the same flat layout under
+`~/.dsh-worktrees/`.
+
+Working copies created under the previous, longer layout
+(`<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet-name>`) keep
+working, and the archive action still recognizes and removes them.
 
 ## Rebuilding the client bundle
 

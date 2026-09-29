@@ -68,7 +68,7 @@ working copy on its own branch.
 
 ```
 workspace directory            managed working copy
-/home/dsh/project      ──▶     ~/.dsh-worktrees/dsh-better-git-worktree/project-brave-otter
+/home/dsh/project      ──▶     /home/dsh/project/.dsh-worktrees/brave-otter
    (main checkout)                     branch: dsh/brave-otter
 ```
 
@@ -146,7 +146,7 @@ counts, comparison with the default branch, and the last commit.
 ## Git work inside a worktree
 
 Each worktree session gets a self-contained working copy nested in the checkout
-it came from (`<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet>/`).
+it came from (`<repo>/.dsh-worktrees/<pet>/`).
 It owns its git database and reads the checkout's objects through an alternate,
 so run git normally: `add`, `commit`, `push`, and anything that shells out to git
 (flake builds, package installs, hooks) all work under the plain
@@ -211,18 +211,18 @@ unpushed commits, so **Remove** is never a surprise.
 
 | what | where |
 | --- | --- |
-| working copies | `<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet>` (nested in the checkout), falling back to `~/.dsh-worktrees/dsh-better-git-worktree/…` if the checkout cannot host it |
+| working copies | `<repo>/.dsh-worktrees/<pet>` (nested in the checkout, one directory per pet name), falling back to `~/.dsh-worktrees/<pet>` if the checkout cannot host it |
 | session → worktree registry | `$DSH_HOME/plugins/dsh-better-git-worktree/worktrees.json` |
 
-A working copy is a real linked worktree: its branch and objects live in the
-source repository, so `git worktree list` there shows it, and the branch is
-visible from the main checkout as soon as it is created.
+A working copy is *self-contained*: it owns its git database (`git init` in
+place) and reads the checkout's objects through `.git/objects/info/alternates`,
+so nothing is duplicated and every write git makes lands inside the copy. It is
+therefore not listed by the checkout's `git worktree list`, and its branch lives
+in the copy until it is pushed.
 
-Because a linked worktree's index and branch ref live in the source repository's
-`.git`, a `git add` or `git commit` inside the worktree writes outside the
-session's own checkout. Under the default `workspace-write` policy that is
-exactly the case the sandbox asks you to approve — accept the escalation when you
-want the agent to commit, or let it work without committing.
+Working copies created before this flat layout carry an extra path segment
+(`<repo>/.dsh-worktrees/dsh-better-git-worktree/<project>-<pet>`); they still
+work and are still removed by the same archive action.
 
 ## Limits worth knowing
 
