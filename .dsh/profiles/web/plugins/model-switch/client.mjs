@@ -55,10 +55,12 @@ window.__ModuleLoader__.load({
 			"font:11px/1 Inter,sans-serif;color:" + COLOR.faint + ";background:" + COLOR.raised + ";border:1px solid " + COLOR.border + ";" +
 			"white-space:nowrap;cursor:help}" +
 			".dmsw-pill-alert{color:#fff;background:" + COLOR.danger + ";border-color:" + COLOR.danger + ";font-weight:600}" +
+			".dmsw-pill-warn{color:#fff;background:" + COLOR.warn + ";border-color:" + COLOR.warn + ";font-weight:600}" +
 			".dmsw-pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.75;flex:0 0 auto}" +
 			".dmsw-banner{display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:7px 10px;border-radius:8px;" +
 			"font:12px/17px Inter,sans-serif;color:" + COLOR.text + ";background:rgba(229,72,77,.08);" +
 			"border:1px solid rgba(229,72,77,.35)}" +
+			".dmsw-banner-warn{background:rgba(232,163,61,.1);border-color:rgba(232,163,61,.45)}" +
 			".dmsw-banner-text{flex:1 1 auto;min-width:0}" +
 			".dmsw-banner-title{font-weight:600}" +
 			".dmsw-banner-sub{color:" + COLOR.faint + ";font-size:11px}" +
@@ -67,6 +69,7 @@ window.__ModuleLoader__.load({
 			".dmsw-btn:hover:not(:disabled){background:" + COLOR.raised + "}" +
 			".dmsw-btn:disabled{opacity:.5;cursor:default}" +
 			".dmsw-btn-primary{border-color:rgba(229,72,77,.5);color:" + COLOR.danger + ";font-weight:600}" +
+			".dmsw-btn-warn{border-color:rgba(232,163,61,.6);color:" + COLOR.warn + ";font-weight:600}" +
 			".dmsw-err{color:" + COLOR.danger + ";font-size:11px;margin-top:2px}";
 
 		// ================================================================
@@ -113,6 +116,26 @@ window.__ModuleLoader__.load({
 			if (n < 1000) return String(n);
 			if (n < 1e6) return String(Math.round(n / 100) / 10) + "k";
 			return String(Math.round(n / 1e5) / 10) + "M";
+		}
+
+		/**
+		 * `fits === false` covers two states that must never share a sentence.
+		 *
+		 *   "warn" - past the auto-compact line (fitRatio, the same 0.8 the harness
+		 *     compacts at) but still inside the route's own window. Nothing fails;
+		 *     the next request compacts here, on a route that can read it.
+		 *   "hard" - past the route's own window. The request 400s and the automatic
+		 *     rescue summarises with the route that just overflowed, so it 400s too.
+		 *
+		 * An earlier build printed "210520 tokens does not fit big-moe (262.1k)" -
+		 * arithmetically self-refuting, and it called the harmless case a failure.
+		 */
+		function severity(state) {
+			if (!state || state.available !== true || state.fits !== false) return null;
+			if (typeof state.exceedsWindow === "boolean") return state.exceedsWindow ? "hard" : "warn";
+			var w = state.route && typeof state.route.contextWindow === "number" ? state.route.contextWindow : undefined;
+			if (w === undefined) return "warn";
+			return state.tokens > w ? "hard" : "warn";
 		}
 
 		/** Full context sentence shared by the pill tooltip and the banner. */
@@ -271,6 +294,12 @@ window.__ModuleLoader__.load({
 				budget: budget,
 				fits: fits,
 				currentWindowKnown: window !== undefined,
+				exceedsWindow:
+					hostHas && typeof host.exceedsWindow === "boolean"
+						? host.exceedsWindow
+						: window === undefined
+							? undefined
+							: tokens > window,
 				pending: pending !== null,
 				fromHost: hostHas,
 				canFix: fits === false && hostHas && host.canFix === true,
@@ -294,12 +323,19 @@ window.__ModuleLoader__.load({
 			// the instant a too-small model is picked is the signal.
 			if (!state || state.available !== true) return null;
 			if (state.fits !== false || state.route === undefined) return null;
-			var label =
-				fmt(state.tokens) + " > " + fmt(state.route.contextWindow) + " — won't fit " + state.route.model;
+			var hard = severity(state) === "hard";
+			// Two different sentences, because they are two different facts: a
+			// comparison the user can check against the number next to it ("won't
+			// fit" only when the tokens really exceed the window), and a countdown
+			// to the automatic summary for everything above the 0.8 line.
+			var label = hard
+				? fmt(state.tokens) + " > " + fmt(state.route.contextWindow) + " — won't fit " +
+					routeName(state.route, state.models)
+				: fmt(state.tokens) + " / " + fmt(state.route.contextWindow) + " — compacts at " + fmt(state.budget);
 			return h(
 				"span",
 				{
-					className: "dmsw-pill dmsw-pill-alert",
+					className: "dmsw-pill " + (hard ? "dmsw-pill-alert" : "dmsw-pill-warn"),
 					title: describe(state),
 					role: "status",
 					"aria-live": "polite",
@@ -326,14 +362,23 @@ window.__ModuleLoader__.load({
 			var setResult = resultPair[1];
 
 			if (!state || state.available !== true || state.fits !== false) return null;
-
-			// The smallest route that would still hold the conversation - the
-			// one-click destination when the user does not want to stay put.
-			var fitting = (state.models || [])
-				.filter(function (m) { return m.fits === true; })
-				.sort(function (a, b) { return a.contextWindow - b.contextWindow; });
-			var smallest = fitting.length > 0 ? fitting[0] : null;
+			var hard = severity(state) === "hard";
 			var routed = state.routed || {};
+
+			// Where to move if the user does not want to stay. The Host owns this
+			// choice: "smallest window that still fits" is intuitive and wrong -
+			// three deepseek-official routes at 1,000,000 sit just under the
+			// 1,048,576 cloud route the operator actually uses, so that rule kept
+			// landing on a route nobody picked and shared its model id.
+			var destination = state.suggest || null;
+			if (!destination) {
+				var fitting = (state.models || [])
+					.filter(function (m) {
+						return m.fits === true && !(m.provider === routed.provider && m.model === routed.model);
+					})
+					.sort(function (a, b) { return a.contextWindow - b.contextWindow; });
+				destination = fitting.length > 0 ? fitting[0] : null;
+			}
 
 			function act(provider, model, label) {
 				setRunning(label);
@@ -353,15 +398,22 @@ window.__ModuleLoader__.load({
 					h(
 						"div",
 						{ className: "dmsw-banner-title" },
-						"This conversation (" + state.tokens + " tokens) does not fit " + routed.model + " (" + fmt(routed.contextWindow) + ").",
+						hard
+							? "This conversation (" + state.tokens + " tokens) is over " +
+								routeName(routed, state.models) + "'s own window (" + fmt(routed.contextWindow) + ")."
+							: "This conversation (" + state.tokens + " tokens) is past " +
+								routeName(routed, state.models) + "'s auto-compact line (" + fmt(state.budget) +
+								" of " + fmt(routed.contextWindow) + ").",
 					),
 					h(
 						"div",
 						{ className: "dmsw-banner-sub" },
-						state.canFix === true
-							? "The next request will fail. A model must read a conversation to compact it, so this is repaired on a larger-window route (" +
-								(state.reader ? state.reader.model : "reader") + ") and then returned here."
-							: "The next request will fail, and no route with a large enough window is available to compact it. Delegate the work to a subagent instead.",
+						hard
+							? state.canFix === true
+								? "The next request fails, and the automatic rescue cannot fix it either: it summarises with the route that just overflowed. This repairs it on a larger-window route (" +
+									(state.reader ? state.reader.model : "reader") + ") and returns here."
+								: "The next request fails, and no route with a large enough window is available to read it. Delegate the work to a subagent instead."
+							: "Nothing fails and nothing is stranded — the next request compacts it here, on a route that can still read it. Do it now while you choose what survives, or move to a route with room and skip the summary.",
 					),
 					result !== null
 						? h(
@@ -382,16 +434,18 @@ window.__ModuleLoader__.load({
 						"button",
 						{
 							key: "repair",
-							className: "dmsw-btn dmsw-btn-primary",
+							className: "dmsw-btn " + (hard ? "dmsw-btn-primary" : "dmsw-btn-warn"),
 							disabled: busy,
-							onClick: function () { act(routed.provider, routed.model, "repairing"); },
-							title: "Compact on a larger-window route, then come back to " + routed.model + "."
+							onClick: function () { act(routed.provider, routed.model, "compacting"); },
+							title: hard
+								? "Compact on a larger-window route, then come back to " + routeName(routed, state.models) + "."
+								: "Compact here now instead of letting the next request do it."
 						},
-						busy ? running : "Compact and stay",
+						busy ? running : hard ? "Compact and stay" : "Compact now",
 					),
 				);
 			}
-			if (smallest !== null && !(smallest.provider === routed.provider && smallest.model === routed.model)) {
+			if (destination !== null && !(destination.provider === routed.provider && destination.model === routed.model)) {
 				children.push(
 					h(
 						"button",
@@ -399,15 +453,17 @@ window.__ModuleLoader__.load({
 							key: "move",
 							className: "dmsw-btn",
 							disabled: busy,
-							onClick: function () { act(smallest.provider, smallest.model, "switching"); },
-							title: describe(state)
+							onClick: function () { act(destination.provider, destination.model, "switching"); },
+							title:
+								"Move to " + destination.provider + "/" + destination.model + " (" +
+								fmt(destination.contextWindow) + " window) without compacting."
 						},
-						"Move to " + smallest.model,
+						"Move to " + routeName(destination, state.models),
 					),
 				);
 			}
 
-			return h("div", { className: "dmsw-banner", role: "alert" }, children);
+			return h("div", { className: hard ? "dmsw-banner" : "dmsw-banner dmsw-banner-warn", role: "alert" }, children);
 		}
 
 		// ================================================================

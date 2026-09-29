@@ -251,7 +251,7 @@
     # are the guard's safety margins; autoCompact: false downgrades the guard to
     # warn-and-refuse without compacting.
     - id: model-switch
-      name: ./plugins/model-switch/entry-r5.mjs
+      name: ./plugins/model-switch/entry-r6.mjs
       config:
         escalationProvider: local-ai-machine
         # medium-dense until 2026-09-28, when it was found to route to a stopped

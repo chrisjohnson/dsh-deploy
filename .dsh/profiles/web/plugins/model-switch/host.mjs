@@ -678,6 +678,18 @@ async function currentState(ctx, sessionId, intended, config, log) {
   const window = await resolveWindow(ctx, agent, destination.provider, destination.model)
   const budget = window === undefined ? undefined : Math.floor(window * config.fitRatio)
   const fits = budget === undefined ? true : tokens <= budget
+  // Two very different states hide behind `fits === false` and the Client must
+  // not describe them the same way:
+  //   budget < tokens <= window  -> ADVISORY. fitRatio is deliberately the same
+  //     0.8 dsh-compaction-basic compacts at (types.d.ts: "Compact at this
+  //     fraction of the model's context window. Defaults to 0.8"), so the next
+  //     request neither fails nor strands anything - the harness compacts it
+  //     first, on this route, which can still read it. The honest offer is "do
+  //     it now, where you choose, or lose the tail to an automatic summary".
+  //   tokens > window            -> HARD failure. The request 400s and overflow
+  //     recovery summarises with the route that just overflowed, so it 400s too.
+  //     That is the stranding incident in the header comment.
+  const exceedsWindow = window === undefined ? undefined : tokens > window
   const capacities = routeCapacities(ctx, log)
   const models = capacities.map((route) => ({
     provider: route.provider,
@@ -710,6 +722,7 @@ async function currentState(ctx, sessionId, intended, config, log) {
     budget,
     fits,
     currentWindowKnown: window !== undefined,
+    exceedsWindow,
     canFix,
     reader: config.reader,
     suggest,
@@ -791,7 +804,13 @@ async function repair(ctx, log, config, payload, signal) {
   // 1. Move to a route that can read the conversation, when the current one
   //    cannot. The reader is the configured big-window route.
   const currentWindow = await resolveWindow(ctx, agent, routed.provider, routed.model, signal)
-  const canReadHere = currentWindow !== undefined && tokens <= Math.floor(currentWindow * config.fitRatio)
+  // "Can this route summarise the conversation" is the ROUTE'S OWN WINDOW, not
+  // the fit margin: fitRatio is the headroom for deciding whether to compact at
+  // all, while reading the transcript is a physical yes/no. With the margin here
+  // a conversation at 80.3% of its window - comfortably readable, and the state
+  // the Client now labels advisory - was needlessly migrated to the cloud reader
+  // and back for a compaction the current route could have done itself.
+  const canReadHere = currentWindow !== undefined && tokens <= currentWindow
   const reader = config.reader
   if (!canReadHere) {
     if (reader.provider === routed.provider && reader.model === routed.model) {
