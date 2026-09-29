@@ -31,7 +31,9 @@ workflows, and a screenshot gallery.
 - **Worktree sessions are grouped under their project.** The sidebar shows a
   worktree session inside the workspace it was branched from, not as its own
   top-level workspace — the worktree workspace is a host-registered
-  implementation detail and is hidden from the list.
+  implementation detail and is hidden from the list. The new-session Workspace
+  dropdown gets the same projection, so a working copy is never offered as the
+  home of a session: worktrees are created by the switch, not picked.
 - **Header pill and menu, for every session.** The pill reads
   `<name> - <status>` (`brave-otter - Progressing`, `main - In Sync`) and is
   coloured exactly like the sidebar badge. Its menu offers *Git Changes* (the

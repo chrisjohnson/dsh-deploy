@@ -126,6 +126,10 @@ tooltip; hovering shows the same detail in the session hover card. Worktree
 sessions are listed **inside the workspace they were branched from**, not as
 their own top-level workspace.
 
+The new-session **Workspace dropdown** applies the same projection and lists only
+the projects: a working copy is never chosen there, it is created by the composer
+switch.
+
 ## Statuses
 
 | Badge | Colour | Meaning | What to do |

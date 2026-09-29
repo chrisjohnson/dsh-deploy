@@ -3098,6 +3098,38 @@ window.__ModuleLoader__.load({
 			return pair[0];
 		}
 
+		/** The set of managed working copies, reduced to one comparable string. */
+		function managedRootsKey(entries) {
+			var roots = [];
+			for (var entry of entries) {
+				if (entry !== undefined && entry !== null && typeof entry.managedRoot === "string") roots.push(entry.managedRoot);
+			}
+			return roots.sort().join("\n");
+		}
+
+		/**
+		 * Re-render only when the set of managed working copies actually changes.
+		 * `statusStore` emits on every poll, and a plain version counter would
+		 * re-render an open Workspace dropdown for no reason; the state setter
+		 * settles to the same key when nothing moved, and React skips the render.
+		 */
+		function useManagedRoots() {
+			var pair = React.useState(function () {
+				return managedRootsKey(statusStore.get().entries);
+			});
+			var key = pair[0];
+			var setKey = pair[1];
+			React.useEffect(function () {
+				return statusStore.subscribe(function () {
+					var next = managedRootsKey(statusStore.get().entries);
+					setKey(function (current) {
+						return current === next ? current : next;
+					});
+				});
+			}, []);
+			return key;
+		}
+
 		/**
 		 * Archiving a worktree session is a two-part decision — hide the session,
 		 * and decide what happens to the working copy on disk — so the archive
@@ -3158,9 +3190,11 @@ window.__ModuleLoader__.load({
 		 *
 		 * The Host registers the working copy as a real Workspace (it has to: a
 		 * session's cwd must be an accounted Workspace path), and that Workspace
-		 * owns the session. For the sidebar, the worktree Workspace is an
+		 * owns the session. To the user the worktree Workspace is an
 		 * implementation detail — it is dropped from the list and its sessions are
-		 * re-parented onto the Workspace whose path is the repository root.
+		 * re-parented onto the Workspace whose path is the repository root. Every
+		 * reader of that list gets the same projection: the sidebar and the
+		 * new-session Workspace dropdown must not disagree about what is a project.
 		 */
 		function projectWorkspaceState(state, entries) {
 			if (state === undefined || state === null || !Array.isArray(state.items) || entries.length === 0) return state;
@@ -3294,15 +3328,54 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Apply the inlined official Workspace client, replacing only its Browser
-		 * component. Everything else — the declaration tree, the WorkspacePicker,
-		 * the locale dictionaries, the view store, directory flow — is untouched.
+		 * Wrap the new-session Workspace dropdown (the hero's `WorkspacePicker`).
+		 *
+		 * It reads the same `workspaces` store as the sidebar, so without this the
+		 * managed working copies disappear from one list and stay in the other —
+		 * which is exactly backwards: the dropdown is where a session's home is
+		 * chosen, and a working copy is never chosen, it is created by the switch.
+		 * The projection drops those Workspaces and leaves the real projects.
+		 */
+		function makeWorkspacePickerWrapper(officialPicker) {
+			return function BetterGitWorktreeWorkspacePicker(props) {
+				// Read the seat, then ALWAYS call it (see NO_SEAT) — the check below
+				// only decides whether a projected seat is passed on.
+				var useWorkspaces = props.useWorkspaces;
+				var workspaceState = (useWorkspaces || NO_SEAT)(function (state) {
+					return state;
+				});
+				var managedRoots = useManagedRoots();
+				var projectedWorkspaces = React.useMemo(
+					function () {
+						return projectWorkspaceState(workspaceState, statusStore.get().entries);
+					},
+					[workspaceState, managedRoots],
+				);
+				var nextProps = Object.assign({}, props);
+				if (typeof useWorkspaces === "function") {
+					nextProps.useWorkspaces = function (selector) {
+						return selector(projectedWorkspaces === undefined ? workspaceState : projectedWorkspaces);
+					};
+				}
+				return React.createElement(officialPicker, nextProps);
+			};
+		}
+
+		/**
+		 * Apply the inlined official Workspace client, replacing only the two
+		 * entries that read the Workspace list — its Browser and the hero's
+		 * WorkspacePicker — with projected ones. Everything else, the declaration
+		 * tree, the locale dictionaries, the view store and the directory flow, is
+		 * untouched.
 		 */
 		function mountDecoratedWorkspaceBrowser(ctx) {
 			var proxySlots = new Proxy(ctx.slots, {
 				get: function (target, key, receiver) {
 					if (key === "register") {
 						return function (descriptor, component) {
+							if (descriptor && descriptor.name === "conversation.hero.workspace") {
+								return target.register(descriptor, makeWorkspacePickerWrapper(component));
+							}
 							if (descriptor && descriptor.name === "sidebar.workspaces") {
 								var injectProps = descriptor.inject;
 								var guarded = descriptor;
