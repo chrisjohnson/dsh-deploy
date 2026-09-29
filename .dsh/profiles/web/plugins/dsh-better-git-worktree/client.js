@@ -3232,23 +3232,29 @@ window.__ModuleLoader__.load({
 			return changed ? Object.assign({}, state, { byId: byId }) : state;
 		}
 
+		// A stable stand-in for an absent standard-hook seat. Seats (`useSessions`,
+		// `useWorkspaces`) are hook-VALUED props, so they must be called on EVERY
+		// render even when this scope does not provide them: skipping a call changes
+		// the component's hook count, and React then throws "Should have a queue"
+		// (prod Minified React error #311) on the first `useMemo`/`useState` below it,
+		// which the renderer's slot boundary swallows into a blank region until the
+		// page reloads. Always call the seat; branch on the RESULT instead.
+		var NO_SEAT = function () { return undefined; };
+
 		function makeBrowserWrapper(officialBrowser) {
 			return function BetterGitWorktreeWorkspaceBrowser(props) {
 				useStatusVersion();
+				// Read the seats, then ALWAYS call them (below) — the `typeof` test is
+				// only ever used further down to decide whether to pass a projected seat
+				// to the wrapped browser, never to skip a call in this component.
 				var useSessions = props.useSessions;
 				var useWorkspaces = props.useWorkspaces;
-				var sessionState =
-					typeof useSessions === "function"
-						? useSessions(function (state) {
-								return state;
-							})
-						: undefined;
-				var workspaceState =
-					typeof useWorkspaces === "function"
-						? useWorkspaces(function (state) {
-								return state;
-							})
-						: undefined;
+				var sessionState = (useSessions || NO_SEAT)(function (state) {
+					return state;
+				});
+				var workspaceState = (useWorkspaces || NO_SEAT)(function (state) {
+					return state;
+				});
 				var at = statusStore.get().at;
 				var decorations = statusStore.get().decorations;
 				var entries = statusStore.get().entries;

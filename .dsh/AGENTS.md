@@ -51,3 +51,16 @@ values still apply.
     `compat.supportsReasoningEffort: true`.
   - Either way, verify end-to-end: pick a non-default level and confirm
     the response actually changes.
+
+## Web-profile plugins are browser React
+
+`profiles/web/plugins/*` (that is `.dsh/profiles/web/plugins/`) are git-tracked,
+hand-written **React for the Web GUI**. A `client*.{js,mjs}` file mounts into the live
+composer/sidebar with no build, lint, typecheck or test between the edit and a user's
+browser. Read `profiles/web/plugins/AGENTS.md` before touching one — it covers the Rules
+of Hooks trap specific to this renderer (standard state arrives as hook-valued props),
+the generated-bundle and no-HMR/restart gotchas, and the gate script.
+
+Symptom worth recognising cold: a blank GUI region plus `Minified React error
+#311`/`#310` in the console is a hook-count change in the plugin entry that owns that
+slot (`slot entry crashed in '<slotKey>':`), not a core or infra fault.

@@ -182,10 +182,19 @@ window.__ModuleLoader__.load({
 		// Mirror of the Host half's `fitRatio` default, used only until the host
 		// reports its own budget (and if the host is unreachable at all).
 		var FALLBACK_FIT_RATIO = 0.8;
+		// Stable stand-in for an absent projection seat. `useProjection` arrives as a
+		// hook-VALUED prop and must be called on every render, including in a scope that
+		// does not provide it: skipping the call changes this hook's hook count, and
+		// React then throws "Should have a queue" (prod Minified React error #311) on the
+		// `useState`/`useEffect` below it — which the renderer's slot boundary swallows
+		// into a blank composer until the page reloads. Always call the seat; branch on
+		// the RESULT (`pressure === null` / `selection === null` below already mean
+		// "nothing to report").
+		var NO_SEAT = function () { return null; };
 
 		function useFitState(sessionId, useProjection) {
-			var pressure = useProjection ? useProjection("contextPressure") : null;
-			var selection = useProjection ? useProjection("modelSelection") : null;
+			var pressure = (useProjection || NO_SEAT)("contextPressure");
+			var selection = (useProjection || NO_SEAT)("modelSelection");
 			// The modelSelection projection state is { lastUsed, next } - each
 			// either null or {provider, model, reasoningEffort?}. `lastUsed` is the
 			// route the last request actually went out on, which is what the fit

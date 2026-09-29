@@ -21,6 +21,17 @@ window.__ModuleLoader__.load({
 
 		var connection = null;
 
+		// A stable stand-in for an absent standard-hook seat, plus a stable identity
+		// selector. A seat prop (`useInput`) must be CALLED on every render, including
+		// when this scope does not provide it: skipping the call changes the component's
+		// hook count, and React then throws "Should have a queue" (prod Minified React
+		// error #311) on the first `useState` below it — which the renderer's slot
+		// boundary swallows into a blank composer until the page reloads. So the seat is
+		// always called, and the RESULT is what gets branched on (`input === null` means
+		// there is nothing to schedule).
+		var NO_SEAT = function () { return null; };
+		var IDENTITY = function (s) { return s; };
+
 		var CSS =
 			".sq-root{display:inline-flex;align-items:center}"
 			+ ".sq-clockBtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:none;border-radius:999px;background:0 0;color:var(--dsw-alias-label-primary, #444);cursor:pointer;flex:none;transition:background .15s,color .15s;padding:0}"
@@ -185,9 +196,8 @@ window.__ModuleLoader__.load({
 		}
 
 		function ClockButton(props) {
-			var useInput = props.useInput;
 			var sessionId = props.sessionId;
-			var input = useInput ? useInput(function (s) { return s; }) : null;
+			var input = (props.useInput || NO_SEAT)(function (s) { return s; });
 			var openState = React.useState(false);
 			var minutesState = React.useState("5");
 			var steerState = React.useState(false);
