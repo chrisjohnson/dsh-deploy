@@ -45,3 +45,8 @@ pnpm-store/
 # Watchdog act/log mode override - written by the UI settings row,
 # read by semantic-loop-kicker on every check. Runtime state, not config.
 .dsh/profiles/*/watchdog-mode.json
+
+# Working checkout of github.com/chrisjohnson/dsh-plugins (plugin source lives there,
+# not here). Dev-time clone only - this repo consumes the plugins as pinned npm/git
+# packages installed into .dsh/profiles/web. See AGENTS.md "Plugins live elsewhere".
+.plugin-dev/
