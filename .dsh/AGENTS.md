@@ -12,6 +12,41 @@ subcommand (`exec`, `run`, `rm`, volume/network mutation, `system prune`,
 bare `stats` without `--no-stream`) isn't permitted and will just fail
 rather than prompt - ask the human instead of trying to work around it.
 
+## Podman: the container runtime for your own projects
+
+You have a **rootless Podman instance owned by the `dsh` account**. That is the
+sanctioned way to build and run containers here — you have no `docker` group
+membership for your own workloads and don't need one.
+
+Export once per session:
+
+```sh
+export CONTAINER_HOST=unix:///run/user/1002/podman/podman.sock
+podman ps        # your containers only — never the box's docker ones
+```
+
+Local mode (`podman` with no `-H`) reaches the same storage, but fails when a
+session is under `NoNewPrivs`; the socket works unconditionally.
+
+- **It is not Docker.** Different daemon, different store — `sudo docker ps`
+  will never list these, and rootful podman is disabled box-wide.
+- **Bind loopback only:** `-p 127.0.0.1:<port>:<port>`. Dev builds carry no
+  auth, and Caddy is the only intended public surface. Check what's bound
+  before picking a port: `ss -ltn`.
+- **Fully-qualify base images**: `FROM docker.io/library/rust:1.98-slim`, not
+  `rust:1.98-slim`. NixOS writes `[[registry]]` blocks but never
+  `unqualified-search-registries`, so short names cannot resolve at all — this
+  is not fixable from config. `# syntax=` and `RUN --mount=type=cache` are both
+  fine under buildah; don't strip them for "podman compatibility".
+- **No supervision is intended here.** This box hosts experiments: sessions
+  `run`/`stop`/`rm` containers freely, and released builds deploy elsewhere. So
+  don't add systemd units to make a dev container "highly available".
+- **Publishing a hostname is a deliberate human step** (a Caddy route plus
+  `docker compose up -d --force-recreate caddy`). Neither is in the sudoers
+  list, on purpose — ask, don't route around it.
+
+`README.md` in this repo documents how that setup is actually wired.
+
 ## Git: never force-push or rewrite shared history
 
 `git push --force`/`--force-with-lease`, `git reset --hard` on a branch

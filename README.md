@@ -73,3 +73,83 @@ that runs `dsh web --host 127.0.0.1 --port 3081`. Two ways to reach it:
   3081:127.0.0.1:3081 local-ai-machine`) - the same access pattern every
   other unauthenticated local service on this box uses, useful when you
   want to bypass Caddy entirely (e.g. debugging the proxy itself).
+
+## Podman: the container runtime sessions use
+
+dsh sessions get their own **rootless Podman**, so a session can build and run
+containers without `docker` group membership, without sudo, and without ever
+touching the box's dockerd workloads. Declared in `local-ai-machine`'s
+`configuration.nix`:
+
+```nix
+virtualisation.podman = {
+  enable = true;
+  autoPrune.enable = false;
+  dockerSocket.enable = false;   # asserts against virtualisation.docker.enable
+  dockerCompat = false;          # ditto — no `docker` shim on PATH
+};
+systemd.sockets.podman.enable = false;   # closes the rootful API socket
+
+users.users.dsh = {
+  subUidRanges = [ { startUid = 1048576; count = 65536; } ];
+  subGidRanges = [ { startGid = 1048576; count = 65536; } ];
+  linger = true;
+};
+```
+
+Why each piece is there:
+
+- **`dockerSocket`/`dockerCompat` are off on purpose.** Both carry a NixOS
+  assertion against `virtualisation.docker.enable`, and this box runs dockerd.
+  They'd also graft a `docker`-compatibility shim onto the rootless daemon —
+  the confusing outcome rather than the useful one.
+- **`systemd.sockets.podman.enable = false`** closes `/run/podman/podman.sock`,
+  which the module otherwise leaves listening. That would be a second,
+  *privileged* route into containers; it's verified absent post-deploy.
+- **The subuid range is hand-picked, not allocated.** `update-users-groups.pl`
+  only ever hands out `100000 + n*65536` and doesn't record declared ranges in
+  `%subUidsUsed`, so a range chosen inside that lattice gets reassigned to the
+  next user created. 1048576 sits deliberately off-lattice.
+- **`linger = true`** keeps the user manager — and so `podman.socket` — alive
+  with nobody logged in, which is what makes the socket reachable from the
+  systemd-started `dsh` service.
+
+**Runtime shape.** `podman.socket` is a systemd *user* unit. The first command
+after a lull socket-activates `podman.service`, which then exits again after
+roughly five seconds idle. Two visible, harmless consequences: the first call
+after an idle period is slower, and the journal logs
+`Found left-over process … (passt.avx2) … while starting unit` whenever a
+running container outlived the previous service instance. Neither needs fixing.
+
+State lives under the user: graphroot `/home/dsh/.local/share/containers/storage`,
+runroot `/run/user/1002/containers`, overlay + crun, `Rootless=true`. Containers
+run as uid 0 inside a user namespace mapped to the range above, and since the
+cgroup driver is systemd each shows up as `libpod-<id>.scope` under
+`systemctl --user` — so `journalctl --user -M dsh@` and `systemd-cgtop` see them.
+
+**Two entry points, one store.**
+
+| | |
+|---|---|
+| API socket: `export CONTAINER_HOST=unix:///run/user/1002/podman/podman.sock` (or `-H`) | works unconditionally, including from another account via `sudo`; the standard |
+| Local CLI (no `-H`) | same store, same systemd scopes, but fails when a session runs under `NoNewPrivs` — which is exactly why the socket exists |
+
+Another account pointing `CONTAINER_HOST` at the socket needs traversal of
+`/run/user/1002` (mode `0700`, no ACL) plus access to the `0660 dsh:dsh` socket,
+so in practice it's `sudo podman …` unless those are deliberately opened up.
+
+**Deliberately absent: supervision.** There is no watchdog, so `--restart=…` is
+inert, containers don't auto-start at boot, and nothing keeps an experiment up. That's the intended shape — this box is where projects
+get built and exercised, and released builds deploy elsewhere — but it means
+`sessions start and stop containers` rather than `containers are always there`.
+
+**Deliberately absent: exposure.** Containers publish on loopback
+(`-p 127.0.0.1:<port>:<port>`) because dev builds have no auth. Making one
+reachable means a Caddy route in `local-ai-machine` plus
+`docker compose up -d --force-recreate caddy` — a human step by design. See that
+repo's `knowledge/decisions/2026-10-06-bind-mount-stale-inode.md` for why it has
+to be *recreate* and not restart.
+
+Reference instance: `trailpilot` (`-p 127.0.0.1:8137:8137`, named volumes
+`tp-data`/`tp-cache`), served as
+`https://trail-pilot.local-ai-machine.johnsonlab.dev`.
