@@ -139,8 +139,7 @@ Another account pointing `CONTAINER_HOST` at the socket needs traversal of
 so in practice it's `sudo podman …` unless those are deliberately opened up.
 
 **Deliberately absent: supervision.** There is no watchdog, so `--restart=…` is
-inert (verified, not assumed), containers don't auto-start at boot, and nothing
-keeps an experiment up. That's the intended shape — this box is where projects
+inert, containers don't auto-start at boot, and nothing keeps an experiment up. That's the intended shape — this box is where projects
 get built and exercised, and released builds deploy elsewhere — but it means
 `sessions start and stop containers` rather than `containers are always there`.
 

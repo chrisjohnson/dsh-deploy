@@ -31,22 +31,16 @@ session is under `NoNewPrivs`; the socket works unconditionally.
 - **It is not Docker.** Different daemon, different store — `sudo docker ps`
   will never list these, and rootful podman is disabled box-wide.
 - **Bind loopback only:** `-p 127.0.0.1:<port>:<port>`. Dev builds carry no
-  auth, and Caddy is the only intended public surface. Ports already taken:
-  `22 80 443 2019 3000 3002 3081 4000 5432 6111 8091 8092 8137 8199 8206 9090
-  9100 9504`.
+  auth, and Caddy is the only intended public surface. Check what's bound
+  before picking a port: `ss -ltn`.
 - **Fully-qualify base images**: `FROM docker.io/library/rust:1.98-slim`, not
   `rust:1.98-slim`. NixOS writes `[[registry]]` blocks but never
   `unqualified-search-registries`, so short names cannot resolve at all — this
   is not fixable from config. `# syntax=` and `RUN --mount=type=cache` are both
   fine under buildah; don't strip them for "podman compatibility".
-- **Nothing supervises anything.** `--restart=…` is inert (verified: no
-  watchdog), and that's intended — this box hosts experiments that sessions
-  `run`/`stop`/`rm` freely, while released builds deploy elsewhere. Don't add
-  systemd units to make a dev container "highly available".
-- **`Exited (137)` is the OOM killer, not your code.** The box runs large LLMs
-  and has reaped healthy containers under memory pressure; it looks exactly like
-  an application failure. Check `podman ps -a` and `grep oom_kill
-  /proc/vmstat` before reading a line of app code.
+- **No supervision is intended here.** This box hosts experiments: sessions
+  `run`/`stop`/`rm` containers freely, and released builds deploy elsewhere. So
+  don't add systemd units to make a dev container "highly available".
 - **Publishing a hostname is a deliberate human step** (a Caddy route plus
   `docker compose up -d --force-recreate caddy`). Neither is in the sudoers
   list, on purpose — ask, don't route around it.
