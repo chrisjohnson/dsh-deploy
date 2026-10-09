@@ -20,13 +20,19 @@
 # never this wrapper: it IS the refresher, so routing it through the
 # wrapper would double-mint on the slow path.
 GH_REAL_BIN="${GH_REAL_BIN:?GH_REAL_BIN must be set to the real gh binary}"
-# Explicit env var, not $(dirname "$0"): this script is reached via a
+# Explicit path, not $(dirname "$0"): this script is reached via a
 # wrapper-directory symlink (see configuration.nix), and resolving the
 # real script location from a symlink's own invocation path is exactly
 # the class of bug M-154 already hit once with DSH_HOME's symlink
 # breaking Node's module resolution - an explicit absolute path sidesteps
-# it entirely rather than re-deriving it unreliably.
-DSH_DEPLOY_DIR="${DSH_DEPLOY_DIR:?DSH_DEPLOY_DIR must be set to the dsh-deploy checkout}"
+# it entirely rather than re-deriving it unreliably. Defaulted rather than
+# required: DSH's own tool-call subprocesses don't reliably inherit the
+# systemd unit's Environment= (confirmed live - a model had to discover
+# and export this by hand before `gh` would run at all), so a hard
+# ${:?} failure here defeats the entire point of a *transparent* wrapper.
+# This path is fixed for this deployment (not a nix-store hash), so a
+# default is safe; DSH_DEPLOY_DIR still overrides it if ever needed.
+DSH_DEPLOY_DIR="${DSH_DEPLOY_DIR:-/home/dsh/dsh-deploy}"
 TOKEN_FILE="${DSH_HOME:-/dsh-home}/.gh-installation-token"
 MAX_AGE=2400  # 40 min — comfortably inside the 1h installation-token lifetime
 now=$(date +%s)
