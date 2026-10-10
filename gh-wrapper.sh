@@ -3,8 +3,12 @@
 # the real `gh` (see local-ai-machine/configuration.nix's dsh.service PATH
 # comment) - it does NOT replace the box's own system-wide `gh` binary,
 # which chris's own OAuth session and the M-021 benchmark still use
-# untouched. GH_REAL_BIN (set in that same unit's Environment, resolved
-# from nixpkgs' gh derivation) is the actual binary this delegates to.
+# untouched. GH_REAL_BIN is the actual binary this delegates to - the
+# systemd unit's own Environment= sets it to the exact pinned nixpkgs `gh`
+# derivation, but this script defaults to NixOS's own stable
+# /run/current-system/sw/bin/gh symlink when that var isn't present in
+# the calling process's own environment (see the default below for why
+# that happens in practice).
 #
 # WHY: the dsh-gh-token-refresh systemd timer keeps a fresh GitHub App
 # installation token in $DSH_HOME/.gh-installation-token every 45 min and
@@ -19,7 +23,16 @@
 # This is why the refresh timer's own service calls $GH_REAL_BIN directly,
 # never this wrapper: it IS the refresher, so routing it through the
 # wrapper would double-mint on the slow path.
-GH_REAL_BIN="${GH_REAL_BIN:?GH_REAL_BIN must be set to the real gh binary}"
+# Defaulted, not required, same reasoning as DSH_DEPLOY_DIR below: DSH's
+# own tool-call subprocesses don't reliably inherit the systemd unit's
+# Environment=, so a hard ${:?} here defeats the point of a transparent
+# wrapper. /run/current-system/sw/bin/gh is NOT the raw nix-store hash
+# path (which DOES change across nixpkgs updates and would be unsafe to
+# hardcode) - it's NixOS's own activation-maintained symlink farm entry
+# for environment.systemPackages, confirmed live to always point at
+# whatever gh derivation is currently active. Self-updating across every
+# nixos-rebuild with zero template/regeneration step needed.
+GH_REAL_BIN="${GH_REAL_BIN:-/run/current-system/sw/bin/gh}"
 # Explicit path, not $(dirname "$0"): this script is reached via a
 # wrapper-directory symlink (see configuration.nix), and resolving the
 # real script location from a symlink's own invocation path is exactly
