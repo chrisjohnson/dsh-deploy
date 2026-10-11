@@ -11,17 +11,27 @@
 //
 // This half adds two seats, both additive list slots (replaceRisk: none):
 //
-//   conversation.input.left     a quiet context pill beside the model picker:
-//                               `ctx 421k`, turning amber with `421k / 262k` the
-//                               moment the ROUTED model cannot hold the session.
-//                               Its tooltip names which routes still fit, which is
-//                               the "check before you switch" cue.
-//   conversation.composer.dock  an actionable banner that appears as soon as the
-//                               routed window is exceeded - BEFORE the next
-//                               request is sent - offering the one-click repair:
-//                               move to a big-window route, compact there, come
-//                               back. That is the manual "switch back, compact,
-//                               switch again" sequence, automated.
+//   conversation.input.left     a context pill beside the model picker, which
+//                               only appears once the ROUTED model can no longer
+//                               hold the session: amber `210k / 262.1k - compacts
+//                               at 209.7k`, or red `300k > 262.1k - won't fit`.
+//                               Its tooltip names which routes still fit (the
+//                               "check before you switch" cue) and it doubles as
+//                               the handle for the banner below: click it to
+//                               open or close that panel.
+//   conversation.composer.dock  the actionable panel the pill opens, offering the
+//                               one-click repair: move to a big-window route,
+//                               compact there, come back. That is the manual
+//                               "switch back, compact, switch again" sequence,
+//                               automated.
+//
+// The panel is COLLAPSED BY DEFAULT. Past the auto-compact line nothing fails and
+// nothing is stranded - the next request compacts on the route that can still read
+// it - so the prose does not get to occupy the composer until it is asked for; the
+// pill already carries the numbers. The one exception is the hard case (past the
+// route's own window, where the next request 400s and the automatic rescue cannot
+// help because it summarises with the route that just overflowed): that opens
+// itself once per session+route, and stays closed if the operator closes it.
 //
 // All authority stays in the Host half: the browser renders what
 // /api/modelSwitch/state reports and asks /api/modelSwitch/fix to act, so the
@@ -53,10 +63,12 @@ window.__ModuleLoader__.load({
 		var CSS =
 			".dmsw-pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 7px;border-radius:11px;" +
 			"font:11px/1 Inter,sans-serif;color:" + COLOR.faint + ";background:" + COLOR.raised + ";border:1px solid " + COLOR.border + ";" +
-			"white-space:nowrap;cursor:help}" +
+			"white-space:nowrap;cursor:pointer}" +
+			".dmsw-pill:focus-visible{outline:2px solid currentColor;outline-offset:1px}" +
 			".dmsw-pill-alert{color:#fff;background:" + COLOR.danger + ";border-color:" + COLOR.danger + ";font-weight:600}" +
 			".dmsw-pill-warn{color:#fff;background:" + COLOR.warn + ";border-color:" + COLOR.warn + ";font-weight:600}" +
 			".dmsw-pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.75;flex:0 0 auto}" +
+			".dmsw-pill-caret{font-size:9px;line-height:1;opacity:.8;flex:0 0 auto}" +
 			".dmsw-banner{display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:7px 10px;border-radius:8px;" +
 			"font:12px/17px Inter,sans-serif;color:" + COLOR.text + ";background:rgba(229,72,77,.08);" +
 			"border:1px solid rgba(229,72,77,.35)}" +
@@ -70,6 +82,7 @@ window.__ModuleLoader__.load({
 			".dmsw-btn:disabled{opacity:.5;cursor:default}" +
 			".dmsw-btn-primary{border-color:rgba(229,72,77,.5);color:" + COLOR.danger + ";font-weight:600}" +
 			".dmsw-btn-warn{border-color:rgba(232,163,61,.6);color:" + COLOR.warn + ";font-weight:600}" +
+			".dmsw-btn-icon{width:24px;padding:0;font-size:13px;line-height:22px;text-align:center}" +
 			".dmsw-err{color:" + COLOR.danger + ";font-size:11px;margin-top:2px}";
 
 		// ================================================================
@@ -160,6 +173,123 @@ window.__ModuleLoader__.load({
 			return lines.join("\n");
 		}
 
+		// ================================================================
+		// PANEL VISIBILITY (shared by the pill and the panel)
+		// ================================================================
+
+		/**
+		 * The pill and the panel are two separate slot entries in two separate
+		 * seats, so they own two independent hook instances and have no common
+		 * parent to lift state into. A module-level store with a listener list is
+		 * the smallest thing that lets a click on the pill open the panel.
+		 *
+		 * It is per session because the GUI can render more than one session in a
+		 * tab, and it is in-memory only on purpose: "hidden by default" has to hold
+		 * across a reload, and a persisted flag would quietly turn the default back
+		 * on for whoever happens to have left it open.
+		 */
+		var expandedBySession = Object.create(null);
+		// One auto-open per (session, route) for the hard case, so a deliberate
+		// close is not undone by the next 30s poll.
+		var hardAutoShown = Object.create(null);
+		var visibilityListeners = [];
+
+		function sessionKey(sessionId) {
+			return String(sessionId === undefined ? "-" : sessionId);
+		}
+
+		function routeKeyOf(state) {
+			var route = (state && state.route) || {};
+			return String(route.provider || "") + "/" + String(route.model || "");
+		}
+
+		/** DOM id the pill points at with aria-controls; must be unique per session. */
+		function panelId(sessionId) {
+			return "dmsw-fit-panel-" + sessionKey(sessionId).replace(/[^A-Za-z0-9_.-]/g, "");
+		}
+
+		function readOpen(sessionId) {
+			return expandedBySession[sessionKey(sessionId)] === true;
+		}
+
+		function writeOpen(sessionId, next) {
+			var key = sessionKey(sessionId);
+			var value = next === true;
+			if ((expandedBySession[key] === true) === value) return;
+			expandedBySession[key] = value;
+			for (var i = 0; i < visibilityListeners.length; i++) visibilityListeners[i]();
+		}
+
+		function useOpen(sessionId) {
+			var key = sessionKey(sessionId);
+			var pair = React.useState(function () {
+				return expandedBySession[key] === true;
+			});
+			var open = pair[0];
+			var setOpen = pair[1];
+			React.useEffect(function () {
+				var sync = function () {
+					setOpen(expandedBySession[sessionKey(sessionId)] === true);
+				};
+				sync();
+				visibilityListeners.push(sync);
+				return function () {
+					var at = visibilityListeners.indexOf(sync);
+					if (at >= 0) visibilityListeners.splice(at, 1);
+				};
+			}, [key]);
+			return [
+				open,
+				function (next) {
+					writeOpen(sessionId, next);
+				},
+			];
+		}
+
+		/**
+		 * The decision, as data, so it can be tested without a DOM. It has to live
+		 * here rather than in a sibling module: this file is a classic script the
+		 * page's module loader evaluates, so it has no way to `import` anything.
+		 *
+		 *   settled   - nothing to act on: closed, and the once-per-route auto-open
+		 *               is handed back, so a later regression can warn again.
+		 *   hard      - opens itself the first time for this (session, route).
+		 *               After that the operator's choice wins, so a deliberate
+		 *               close is not undone by the next poll.
+		 *   otherwise - exactly where the operator left it. The amber case never
+		 *               opens itself: the badge is the only handle.
+		 */
+		function nextVisibility(input) {
+			if (input.settled === true) return { open: false, autoShown: false };
+			if (input.hard === true && input.autoShown !== true) {
+				return { open: true, autoShown: true };
+			}
+			return { open: input.open === true, autoShown: input.autoShown === true };
+		}
+
+		/**
+		 * Apply that decision. It runs in the panel, which is mounted even while it
+		 * renders nothing, so the panel decides its own first appearance.
+		 */
+		function useOpenPolicy(state, sessionId) {
+			var usable = !!state && state.available === true && state.fits === false;
+			var hard = usable && severity(state) === "hard";
+			var settled = !usable;
+			var route = routeKeyOf(state);
+			React.useEffect(function () {
+				var key = sessionKey(sessionId) + "|" + route;
+				var next = nextVisibility({
+					hard: hard,
+					settled: settled,
+					open: readOpen(sessionId),
+					autoShown: hardAutoShown[key] === true
+				});
+				if (next.autoShown) hardAutoShown[key] = true;
+				else delete hardAutoShown[key];
+				writeOpen(sessionId, next.open);
+			}, [hard, settled, route]);
+		}
+
 		/**
 		 * Shared state for the pill and the banner.
 		 *
@@ -207,6 +337,18 @@ window.__ModuleLoader__.load({
 			var hostPair = React.useState(null);
 			var host = hostPair[0];
 			var setHost = hostPair[1];
+			// Bumped to re-measure on demand (opening the panel, the panel's own
+			// refresh button). Clearing `host` was the earlier affordance and it is
+			// worse than it looks: it drops the route capacities the panel's buttons
+			// are built from, and they only come back on the next 30s poll.
+			var noncePair = React.useState(0);
+			var nonce = noncePair[0];
+			var setNonce = noncePair[1];
+			var reload = function () {
+				setNonce(function (n) {
+					return n + 1;
+				});
+			};
 			var routeKey =
 				String(sessionId) +
 				"|" +
@@ -246,7 +388,7 @@ window.__ModuleLoader__.load({
 					live = false;
 					clearInterval(interval);
 				};
-			}, [routeKey]);
+			}, [routeKey, nonce]);
 
 			var hostHas = host !== null && host !== undefined && host.available === true;
 			// Prefer the Host half's measurement: it is the same number the fit
@@ -261,7 +403,7 @@ window.__ModuleLoader__.load({
 							: undefined;
 			if (tokens === undefined) {
 				// A brand-new session has nothing to show yet.
-				return [host, function () { setHost(null); }];
+				return [host, reload];
 			}
 			if (!hostHas && pending !== null) {
 				// A switch is pending and the host has not reported the new route's
@@ -270,7 +412,7 @@ window.__ModuleLoader__.load({
 				// silent is the only honest option.
 				return [
 					{ available: false, reason: "waiting for the host to report the pending route capacity" },
-					function () { setHost(null); },
+					reload,
 				];
 			}
 			var window =
@@ -316,7 +458,7 @@ window.__ModuleLoader__.load({
 				models: hostHas && Array.isArray(host.models) ? host.models : [],
 				suggest: hostHas && host.suggest ? host.suggest : null,
 			};
-			return [merged, function () { setHost(null); }];
+			return [merged, reload];
 		}
 
 		// ================================================================
@@ -326,7 +468,10 @@ window.__ModuleLoader__.load({
 		function FitPill(props) {
 			var pair = useFitState(props.sessionId, props.useProjection);
 			var state = pair[0];
-			var refetch = pair[1];
+			var reload = pair[1];
+			var openPair = useOpen(props.sessionId);
+			var open = openPair[0];
+			var setOpen = openPair[1];
 			// Rendered ONLY when there is something to act on. A quiet pill on a
 			// healthy session is noise: the whole point is that a red one appearing
 			// the instant a too-small model is picked is the signal.
@@ -341,36 +486,61 @@ window.__ModuleLoader__.load({
 				? fmt(state.tokens) + " > " + fmt(state.route.contextWindow) + " — won't fit " +
 					routeName(state.route, state.models)
 				: fmt(state.tokens) + " / " + fmt(state.route.contextWindow) + " — compacts at " + fmt(state.budget);
+			// Opening re-measures: the numbers on a panel about to be acted on should
+			// not be up to 30s stale.
+			var toggle = function () {
+				setOpen(!open);
+				if (open !== true) reload();
+			};
 			return h(
 				"span",
 				{
 					className: "dmsw-pill " + (hard ? "dmsw-pill-alert" : "dmsw-pill-warn"),
-					title: describe(state),
-					role: "status",
-					"aria-live": "polite",
-					onDoubleClick: refetch
+					title: describe(state) + "\nClick to " + (open === true ? "hide" : "show") + " the options.",
+					role: "button",
+					tabIndex: 0,
+					"aria-expanded": open === true,
+					"aria-controls": panelId(props.sessionId),
+					onClick: toggle,
+					onKeyDown: function (event) {
+						if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") return;
+						event.preventDefault();
+						toggle();
+					}
 				},
 				h("span", { className: "dmsw-pill-dot" }),
 				label,
+				h("span", { className: "dmsw-pill-caret", "aria-hidden": "true" }, open === true ? "▴" : "▾"),
 			);
 		}
 
 		// ================================================================
-		// THE BANNER (below the composer, before the failing request)
+		// THE PANEL (below the composer, opened by the pill)
 		// ================================================================
 
 		function FitBanner(props) {
 			var pair = useFitState(props.sessionId, props.useProjection);
 			var state = pair[0];
-			var refetch = pair[1];
+			var reload = pair[1];
+			var openPair = useOpen(props.sessionId);
+			var open = openPair[0];
+			var setOpen = openPair[1];
 			var runPair = React.useState(null);
 			var running = runPair[0];
 			var setRunning = runPair[1];
 			var resultPair = React.useState(null);
 			var result = resultPair[0];
 			var setResult = resultPair[1];
+			// Called before the early return below: these hooks must run on every
+			// render of this entry, including the renders that paint nothing, or the
+			// hook count changes and React #311 blanks the composer.
+			useOpenPolicy(state, props.sessionId);
 
 			if (!state || state.available !== true || state.fits !== false) return null;
+			// Collapsed unless the pill was clicked (or this is the hard case, which
+			// opened itself once). Mounted either way, so it can decide its own
+			// first appearance.
+			if (open !== true) return null;
 			var hard = severity(state) === "hard";
 			var routed = state.routed || {};
 
@@ -395,7 +565,7 @@ window.__ModuleLoader__.load({
 				api("fix", { sessionId: props.sessionId, provider: provider, model: model }).then(function (reply) {
 					setRunning(null);
 					setResult(reply || { ok: false, error: "no reply" });
-					if (reply && reply.ok === true) refetch();
+					if (reply && reply.ok === true) reload();
 				});
 			}
 
@@ -472,7 +642,43 @@ window.__ModuleLoader__.load({
 				);
 			}
 
-			return h("div", { className: hard ? "dmsw-banner" : "dmsw-banner dmsw-banner-warn", role: "alert" }, children);
+			// Closing from inside, as well as from the pill: the panel is the thing
+			// in the way, so it should be the thing that can get out of the way.
+			children.push(
+				h(
+					"button",
+					{
+						key: "reload",
+						className: "dmsw-btn dmsw-btn-icon",
+						disabled: busy,
+						onClick: reload,
+						title: "Re-measure now instead of waiting for the next poll."
+					},
+					"↻",
+				),
+			);
+			children.push(
+				h(
+					"button",
+					{
+						key: "close",
+						className: "dmsw-btn dmsw-btn-icon",
+						onClick: function () { setOpen(false); },
+						title: "Hide this panel. The badge above brings it back."
+					},
+					"×",
+				),
+			);
+
+			return h(
+				"div",
+				{
+					id: panelId(props.sessionId),
+					className: hard ? "dmsw-banner" : "dmsw-banner dmsw-banner-warn",
+					role: "alert",
+				},
+				children,
+			);
 		}
 
 		// ================================================================
@@ -523,6 +729,10 @@ window.__ModuleLoader__.load({
 
 		exports.apply = apply;
 		exports.inject = ["connection", "slots"];
+		// Tests only. The loader reads `apply`/`inject` and ignores the rest; this is
+		// the one way to reach the pure decision from Node without a DOM, since the
+		// file cannot import a sibling module (see nextVisibility).
+		exports.visibilityPolicy = nextVisibility;
 		return module.exports;
 	}
 });

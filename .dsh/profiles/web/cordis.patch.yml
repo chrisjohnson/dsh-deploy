@@ -245,6 +245,14 @@
     # for the -rN reload ritual; the package's `dsh.client` declaration mounts
     # client.mjs, so no `dsh.client` key belongs here.
     #
+    # As of 2026-10-11 that banner is COLLAPSED BY DEFAULT. Past the auto-compact
+    # line nothing fails and nothing is stranded, so the paragraph no longer takes
+    # the composer until it is asked for: the pill is the handle (click or Enter
+    # opens it, and it re-measures on the way in). The hard case - past the route's
+    # own window, where the next request 400s and the automatic rescue summarises
+    # with the route that just overflowed - still opens itself once per
+    # session+route, and stays closed if it is closed by hand.
+    #
     # escalationProvider/Model is the escape-hatch route. readerProvider/Model is
     # the big-window route the interactive repair moves to before compacting; it
     # must be able to hold the whole conversation. fitRatio/summaryReserveTokens
