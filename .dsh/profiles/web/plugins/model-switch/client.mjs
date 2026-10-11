@@ -247,15 +247,29 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Open/close policy, run by the panel (it is mounted even while it renders
-		 * nothing, so it can decide its own first appearance).
+		 * The decision, as data, so it can be tested without a DOM. It has to live
+		 * here rather than in a sibling module: this file is a classic script the
+		 * page's module loader evaluates, so it has no way to `import` anything.
 		 *
-		 *   hard   - opens itself once per (session, route). The flag clears as soon
-		 *            as the session stops being hard, so a later regression warns
-		 *            again; a manual close during a hard stretch is respected.
-		 *   warn   - never opens itself. The pill is the only handle.
-		 *   settled- resets to closed, so the next time the session crosses the
-		 *            line it starts collapsed rather than still open from before.
+		 *   settled   - nothing to act on: closed, and the once-per-route auto-open
+		 *               is handed back, so a later regression can warn again.
+		 *   hard      - opens itself the first time for this (session, route).
+		 *               After that the operator's choice wins, so a deliberate
+		 *               close is not undone by the next poll.
+		 *   otherwise - exactly where the operator left it. The amber case never
+		 *               opens itself: the badge is the only handle.
+		 */
+		function nextVisibility(input) {
+			if (input.settled === true) return { open: false, autoShown: false };
+			if (input.hard === true && input.autoShown !== true) {
+				return { open: true, autoShown: true };
+			}
+			return { open: input.open === true, autoShown: input.autoShown === true };
+		}
+
+		/**
+		 * Apply that decision. It runs in the panel, which is mounted even while it
+		 * renders nothing, so the panel decides its own first appearance.
 		 */
 		function useOpenPolicy(state, sessionId) {
 			var usable = !!state && state.available === true && state.fits === false;
@@ -264,14 +278,15 @@ window.__ModuleLoader__.load({
 			var route = routeKeyOf(state);
 			React.useEffect(function () {
 				var key = sessionKey(sessionId) + "|" + route;
-				if (settled) {
-					delete hardAutoShown[key];
-					writeOpen(sessionId, false);
-					return;
-				}
-				if (!hard || hardAutoShown[key] === true) return;
-				hardAutoShown[key] = true;
-				writeOpen(sessionId, true);
+				var next = nextVisibility({
+					hard: hard,
+					settled: settled,
+					open: readOpen(sessionId),
+					autoShown: hardAutoShown[key] === true
+				});
+				if (next.autoShown) hardAutoShown[key] = true;
+				else delete hardAutoShown[key];
+				writeOpen(sessionId, next.open);
 			}, [hard, settled, route]);
 		}
 
@@ -714,6 +729,10 @@ window.__ModuleLoader__.load({
 
 		exports.apply = apply;
 		exports.inject = ["connection", "slots"];
+		// Tests only. The loader reads `apply`/`inject` and ignores the rest; this is
+		// the one way to reach the pure decision from Node without a DOM, since the
+		// file cannot import a sibling module (see nextVisibility).
+		exports.visibilityPolicy = nextVisibility;
 		return module.exports;
 	}
 });
