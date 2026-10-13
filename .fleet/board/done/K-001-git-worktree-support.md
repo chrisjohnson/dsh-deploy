@@ -380,6 +380,8 @@ pattern) so it is config-as-code and auditable:
 
 <!-- signal: session-2963a257 2026-09-08T17:20Z — adoption PR opened: chrisjohnson/dsh-deploy#4 (feat/wloops-git-worktree, commit 92dd1e1). Sibling boot test GREEN: bundle row composes in dump-config, dsh web serves HTTP 200 on :3081 with 0.4.0 installed. PR #3 closed, feat/dsh-git-worktree-plugin deleted. Post-deploy manual acceptance still open (worktree-rooted session cwd, kill-mid-work recovery, config cleanliness). -->
 <!-- signal: session-2963a257 2026-09-08T16:05Z — MAJOR PIVOT per user: custom plugin DISCARDED (PR #3 to be closed, branch deleted). Adopting wloops/dsh-git-worktree@0.4.0 — the only published version built for the dsh 0.1.0-rc.8 line (hard-deps dsh-* 0.1.0-rc.8; 0.7.1/0.7.2 need 0.1.1-rc.2, 0.7.3+ need 0.1.2-rc.1 which adds api-session/workspace-controller packages we lack and drops the optional SQLite session backend). Integration: app+profile package.json dep, bundles list, entrypoint symlink, cordis 4.0.2 override. Boot test in progress. -->
+<!-- signal: claude 2026-10-13T14:10Z — done: superseded by dsh-better-git-worktree (moving to dsh-plugins in local-ai-machine M-169) -->
+
 ## Decision log
 <!-- append-only, one line per entry, newest last. Never move this card to done/
      without a line here explaining why. -->
@@ -424,8 +426,4 @@ pattern) so it is config-as-code and auditable:
   logged.
 - Per-repo .wt/ gitignore changes belong to their own repos (local-ai-
   machine etc.), not this one.
-
-
-
-
-
+- 2026-10-13: Closed (Chris, local-ai-machine M-169): superseded. The wloops-based worktree plan this card tracked was replaced by dsh-better-git-worktree, which is being rebuilt on DSH 0.2.0 official sidebar slots and moved into dsh-plugins under M-169.
