@@ -2,10 +2,10 @@
   "name": "dsh-profile-web",
   "private": true,
   "dependencies": {
-    "dsh-better-sidebar": "^0.19.1",
-    "dsh-context": "^0.55.0",
-    "dsh-playwright-browser": "^0.1.3",
-    "dsh-web-search-searxng": "git+https://github.com/d3cker/dsh-web-search-searxng.git#cbf7071c362de71ff12bc3c5295392384f1d517f"
+    "dsh-better-sidebar": "0.25.0",
+    "dsh-context": "0.69.1",
+    "dsh-playwright-browser": "0.1.3",
+    "dsh-web-search-searxng": "0.5.1"
   },
   "dsh": {
     "profile": {
@@ -16,8 +16,7 @@
         "dsh-better-sidebar",
         "dsh-context",
         "dsh-playwright-browser"
-      ],
-      "patchReload": "live"
+      ]
     }
   }
 }
