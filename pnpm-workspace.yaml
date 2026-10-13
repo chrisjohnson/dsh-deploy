@@ -289,6 +289,17 @@ overrides:
   '@deepseek-ai/dsh-workspace': '0.2.0-rc.2'
   '@deepseek-ai/dsh-workspace-changes': '0.2.0-rc.2'
 patchedDependencies:
+  # dsh-app-boot: use Node's own --expose-internals instead of the
+  # node-addon-require-builtin native addon when the process was started with
+  # that flag. The addon finds the internal-module getter by decoding machine
+  # code, and cannot decode the getter in the hardened Node that nixpkgs
+  # builds (the hardening adds an instruction before `ret`), so it throws
+  # `Unsupported/no-getter`. Upstream calls it unconditionally in two places
+  # (internalModules() in lib/index.js and in the profile-resolution worker
+  # bootstrap). dsh always runs here with --expose-internals, where a plain
+  # require() of an `internal/...` id already works. Without the flag the
+  # addon path is unchanged.
+  '@deepseek-ai/dsh-app-boot@0.2.0-rc.2': patches/@deepseek-ai__dsh-app-boot@0.2.0-rc.2.patch
   # dsh-attachment-local: keep WebP away from our vision backends. They are
   # llama-server builds, which cannot decode WebP at all - a WebP image that
   # reaches one fails the whole turn with a litellm 400 "Failed to load image
