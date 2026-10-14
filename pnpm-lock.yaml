@@ -303,8 +303,8 @@ importers:
         specifier: 8.3.1
         version: 8.3.1
       dsh-better-git-worktree:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.0&path:/packages/better-git-worktree
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8#path:/packages/better-git-worktree(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.1&path:/packages/better-git-worktree
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/8302ee398da893c4265dccc5fc5ae03ebb707c57#path:/packages/better-git-worktree(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-better-sidebar:
         specifier: 0.25.0
         version: 0.25.0(71a38a6c4a91702b629a70139e78cf56)
@@ -4056,9 +4056,9 @@ packages:
   dompurify@3.4.16:
     resolution: {integrity: sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==}
 
-  dsh-better-git-worktree@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8#path:/packages/better-git-worktree:
-    resolution: {gitHosted: true, integrity: sha512-8qf4flDz49vtYaXuvpZ8CjfTHimwnmrPfeHaTw/irLs7/VdgkpC6Ze9oCMnwYFjzqe5vd4A80mz9w3aTs6ZieA==, path: /packages/better-git-worktree, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8}
-    version: 0.1.0
+  dsh-better-git-worktree@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/8302ee398da893c4265dccc5fc5ae03ebb707c57#path:/packages/better-git-worktree:
+    resolution: {gitHosted: true, integrity: sha512-QWt7WY4nEqg1jvDGt0RIVThgNvBdkBo4GZ1WvST/YgI9UPbWWRf+q7hGHwxyPxNT4JYO06vCcPQUZRClpgXsgQ==, path: /packages/better-git-worktree, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/8302ee398da893c4265dccc5fc5ae03ebb707c57}
+    version: 0.1.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
     peerDependencies:
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2
@@ -9762,7 +9762,7 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
-  dsh-better-git-worktree@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8#path:/packages/better-git-worktree(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
+  dsh-better-git-worktree@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/8302ee398da893c4265dccc5fc5ae03ebb707c57#path:/packages/better-git-worktree(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
     dependencies:
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)
 
