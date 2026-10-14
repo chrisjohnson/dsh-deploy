@@ -123,6 +123,14 @@ Released plugins in use: `dsh-better-git-worktree`, `dsh-continue-kicker`,
 - **Settings model**: every user-facing setting (model providers, default model,
   subagent routes, plugin config) is a row in `cordis.patch.yml`. There is no
   `settings.yaml`.
+- **Runtime rewrites**: DSH rewrites `.dsh/profiles/web/cordis.patch.yml` when settings
+  are changed in the UI (picking a model in a session rewrites the
+  `agent-default-model` row; `welcomeNoticeVersion`; plugin enable/disable). The edit
+  preserves comments above rows, ordering and `!!js` tags, but replaces the `config:`
+  node of a written row, so comments INSIDE that `config:` block are lost and its
+  formatting may change. Keep long explanatory comments ABOVE the `- id:` line. Expect
+  small value-only drift in this tracked file; commit it as the settings-UI change it
+  is, as was done with `settings.yaml` before.
 
 ### Changing a plugin
 

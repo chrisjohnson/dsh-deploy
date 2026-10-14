@@ -51,7 +51,9 @@ repo runs its `web` subcommand (`dsh web`) as a long-running native process.
   `gh-wrapper.sh` self-heals if that timer ever misses a beat.
 - **`.dsh/profiles/web/cordis.patch.yml`**: the deployment's settings and
   plugin configuration, as rows (there is no `settings.yaml`). A row's
-  `config` replaces the plugin's whole config object.
+  `config` replaces the plugin's whole config object. DSH also rewrites this
+  file when settings change in the UI (comments inside a written row's
+  `config:` are lost); see `AGENTS.md`.
 - **Plugins**: `better-git-worktree`, `continue-kicker`, `image-search-searxng`,
   `loop-watchdog`, `model-switch` and `scheduled-queue` are installed from release
   tags of `chrisjohnson/dsh-plugins` (exact git specs in both `package.json` files,
