@@ -153,7 +153,7 @@
         # against the live backend after any role reassignment; that cannot
         # be done here without backend archaeology (out of scope), so the
         # Ornith citation is removed rather than restated. The 262144
-        # declaration stands as the route's current settings.yaml value.
+        # declaration stands as the route's current value.
         models:
           - id: medium-moe
             contextWindow: 262144
@@ -436,18 +436,6 @@
     viewportHeight: 1080
     executablePath: !!js process.env.PLAYWRIGHT_CHROME_PATH
 
-# dsh-better-git-worktree: the deployment's own git-worktree session
-# plugin (source under ./plugins/dsh-better-git-worktree, README there).
-# Host half owns the session -> worktree registry, the cached status
-# pipeline, the model-facing `worktree_convert` tool, and the private
-# /betterGitWorktree JSON route; the Client half is served from the
-# package's ./client export. It targets a *revisioned* entry (rather than
-# index.mjs) so host code can be reloaded live by
-# `node scripts/dev-reload-host.mjs` - see the plugin README.
-- insert:
-    - id: better-git-worktree
-      name: ./plugins/dsh-better-git-worktree/entry-r61.mjs
-
 # Plugins released from chrisjohnson/dsh-plugins. Each one's bundle inserts its
 # own row (installed by exact git tag in package.json, listed in the profile's
 # `bundles`), so the rows below are config-only overrides by id. A row's
@@ -526,25 +514,7 @@
     summaryReserveTokens: 10000
     autoCompact: true
 
-# scheduled-queue (composer scheduled-send) and the official schedule bundle
+# better-git-worktree (git worktree sessions), scheduled-queue (composer
+# scheduled-send) and the official schedule bundle
 # (@deepseek-ai/dsh-experimental-schedule-bundle) mount from `bundles` and
 # need no row here.
-
-# The sidebar browsing region is a `single` slot whose child seat
-# (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
-# declared it, so dsh-better-git-worktree cannot sit beside the official
-# Workspace row — it stands in for it. The plugin publishes the
-# `betterGitWorktreeWorkspaceProvider` marker on the ROOT context while it is
-# active, which is what elects the official row out here at boot (and what puts
-# it back when the plugin is not mounted). Its Host half also re-evaluates this
-# row through the Loader on activation and restores the composed option on
-# teardown.
-- id: ui-workspace
-  disabled: !!js "!!get('betterGitWorktreeWorkspaceProvider')"
-
-# The official Workspace row needs no row here: dsh-better-git-worktree stands
-# in for it (see the plugin's host `mountWorkspaceProviderElection`), because
-# the sidebar browsing region is a `single` slot whose child seat
-# (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
-# declared it. The plugin disables the official row on activation and restores
-# its composed `disabled` option on teardown, so this stays self-contained.
