@@ -109,7 +109,7 @@ Released plugins in use: `dsh-better-git-worktree`, `dsh-continue-kicker`,
   import at boot):
 
   ```
-  "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.0&path:/packages/model-switch"
+  "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch"
   ```
 
   Also list the package in the profile's `dsh.profile.bundles`; `pnpm add` alone installs
