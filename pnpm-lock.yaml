@@ -302,6 +302,9 @@ importers:
       '@octokit/auth-app':
         specifier: 8.3.1
         version: 8.3.1
+      dsh-better-git-worktree:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.0&path:/packages/better-git-worktree
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8#path:/packages/better-git-worktree(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-better-sidebar:
         specifier: 0.25.0
         version: 0.25.0(71a38a6c4a91702b629a70139e78cf56)
@@ -318,8 +321,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))
       dsh-model-switch:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.0&path:/packages/model-switch
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-playwright-browser:
         specifier: 0.1.3
         version: 0.1.3(@deepseek-ai/cordis@4.0.4)
@@ -4053,6 +4056,13 @@ packages:
   dompurify@3.4.16:
     resolution: {integrity: sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==}
 
+  dsh-better-git-worktree@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8#path:/packages/better-git-worktree:
+    resolution: {gitHosted: true, integrity: sha512-8qf4flDz49vtYaXuvpZ8CjfTHimwnmrPfeHaTw/irLs7/VdgkpC6Ze9oCMnwYFjzqe5vd4A80mz9w3aTs6ZieA==, path: /packages/better-git-worktree, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8}
+    version: 0.1.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
+    peerDependencies:
+      '@deepseek-ai/dsh-tools': 0.2.0-rc.2
+
   dsh-better-sidebar@0.25.0:
     resolution: {integrity: sha512-5dro5VDpkrnWBO5jNff6Kzt8UlniZEWwXFqsl+wptlqnGMC4PrdJQ4Sd3+tLU8LPKYH8dDI00Dd5IC3FtH/erA==}
     engines: {node: '>=20'}
@@ -4120,9 +4130,9 @@ packages:
     peerDependencies:
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2
 
-  dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36#path:/packages/model-switch:
-    resolution: {gitHosted: true, integrity: sha512-UUVZ+7QpslgxXRK1sElONvd++FJt8B4y+IKi2oJ25APuIPp700lo5HRSAec3iZOmMEy5wsmorq2LKwT1R7IN4g==, path: /packages/model-switch, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36}
-    version: 0.2.0
+  dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch:
+    resolution: {gitHosted: true, integrity: sha512-xlvsX44Vl3ZPl2VA6Iqzx4Cf44chf2HZphQdQj//9zGl5DRuSCYKOh2WUvsZ9zzkQsGheeCZeaoOHm8+qez8JA==, path: /packages/model-switch, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2}
+    version: 0.2.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
     peerDependencies:
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2
@@ -9752,6 +9762,10 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
+  dsh-better-git-worktree@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/52cc1ee37e2e1e1371bb6d71524cd391417e35f8#path:/packages/better-git-worktree(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
+    dependencies:
+      '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)
+
   dsh-better-sidebar@0.25.0(71a38a6c4a91702b629a70139e78cf56):
     dependencies:
       '@codemirror/commands': 6.11.1
@@ -9831,7 +9845,7 @@ snapshots:
     dependencies:
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
 
-  dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
+  dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
     dependencies:
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)

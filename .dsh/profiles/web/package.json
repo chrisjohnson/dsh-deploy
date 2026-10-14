@@ -9,9 +9,10 @@
     "dsh-continue-kicker": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-continue-kicker-v0.1.0&path:/packages/continue-kicker",
     "dsh-image-search-searxng": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-search-searxng-v0.2.0&path:/packages/image-search-searxng",
     "dsh-loop-watchdog": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog",
-    "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.0&path:/packages/model-switch",
+    "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch",
     "dsh-scheduled-queue": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-scheduled-queue-v0.1.0&path:/packages/scheduled-queue",
-    "@deepseek-ai/dsh-experimental-schedule-bundle": "0.2.0-rc.2"
+    "@deepseek-ai/dsh-experimental-schedule-bundle": "0.2.0-rc.2",
+    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.0&path:/packages/better-git-worktree"
   },
   "dsh": {
     "profile": {
@@ -27,7 +28,8 @@
         "dsh-loop-watchdog",
         "dsh-model-switch",
         "dsh-scheduled-queue",
-        "@deepseek-ai/dsh-experimental-schedule-bundle"
+        "@deepseek-ai/dsh-experimental-schedule-bundle",
+        "dsh-better-git-worktree"
       ]
     }
   }
