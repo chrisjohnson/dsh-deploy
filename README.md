@@ -29,9 +29,7 @@ repo runs its `web` subcommand (`dsh web`) as a long-running native process.
   `scripts/update-dsh-overrides.mjs` for the regeneration tool.
 - **`.dsh/`**: dsh's own `DSH_HOME`, living *inside* this checkout on
   purpose. `/home/dsh/.dsh` is a symlink into `/home/dsh/dsh-deploy/.dsh`
-  (dsh's default settings-file location, `$DSH_HOME/settings.yaml`, needs
-  no override here — that redirect the old Docker setup needed was purely a
-  bind-mount rename limitation, moot on a real filesystem). Config edits —
+  (dsh's `DSH_HOME` default needs no override here). Config edits —
   whether pushed here directly or made by dsh's own "creator mode" — land
   as plain git diffs in this directory. `.gitignore` lists the known
   state/secret subpaths (`sessions/`, `attachments/`, `cache/`, `storages/`,
@@ -51,10 +49,15 @@ repo runs its `web` subcommand (`dsh web`) as a long-running native process.
   personally. `dsh-gh-token-refresh.service`/`.timer`
   (`local-ai-machine`'s `configuration.nix`) keeps the token fresh;
   `gh-wrapper.sh` self-heals if that timer ever misses a beat.
-- **`.dsh/profiles/web/plugins/`**: local, plain-file plugins (not npm
-  packages) - `continue-kicker.mjs` (auto-continue on interrupted/
-  max-tokens turns), `image-search-searxng.mjs`, `model-switch.mjs`,
-  `semantic-loop-kicker.mjs`.
+- **`.dsh/profiles/web/cordis.patch.yml`**: the deployment's settings and
+  plugin configuration, as rows (there is no `settings.yaml`). A row's
+  `config` replaces the plugin's whole config object.
+- **Plugins**: `continue-kicker`, `image-search-searxng`, `loop-watchdog`,
+  `model-switch` and `scheduled-queue` are installed from release tags of
+  `chrisjohnson/dsh-plugins` (exact git specs in both `package.json` files,
+  listed in the web profile's `bundles`); their source is not in this repo.
+  `.dsh/profiles/web/plugins/` holds only `dsh-better-git-worktree`, until it
+  is released there too. See `AGENTS.md` for the change workflow.
 
 ## Running it
 

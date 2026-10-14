@@ -89,10 +89,11 @@ values still apply.
 
 ## Web-profile plugins are browser React
 
-`profiles/web/plugins/*` (that is `.dsh/profiles/web/plugins/`) are git-tracked,
-hand-written **React for the Web GUI**. A `client*.{js,mjs}` file mounts into the live
-composer/sidebar with no build, lint, typecheck or test between the edit and a user's
-browser. Read `profiles/web/plugins/AGENTS.md` before touching one — it covers the Rules
+Plugin client halves are **React for the Web GUI**: a `client*.{js,mjs}` file mounts into
+the live composer/sidebar with no build step between the edit and a user's browser.
+Plugin source lives in `chrisjohnson/dsh-plugins` (see the root `AGENTS.md`); the only
+in-tree one left is `dsh-better-git-worktree` under `profiles/web/plugins/`. Read
+`profiles/web/plugins/AGENTS.md` before touching a client half — it covers the Rules
 of Hooks trap specific to this renderer (standard state arrives as hook-valued props),
 the generated-bundle and no-HMR/restart gotchas, and the gate script.
 

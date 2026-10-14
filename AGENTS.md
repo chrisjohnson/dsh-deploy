@@ -91,75 +91,63 @@ mechanism, same as `local-ai-machine`'s own rule.
 
 ## Plugins live in `chrisjohnson/dsh-plugins`, not in this repo
 
-New plugin **source** goes to `git@github.com/chrisjohnson/dsh-plugins.git`
-(`packages/<name>`), never to `.dsh/profiles/web/plugins/`. That repo is public,
-CI-tested, and publishes to npm; this repo is a **consumer** that installs published
-versions and owns the deployment's configuration of them. A working checkout lives at
-`.plugin-dev/dsh-plugins` (gitignored) — it is a second workspace root, which is what
-makes creator-mode work possible (see below).
+Plugin **source** lives only in `github.com/chrisjohnson/dsh-plugins`
+(`packages/<dir>`), never in this repo. That repo is public and CI-tested; this repo is
+a **consumer**: it installs a released version of each plugin and owns the deployment's
+configuration of it. Releases are lightweight git tags `<pkg>-v<ver>` (for example
+`dsh-loop-watchdog-v0.1.0`).
 
-`.dsh/profiles/web/plugins/` still holds the plugins that have not been extracted yet.
-Its `AGENTS.md` still governs those files. Do not add new ones there.
+Released plugins in use: `dsh-continue-kicker`, `dsh-image-search-searxng`,
+`dsh-loop-watchdog`, `dsh-model-switch`, `dsh-scheduled-queue`. The one exception still
+in-tree is `dsh-better-git-worktree` (`.dsh/profiles/web/plugins/`, see its own
+`AGENTS.md`), until it is released and replaced the same way.
 
-### When a plugin moves to the plugins repo
+### Where things live
 
-Move it when it is *done knowing about this machine*: no absolute paths, no provider or
-model ids baked in, no reading another plugin's state files, no generated client pinned
-to a core version by string matching. Each of those becomes a config key with a
-documented unset behaviour — not a default that happens to work here. If it still knows
-something, either parameterise it now or leave it in-tree; a published plugin that
-silently does nothing off-author is worse than an absent one.
+- **Install**: the exact tag spec, in the dependencies of **both** the root
+  `package.json` and `.dsh/profiles/web/package.json` (the Cordis loader resolves a
+  plugin row from the installation, so a profile-only install composes but fails to
+  import at boot):
 
-### Guardrails (the full set lives in the plugins repo's AGENTS.md)
+  ```
+  "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.0&path:/packages/model-switch"
+  ```
 
-- Official `@deepseek-ai/*` packages are **peer** deps, never direct deps, and peer
-  ranges need the prerelease branch (`>=0.1.5-rc.1 <0.1.6-0 || >=0.1.6-0`) or prerelease
-  harness builds ERESOLVE. Never declare bare `cordis`.
-- Bundle `cordis.patch.yml` carries **no `config:`** — a patch layer replaces a row's
-  whole config object instead of merging, so every key in the bundle is a key the user
-  must restate. Values live in this repo's profile patch.
-- `dsh.client` requires an `./client` export. Client halves get the React hook-order
-  treatment (conditional hook call ⇒ blank GUI region, `Minified React error #311`).
-- No `entry-rN.mjs` cache-busting shims in a published package.
-- Decisions worth testing go in a module that imports nothing from dsh.
+  Also list the package in the profile's `dsh.profile.bundles`; `pnpm add` alone installs
+  without enabling. Never install by bare name from npm: an unscoped `dsh-*` name can
+  belong to an unrelated author.
+- **Deployment values**: rows in `.dsh/profiles/web/cordis.patch.yml`. A package's bundle
+  inserts its own row with no config; this repo adds a config-only row by `id`. **A row's
+  `config` replaces the plugin's whole config object**, so list every key the row needs;
+  anything omitted falls back to the package default. Key names and defaults are in each
+  package's README at its tag.
+- **Settings model**: every user-facing setting (model providers, default model,
+  subagent routes, plugin config) is a row in `cordis.patch.yml`. There is no
+  `settings.yaml`.
 
-### Testing a change, then shipping it
+### Changing a plugin
 
-1. **Creator mode, in the plugins checkout** (`.plugin-dev/dsh-plugins`): `npm run check`
-   — verify contract + hook gate + unit tests, no install, no dsh needed.
-2. **Composition smoke**: `DSH_DEPLOY_DIR=/home/dsh/dsh-deploy node
-   scripts/compose-smoke.mjs` — real `dsh plugin add` into a throwaway profile under
-   `.lab/`, real import, asserts the layer lands. Never touches `.dsh/profiles/web`.
-3. **Runtime**: `node scripts/lab.mjs up --settings …` boots a private dsh on port 3099
-   with its own `DSH_HOME`. **Never restart or signal the production `dsh` systemd
-   service from a session running on it** — that ends every session in it, including
-   this one. Prepare the command and let Chris run it in a planned window.
-4. **Release** from the plugins repo: changelog + version bump + tag
-   `<package>-v<version>`; CI green first. See its `docs/releasing.md`. Never
-   `unpublish`; `deprecate` instead.
-5. **Promote here**, in a separate commit from any config change.
+1. Check out `dsh-plugins` locally and temporarily pin the profile to it with a `link:`
+   spec (in the root and profile `package.json`).
+2. Edit the local copy.
+3. Test it in a lab or upgrade clone of this repo (`dsh --profile web --dump-config`,
+   and a private instance on its own `DSH_HOME` and port). **Never restart or signal the
+   production `dsh` service from a session running on it**: that ends every session in
+   it, including this one. Prepare the command and let Chris run it in a planned window.
+4. Open a PR to `dsh-plugins`.
+5. Merge, then release: a release PR bumps the version and CHANGELOG, and the tag
+   `<pkg>-v<ver>` is cut on the merge commit (see that repo's `docs/releasing.md`). Never
+   `unpublish`; deprecate instead.
+6. In a dsh-deploy PR, replace the temporary pin with the new tag spec (both
+   `package.json` files, plus any row change).
 
-### Consuming a published version from this repo
+**A `link:` or `file:` pin is never the committed state.** Rollback is pinning the
+previous tag, reinstalling, and restarting in a planned window.
 
-```sh
-pnpm add dsh-model-switch@0.1.0            # exact version, in the ROOT package.json
-node_modules/.bin/dsh plugin --profile web add dsh-model-switch@0.1.0
-DSH_HOME="$PWD/.dsh" HOME=/tmp/x node_modules/@deepseek-ai/dsh/lib/bin.js --profile web --dump-config
-```
+### Guardrails for plugin code (full set in the plugins repo's `AGENTS.md`)
 
-Rules, all of them learned the hard way:
-
-- **Pin exact versions.** The profile has **no lockfile and no `pnpm-workspace.yaml`**,
-  so a caret floats silently and a "known good" profile becomes unreproducible. Same for
-  the existing profile deps: when you next touch them, pin them.
-- Root `package.json` **and** the profile both get the dep: the Cordis loader resolves a
-  plugin row from the *installation*, so a profile-only install composes but fails to
-  import at boot.
-- **Never commit a `link:` or `file:` spec into the profile.** Live-editing a plugin from
-  this deployment is a creator-mode activity that ends before the commit; the profile
-  gets registry versions only.
-- Rollback = pin the previous exact version, reinstall, restart in a planned window. A
-  version you published cannot be unwritten, only deprecated — which is why step 3 is
-  runtime-verified before step 4.
-- Config for a published plugin belongs in this repo (profile patch row or deployment
-  patch), never in the plugin's bundle patch.
+- Official `@deepseek-ai/*` packages are peer deps, never direct deps, with peer ranges
+  that cover prereleases (`>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0`).
+- A bundle's `cordis.patch.yml` carries no `config:`; values live in this repo's rows.
+- Client halves need the React hook-order treatment (see
+  `.dsh/profiles/web/plugins/AGENTS.md`).

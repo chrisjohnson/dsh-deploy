@@ -1,5 +1,9 @@
 # AGENTS.md — Web-profile plugins (`profiles/web/plugins/`, i.e. `.dsh/profiles/web/plugins/`)
 
+Plugin source belongs in `chrisjohnson/dsh-plugins`; this repo installs released tags
+only (see the root `AGENTS.md`). This directory holds just `dsh-better-git-worktree`,
+until it is released there. The notes below apply to it, and to any plugin's client half.
+
 A file here with a `client*.{js,mjs}` half is **live browser React for the Web GUI**: it
 mounts as a slot entry into the same React root as core. There is **no build, no
 typecheck, no lint and no test** over these files — nothing stands between you and a
@@ -43,14 +47,10 @@ Do instead, in order of preference:
    resets legally.
 3. Never add an early `return` above a hook based on props.
 
-Check it — this grep is the only gate these files get:
-
-    node scripts/check-plugin-hooks.mjs
-
-Expect 0 findings. It also accepts directories, which is useful when triaging an
-installed bundle: `node scripts/check-plugin-hooks.mjs node_modules/dsh-context`. Core is
-a clean control: the same scan reports 0 across all 69 `@deepseek-ai/dsh-client-ui-*`
-bundles, so a hit there is news.
+Check it with the hook-order gate in the plugins repo
+(`node scripts/check-plugin-hooks.mjs <dir>` from a `dsh-plugins` checkout; it accepts
+any directory, including an installed bundle such as `node_modules/dsh-context`).
+Expect 0 findings.
 
 ## Editing notes
 
@@ -64,7 +64,7 @@ bundles, so a hit there is news.
   `--expose-internals`). So: edit → `systemctl restart dsh` → reload the page. The
   restart also ends every session running inside that service, **including your own** —
   land and commit the work before restarting.
-- `dsh-context` and `dsh-better-sidebar` are npm-installed and contain the guarded-seat
+- `dsh-context` and `dsh-better-sidebar` are installed from npm and contain the guarded-seat
   pattern themselves. Don't hand-patch `node_modules`: pin, reproduce, report upstream.
 
 ## If a GUI region goes blank
