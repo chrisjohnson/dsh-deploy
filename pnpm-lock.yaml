@@ -296,6 +296,9 @@ importers:
       '@deepseek-ai/dsh':
         specifier: 0.2.0-rc.2
         version: 0.2.0-rc.2(4f198e6ce90aee2547f010ea08557966)
+      '@deepseek-ai/dsh-experimental-schedule-bundle':
+        specifier: 0.2.0-rc.2
+        version: 0.2.0-rc.2(9317dde5a7b5096f6c59dd9c40f1cc86)
       '@octokit/auth-app':
         specifier: 8.3.1
         version: 8.3.1
@@ -305,9 +308,24 @@ importers:
       dsh-context:
         specifier: 0.69.1
         version: 0.69.1(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-client-ui-primitives@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-session@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-scope@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-invariants@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))))(@deepseek-ai/schemastery@3.18.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      dsh-continue-kicker:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-continue-kicker-v0.1.0&path:/packages/continue-kicker
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/04cf7dd71a522c174972b09de89aeabc666f9b10#path:/packages/continue-kicker(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))
+      dsh-image-search-searxng:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-search-searxng-v0.2.0&path:/packages/image-search-searxng
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b4149afcf0380f0fdffa2bd98ec4d8ad659f39e7#path:/packages/image-search-searxng(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
+      dsh-loop-watchdog:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))
+      dsh-model-switch:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.0&path:/packages/model-switch
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-playwright-browser:
         specifier: 0.1.3
         version: 0.1.3(@deepseek-ai/cordis@4.0.4)
+      dsh-scheduled-queue:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-scheduled-queue-v0.1.0&path:/packages/scheduled-queue
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca#path:/packages/scheduled-queue
       dsh-web-search-searxng:
         specifier: 0.5.1
         version: 0.5.1(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-settings@0.2.0-rc.2(5b6b4b03e544a8b7dfdd1405b2a5259a))(@deepseek-ai/dsh-typert-protocol@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-typert-registry@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-web@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)))
@@ -4081,6 +4099,35 @@ packages:
       react-dom:
         optional: true
 
+  dsh-continue-kicker@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/04cf7dd71a522c174972b09de89aeabc666f9b10#path:/packages/continue-kicker:
+    resolution: {gitHosted: true, integrity: sha512-+1prEkIZsv+JdhEiJh1gbYbJVYytbPN6Qz44Xxq8Lnp/n39XTp+6d98KMf5DmzMPgFf9RLBE0Xuwm6ZTNEMZXw==, path: /packages/continue-kicker, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/04cf7dd71a522c174972b09de89aeabc666f9b10}
+    version: 0.1.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
+    peerDependencies:
+      '@deepseek-ai/dsh-llm': 0.2.0-rc.2
+
+  dsh-image-search-searxng@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b4149afcf0380f0fdffa2bd98ec4d8ad659f39e7#path:/packages/image-search-searxng:
+    resolution: {gitHosted: true, integrity: sha512-oDv6Ui/1bXZkRxU9QDw24hKja0VOJ7d4xOxiBUfRmkUFq9KHs6BqhqtrCosD4+jjPcgAlIFhJBCebF9lubJM3A==, path: /packages/image-search-searxng, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b4149afcf0380f0fdffa2bd98ec4d8ad659f39e7}
+    version: 0.2.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
+    peerDependencies:
+      '@deepseek-ai/dsh-tools': 0.2.0-rc.2
+
+  dsh-loop-watchdog@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog:
+    resolution: {gitHosted: true, integrity: sha512-UfTZjknoxjWT2jcUAKBR7Ux41rMAVzPmMSONNpcGajxvNrWMnoWRLbz30e59r1nEzvKvH9TBkwF5u12XwAg6Zg==, path: /packages/loop-watchdog, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3}
+    version: 0.1.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
+    peerDependencies:
+      '@deepseek-ai/dsh-llm': 0.2.0-rc.2
+
+  dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36#path:/packages/model-switch:
+    resolution: {gitHosted: true, integrity: sha512-UUVZ+7QpslgxXRK1sElONvd++FJt8B4y+IKi2oJ25APuIPp700lo5HRSAec3iZOmMEy5wsmorq2LKwT1R7IN4g==, path: /packages/model-switch, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36}
+    version: 0.2.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
+    peerDependencies:
+      '@deepseek-ai/dsh-llm': 0.2.0-rc.2
+      '@deepseek-ai/dsh-tools': 0.2.0-rc.2
+
   dsh-playwright-browser@0.1.3:
     resolution: {integrity: sha512-Mw3B6Y37GSElEYOoRmU15CjR1GPp74Ja0twoM4cbZw7LiSDQMd2unW2DEfozPZdxNPqqXyxTDhWMMQGxdbIoEg==}
     engines: {node: ^22.19.0 || >=24.0.0}
@@ -4089,6 +4136,11 @@ packages:
     peerDependenciesMeta:
       '@deepseek-ai/cordis':
         optional: true
+
+  dsh-scheduled-queue@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca#path:/packages/scheduled-queue:
+    resolution: {gitHosted: true, integrity: sha512-4vLV1+0X+VIx2injY4hoXXmyPlySAr8itW5kPyMF9ujFuERObmqSphkdw+z2T0VhJ+jhpwaXmdmghEwj5PAiCQ==, path: /packages/scheduled-queue, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca}
+    version: 0.1.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
   dsh-web-search-searxng@0.5.1:
     resolution: {integrity: sha512-WPFM6FmMq1ksj3fq5l8/M4nCmpUFeHffZ8MvCkEYVbOmfcwSsHQERn4Svoc9TVUAB+UDR0QmKEox5YhoIgrz4g==}
@@ -9767,12 +9819,31 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
+  dsh-continue-kicker@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/04cf7dd71a522c174972b09de89aeabc666f9b10#path:/packages/continue-kicker(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)):
+    dependencies:
+      '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
+
+  dsh-image-search-searxng@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b4149afcf0380f0fdffa2bd98ec4d8ad659f39e7#path:/packages/image-search-searxng(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
+    dependencies:
+      '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)
+
+  dsh-loop-watchdog@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)):
+    dependencies:
+      '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
+
+  dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/3b2bda81c13a15ce5ca16e118cfe0d2dcfc65c36#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
+    dependencies:
+      '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
+      '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)
+
   dsh-playwright-browser@0.1.3(@deepseek-ai/cordis@4.0.4):
     dependencies:
       '@deepseek-ai/schemastery': 3.18.2
       playwright: 1.63.0
     optionalDependencies:
       '@deepseek-ai/cordis': 4.0.4(@deepseek-ai/cordis-plugin-include@1.0.9)(@deepseek-ai/cordis-plugin-loader@1.0.5)
+
+  dsh-scheduled-queue@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca#path:/packages/scheduled-queue: {}
 
   dsh-web-search-searxng@0.5.1(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-settings@0.2.0-rc.2(5b6b4b03e544a8b7dfdd1405b2a5259a))(@deepseek-ai/dsh-typert-protocol@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-typert-registry@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-web@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))):
     dependencies:
