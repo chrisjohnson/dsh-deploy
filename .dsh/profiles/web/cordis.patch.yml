@@ -436,247 +436,99 @@
     viewportHeight: 1080
     executablePath: !!js process.env.PLAYWRIGHT_CHROME_PATH
 
-# Host-plane auto-continue watcher.
-# DSH equivalent of local-ai-machine's pi-web-session-watcher, but
-# in-process rather than an external poller - dsh's session/agent registries
-# are directly reachable from host-plane plugin code, so no separate service
-# or REST polling is needed the way pi-web (a closed prebuilt image) required.
-#
-# Two triggers feed one shared decision function:
-#
-#   - agent/created tail inspection - the path for crash recovery
-#     ('interrupted' markers are synthesized during session load and never
-#     publish live) and for reopen-after-the-fact cases.
-#   - Live watcher per agent on agent.ctx 'session/event': 'max-tokens'
-#     IS a real streamed finish reason (unlike interrupted), and unattended
-#     halts have no reopen event to lean on. Schedules a delayed
-#     re-analysis of the same tail guards rather than acting on the raw
-#     event.
-#
-# Kick conditions: unresolved 'interrupted' boundary, or any 'max-tokens'
-# boundary (no content-shape check on the final message - kind ===
-# 'max-tokens' is always a budget-cut generation, never a model-chosen
-# stop). Deliberately does NOT fire on 'completed', 'aborted', 'error',
-# tails already followed by a user/assistant message (recovered manually
-# or otherwise), subagent sessions by default (auto-kicking a delegated
-# child fights its parent orchestrator's own retry flow), or after
-# maxConsecutiveKicks consecutive kicks with no progress (runaway guard
-# against think-cap-think loops; logs loudly instead of kicking).
-# Max-tokens kicks use a reason-aware prompt forbidding re-derivation of
-# the lost reasoning. Every kick AND skip is logged with its reason - see
-# .dsh/profiles/web/plugins/continue-kicker.mjs for the full rationale.
+# dsh-better-git-worktree: the deployment's own git-worktree session
+# plugin (source under ./plugins/dsh-better-git-worktree, README there).
+# Host half owns the session -> worktree registry, the cached status
+# pipeline, the model-facing `worktree_convert` tool, and the private
+# /betterGitWorktree JSON route; the Client half is served from the
+# package's ./client export. It targets a *revisioned* entry (rather than
+# index.mjs) so host code can be reloaded live by
+# `node scripts/dev-reload-host.mjs` - see the plugin README.
 - insert:
-    - id: continue-kicker
-      name: ./plugins/continue-kicker.mjs
-      config:
-        cooldownMs: 60000
-        liveKickDelayMs: 3000
-        maxConsecutiveKicks: 3
-        kickOnInterrupted: true
-        kickOnMaxTokens: true
-        includeSubagents: false
-
-    # dsh-better-git-worktree: the deployment's own git-worktree session
-    # plugin (source under ./plugins/dsh-better-git-worktree, README there).
-    # Host half owns the session -> worktree registry, the cached status
-    # pipeline, the model-facing `worktree_convert` tool, and the private
-    # /betterGitWorktree JSON route; the Client half is served from the
-    # package's ./client export. It targets a *revisioned* entry (rather than
-    # index.mjs) so host code can be reloaded live by
-    # `node scripts/dev-reload-host.mjs` - see the plugin README.
     - id: better-git-worktree
       name: ./plugins/dsh-better-git-worktree/entry-r61.mjs
 
-    # Model-facing image_search tool over the same self-hosted SearXNG
-    # instance dsh-web-search-searxng uses for text search, querying its
-    # `images` category. Same env-var convention as dsh-web-search-searxng
-    # (SEARXNG_BASE_URL / SEARXNG_API_KEY) so no new deployment config is
-    # needed. See plugins/image-search-searxng.mjs for why this is a
-    # standalone tool rather than an extension of web_search/dsh-web, and
-    # why it returns markdown links rather than real image attachments.
-    - id: image-search-searxng
-      name: ./plugins/image-search-searxng.mjs
-      config:
-        baseURL: !!js process.env.SEARXNG_BASE_URL ?? 'http://localhost:8888'
-        maxResults: !!js Number(process.env.SEARXNG_NUM_RESULTS ?? 8)
-        apiKey: !!js process.env.SEARXNG_API_KEY
+# Plugins released from chrisjohnson/dsh-plugins. Each one's bundle inserts its
+# own row (installed by exact git tag in package.json, listed in the profile's
+# `bundles`), so the rows below are config-only overrides by id. A row's
+# `config` replaces the plugin's whole config object, so each row lists every
+# key it needs; keys left out fall back to the package's defaults. Key names
+# and defaults are in each package's README.
 
-    # "System 1" STUCK SIGNAL (re-steered per scratch/kicker-brief.md): the
-    # goal is a trustworthy "this session is stuck" signal the operator
-    # leaves armed - precision over recall. Two layers:
-    #
-    #   1. Deterministic fingerprint fast path (no LLM, no GPU): over the
-    #      last fpWindowEvents raw events, hash (tool, normalized args) and
-    #      flag repetition with NO new information (>=3 repeats with <=1
-    #      distinct result, or >=5 with <=2). Primary trigger.
-    #   2. LLM adjudication for ambiguous windows: medium-moe (direct
-    #      litellm, thinking off via chat_template_kwargs) judges whether
-    #      the last 6 substantive events produced NEW information, replying
-    #      "PROGRESS:<0-100>" or "LOOP:<0-100>" (lenient parse).
-    #
-    # Every evaluation appends one JSON line to
-    # $DSH_HOME/storages/semantic-loop-kicker/evaluations.jsonl carrying BOTH
-    # layers - the deterministic fingerprint result (including "ran and found
-    # no repetition", which decides nothing and used to leave no trace) and,
-    # when the code layer was inconclusive, the model's verdict - plus band,
-    # fingerprints, window, latency and outcome. That ledger is the interface
-    # every consumer reads; the evals panel row below is the first one. The
-    # path is persistent so the panel can read history across restarts (the
-    # old /tmp location was wiped on reboot).
-    #
-    # Bands: conf>=bandStuck -> "stuck" (actionable), >=bandWatch -> "watch",
-    # else "noise". Intervention is one consumer of the signal, gated by ALL:
-    # stuck band + SUSTAINED (>=2 consecutive stuck decisions) + act mode +
-    # not already acted in this streak. Non-destructive text, agent.steer
-    # (immediate, not queued). One nudge per stuck episode.
-    # Act/log mode: interventionEnabled here is the DEFAULT; the UI settings
-    # row (dynamic plugin) writes profiles/web/watchdog-mode.json, which the
-    # watchdog reads on every check - a toggle takes effect within one
-    # cooldown window, no restart.
-    # Busy-yield: after a slow LLM call (>busyYieldMs) the next check skips
-    # rather than competing with the session's own work.
-    # Skip coalescing: steps arrive far more often than the cooldown allows,
-    # so only the FIRST skip of a stretch is recorded - otherwise the ledger
-    # gains a row every few seconds and buries the real evaluations. A real
-    # evaluation ends the stretch, so the next one gets its own marker.
-    #
-    # Offline-tuned 2026-09-25 on 11 real-session anchors (3 iters each):
-    # 30/33, ZERO false positives, 3 false negatives (one ambiguous anchor,
-    # all in the non-actionable noise band). Harness:
-    # scratch/wd-tune/wd-tune.mjs.
-    # Host edits are invisible without a restart (node caches ES modules by
-    # URL), so the row points at a versioned re-export of the real module. To
-    # reload after an edit: copy the current -rN.mjs entry to -rN+1.mjs, bump
-    # the `?r=` inside the copy, repoint this row at it, delete the old one.
-    # (Bumping only the query inside the same entry file does nothing - the
-    # entry's own URL is the cache key the loader already holds.) Same lever as
-    # dsh-better-git-worktree, see its scripts/dev-reload-host.mjs; preferred
-    # here because other agent sessions may be mid-turn when it changes.
-    #
-    # Log sinks (the logConsole/logFile/logDsh/logDshErrors keys): this
-    # watchdog evaluated EVERY agent step of EVERY session and printed a
-    # stage line for each to stdout, which is the systemd journal - ~2700 of
-    # the last 4000 `journalctl -u dsh` lines were this plugin, burying the
-    # service's own output. Silenced 2026-09-28 by routing the whole verbose
-    # trail to the file log only. Re-enable by flipping logConsole (or
-    # logDsh) to true here - the watcher remounts the row live, so unlike a
-    # code change this needs no -rN bump and no restart. The evaluations.jsonl
-    # ledger is not a log and always writes: it is what the evals panel and
-    # any future escalation consumer read.
-    - id: semantic-loop-kicker
-      name: ./plugins/semantic-loop-kicker-r5.mjs
-      config:
-        cooldownMs: 30000
-        maxTranscriptLines: 6
-        includeSubagents: false
-        interventionEnabled: false
-        watchdogTimeoutMs: 25000
-        fpWindowEvents: 60
-        busyYieldMs: 15000
-        bandStuck: 90
-        bandWatch: 70
-        # Diagnostic sinks: stdout->journal off, /tmp/semantic-loop-kicker.log
-        # on, ctx.logger off except genuine errors.
-        logConsole: false
-        logFile: true
-        logDsh: false
-        logDshErrors: true
+# Host-plane auto-continue watcher: sends a follow-up user message when a turn
+# halts on an output-token limit, a reasoning-only empty stop, or a crash
+# ('interrupted' markers are synthesized when a session loads), and gives up
+# after maxConsecutiveKicks kicks with no progress in between. Subagent
+# sessions are left alone (auto-kicking a delegated child fights its parent's
+# own retry flow). Every kick and skip is logged with its reason:
+# `journalctl -u dsh | grep continue-kicker`. The package default for
+# maxConsecutiveKicks is 5; this deployment stops at 3.
+- id: continue-kicker
+  config:
+    cooldownMs: 60000
+    liveKickDelayMs: 3000
+    maxConsecutiveKicks: 3
+    kickOnInterrupted: true
+    kickOnMaxTokens: true
+    kickOnEmptyCompletion: true
+    includeSubagents: false
 
-    # The ledger READER: a right-sidebar tab (registered through
-    # dsh-better-sidebar's ctx.betterSidebar.registerTab, which its own bundle
-    # mounts) visualizing the watchdog's evaluations for the CURRENT session.
-    # It is a pure consumer - it never writes the ledger and never influences a
-    # decision, which is what keeps the signal consumer-agnostic.
-    #
-    # The panel is split along the signal's own two layers, which is the point:
-    #   code lane  - the deterministic fingerprint layer, including the "ran and
-    #                found no repetition" evaluations that decide nothing and
-    #                would otherwise be invisible
-    #   model lane - the LLM adjudications, drawn linked to the code marker they
-    #                escalated from
-    #   skip lane  - steps deliberately not evaluated (no-signal / cooldown /
-    #                busy-yield), so gaps in coverage are explicit, not silent
-    # A synced ledger lists the same evaluations in time order; selecting a
-    # marker or a row in either view opens that evaluation's full record:
-    # fingerprint groups, the model's raw reply, confidence, band, streak,
-    # latency, and the exact transcript window it judged.
-    #
-    # Host half (index.mjs) exposes the ledger over the /api fence
-    # (/api/semanticLoopEvals/{list,sessions,detail}): compact rows for the
-    # graph and ledger, and ONE full record (with its KB-sized transcript
-    # window) only for the row being inspected. Client half (client.mjs) is
-    # auto-mounted from this package's dsh.client declaration - same pattern as
-    # scheduled-queue. It also normalizes the older decisions-only (v1) ledger
-    # records into the current two-phase shape, so the panel reads both eras.
-    - id: semantic-loop-evals
-      name: ./plugins/semantic-loop-evals/index.mjs
+# Model-facing image_search tool over the same SearXNG instance
+# dsh-web-search-searxng uses for text search, querying its `images` category.
+# Same env-var convention as web-search-searxng above (SEARXNG_BASE_URL /
+# SEARXNG_API_KEY), plus SEARXNG_NUM_RESULTS for the default result count.
+- id: image-search-searxng
+  config:
+    baseURL: !!js process.env.SEARXNG_BASE_URL
+    maxResults: !!js process.env.SEARXNG_NUM_RESULTS
+    apiKey: !!js process.env.SEARXNG_API_KEY
 
-    # In-session model switching for the agent itself: `switch_model`
-    # (agent picks provider/model + the first message the new model receives)
-    # and `switch_model_escalate` (escape hatch - no arguments needed;
-    # deployment policy picks the route). Reuses the
-    # sessionController.selectModel path (same validation, durable
-    # model/selection event, "model changed" boundary notice, default-model
-    # persistence as the UI) plus agent.steer() so the notice is delivered
-    # immediately after the switch, before the new model picks up other work.
-    #
-    # As of 2026-09-28 the row also carries a CONTEXT-WINDOW FIT GUARD, because a
-    # downward switch (deepseek-flash 1M -> a local 262k role) used to strand the
-    # session: the first request on the smaller route dies with
-    # ContextWindowExceededError, and dsh's own overflow recovery cannot save it
-    # because it summarizes with the very model that overflowed. A model must
-    # READ a conversation in order to compact it, so the only moment a
-    # 421k-token session can be condensed is while a big-window model is still
-    # routed. The guard therefore compacts to fit BEFORE the route changes, or
-    # refuses the switch with numbers and points at subagent delegation. See
-    # plugins/model-switch/host.mjs for the full incident write-up.
-    #
-    # The row is now a package (versioned host entry + client.mjs) rather than a
-    # bare .mjs, because the interactive half needs a browser bundle: a pill
-    # beside the model picker, and an actionable banner under the composer
-    # offering the one-click "compact on a big-window route, then come back"
-    # repair, for the switches the guard cannot intercept (the composer picker
-    # calls sessionController.selectModel directly). See the entry's own header
-    # for the -rN reload ritual; the package's `dsh.client` declaration mounts
-    # client.mjs, so no `dsh.client` key belongs here.
-    #
-    # As of 2026-10-11 that banner is COLLAPSED BY DEFAULT. Past the auto-compact
-    # line nothing fails and nothing is stranded, so the paragraph no longer takes
-    # the composer until it is asked for: the pill is the handle (click or Enter
-    # opens it, and it re-measures on the way in). The hard case - past the route's
-    # own window, where the next request 400s and the automatic rescue summarises
-    # with the route that just overflowed - still opens itself once per
-    # session+route, and stays closed if it is closed by hand.
-    #
-    # escalationProvider/Model is the escape-hatch route. readerProvider/Model is
-    # the big-window route the interactive repair moves to before compacting; it
-    # must be able to hold the whole conversation. fitRatio/summaryReserveTokens
-    # are the guard's safety margins; autoCompact: false downgrades the guard to
-    # warn-and-refuse without compacting.
-    - id: model-switch
-      name: ./plugins/model-switch/entry-r6.mjs
-      config:
-        escalationProvider: local-ai-machine
-        # medium-dense until 2026-09-28, when it was found to route to a stopped
-        # build (dirk, port 8161) - so the escape hatch was broken. big-moe is the
-        # semantic fit rather than medium-moe: an escalation the agent reaches for
-        # when stuck should be the strongest model available, and medium-moe is the
-        # fast/light role. readerModel stays on the cloud route deliberately - it
-        # has to hold a whole conversation to compact it.
-        escalationModel: big-moe
-        readerProvider: local-ai-machine-cloud
-        readerModel: deepseek-flash
-        fitRatio: 0.8
-        summaryReserveTokens: 10000
-        autoCompact: true
+# Stuck-session signal: a deterministic repetition check over the recent
+# events, plus an LLM adjudication of ambiguous windows (medium-moe through
+# litellm on :4000, thinking switched off with chat_template_kwargs so the
+# one-line verdict is not swallowed by reasoning). Every evaluation appends a
+# line to the ledger; intervention stays off (interventionEnabled defaults to
+# false) and the act/log mode is toggled at runtime by the UI through the mode
+# file. The ledger and mode file paths are relative to $DSH_HOME and keep the
+# existing evaluation history and the toggle; leaving them out would start a
+# new empty ledger and ignore the toggle. Every other key is the package
+# default.
+- id: loop-watchdog
+  config:
+    llmBaseUrl: http://127.0.0.1:4000/v1
+    llmModel: medium-moe
+    llmApiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+    llmExtraBody:
+      chat_template_kwargs:
+        enable_thinking: false
+    ledgerFile: storages/semantic-loop-kicker/evaluations.jsonl
+    modeFile: profiles/web/watchdog-mode.json
 
-    # Composer scheduled-send: DISABLED 2026-09-27.
-    # Root cause: scheduled messages appeared in every session window, not just
-    # the session they were scheduled for - the dock slot is not yet scoped to
-    # the target session in DSH itself. Source left on disk; re-enable once DSH
-    # adds per-session scoping for the dock slot.
-    # - id: scheduled-queue
-    #   name: ./plugins/scheduled-queue/index.mjs
+# In-session model switching for the agent itself: `switch_model` (agent picks
+# provider/model) and `switch_model_escalate` (escape hatch, no arguments;
+# deployment policy picks the route), plus a context-window fit guard that
+# compacts on a big-window route, or refuses with numbers, before a downward
+# switch strands a session.
+#
+# escalationProvider/Model is the escape-hatch route: big-moe, because an
+# escalation the agent reaches for when stuck should be the strongest model
+# available. readerProvider/Model is the big-window route the repair moves to
+# before compacting; it must be able to hold the whole conversation, hence the
+# cloud 1M-window route. fitRatio/summaryReserveTokens are the guard's safety
+# margins; autoCompact: false downgrades the guard to warn-and-refuse.
+- id: model-switch
+  config:
+    escalationProvider: local-ai-machine
+    escalationModel: big-moe
+    readerProvider: local-ai-machine-cloud
+    readerModel: deepseek-flash
+    fitRatio: 0.8
+    summaryReserveTokens: 10000
+    autoCompact: true
+
+# scheduled-queue (composer scheduled-send) and the official schedule bundle
+# (@deepseek-ai/dsh-experimental-schedule-bundle) mount from `bundles` and
+# need no row here.
 
 # The sidebar browsing region is a `single` slot whose child seat
 # (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
