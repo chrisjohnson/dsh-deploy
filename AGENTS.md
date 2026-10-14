@@ -97,10 +97,9 @@ a **consumer**: it installs a released version of each plugin and owns the deplo
 configuration of it. Releases are lightweight git tags `<pkg>-v<ver>` (for example
 `dsh-loop-watchdog-v0.1.0`).
 
-Released plugins in use: `dsh-continue-kicker`, `dsh-image-search-searxng`,
-`dsh-loop-watchdog`, `dsh-model-switch`, `dsh-scheduled-queue`. The one exception still
-in-tree is `dsh-better-git-worktree` (`.dsh/profiles/web/plugins/`, see its own
-`AGENTS.md`), until it is released and replaced the same way.
+Released plugins in use: `dsh-better-git-worktree`, `dsh-continue-kicker`,
+`dsh-image-search-searxng`, `dsh-loop-watchdog`, `dsh-model-switch`,
+`dsh-scheduled-queue`. There is no plugin source in this repo.
 
 ### Where things live
 
@@ -149,5 +148,35 @@ previous tag, reinstalling, and restarting in a planned window.
 - Official `@deepseek-ai/*` packages are peer deps, never direct deps, with peer ranges
   that cover prereleases (`>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0`).
 - A bundle's `cordis.patch.yml` carries no `config:`; values live in this repo's rows.
-- Client halves need the React hook-order treatment (see
-  `.dsh/profiles/web/plugins/AGENTS.md`).
+- Client halves need the React hook-order treatment (next section).
+
+### Client halves are live browser React
+
+A plugin's `client*.{js,mjs}` mounts as a slot entry into the same React root as core,
+with no build, typecheck or test between an edit and a user's browser. The slot renderer
+injects standard state as **hook-valued props** (`useInput`, `useProjection`,
+`useSessions`, ...). Each call expands to several real hook slots, so the hooks a
+component calls must never depend on which props it got. Do not write
+`var x = useInput ? useInput(sel) : null`, a `typeof seat !== "function"` guard, a
+try/catch around a seat, or an early `return` above a hook. A session-maybe entry adopts
+its first session without remounting, so a prop's presence can differ between renders of
+one mounted component; React then throws `Minified React error #311` (`#310` when the
+list grew) and the region renders as an empty `<div>`, which only a page reload clears.
+Instead, call unconditionally over a stable module-scope fallback and branch on the
+result:
+
+```js
+var NO_SEAT = function () { return null; };
+var input = (props.useInput || NO_SEAT)(sel);
+if (!input) ...
+```
+
+or branch on the element (two components, or one keyed by seat presence). The gate is
+`node scripts/check-plugin-hooks.mjs <dir>` in a `dsh-plugins` checkout.
+
+If a GUI region goes blank, the console logs `slot entry crashed in '<slotKey>':` and the
+slot renders `<div data-slot-error="<slotKey>">`; `#311`/`#310` mean a hook count changed
+in the entry that owns that slot, so look at the plugin before suspecting core.
+`dsh-context` and `dsh-better-sidebar` are npm-installed: do not hand-patch
+`node_modules`; pin, reproduce and report upstream. Nothing takes effect until the
+service restarts, and a restart ends every session running in it.

@@ -52,12 +52,11 @@ repo runs its `web` subcommand (`dsh web`) as a long-running native process.
 - **`.dsh/profiles/web/cordis.patch.yml`**: the deployment's settings and
   plugin configuration, as rows (there is no `settings.yaml`). A row's
   `config` replaces the plugin's whole config object.
-- **Plugins**: `continue-kicker`, `image-search-searxng`, `loop-watchdog`,
-  `model-switch` and `scheduled-queue` are installed from release tags of
-  `chrisjohnson/dsh-plugins` (exact git specs in both `package.json` files,
-  listed in the web profile's `bundles`); their source is not in this repo.
-  `.dsh/profiles/web/plugins/` holds only `dsh-better-git-worktree`, until it
-  is released there too. See `AGENTS.md` for the change workflow.
+- **Plugins**: `better-git-worktree`, `continue-kicker`, `image-search-searxng`,
+  `loop-watchdog`, `model-switch` and `scheduled-queue` are installed from release
+  tags of `chrisjohnson/dsh-plugins` (exact git specs in both `package.json` files,
+  listed in the web profile's `bundles`); their source is not in this repo. See
+  `AGENTS.md` for the change workflow.
 
 ## Running it
 
