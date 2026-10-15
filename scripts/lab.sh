@@ -949,6 +949,57 @@ cmd_smoke() {
     node "$HARNESS_DIR/scripts/lab-smoke/run.mjs" "${SMOKE_ARGS[@]+"${SMOKE_ARGS[@]}"}"
 }
 
+# Read-only fingerprint of the things the lab must never change: the production
+# unit, its answer on its own port, its checkout, and the registered working
+# copies. `prod-check save` before a lab session, `prod-check compare` after.
+prod_fingerprint() {
+  load_prod_launch
+  printf 'unit_active_enter=%s\n' "$(systemctl show "$PROD_UNIT" -p ActiveEnterTimestamp --value)"
+  printf 'unit_main_pid=%s\n' "$(systemctl show "$PROD_UNIT" -p MainPID --value)"
+  printf 'prod_port_http=%s\n' "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "http://127.0.0.1:$PROD_PORT/" || true)"
+  printf 'prod_checkout_head=%s\n' "$(git -C "$PROD_DIR" rev-parse HEAD 2>/dev/null)"
+  printf 'prod_checkout_status_sha=%s\n' "$(git -C "$PROD_DIR" status --porcelain 2>/dev/null | sha256sum | cut -c1-16)"
+  local registry="$PROD_DSH_HOME/plugins/dsh-better-git-worktree/worktrees.json"
+  if [[ -f "$registry" ]]; then
+    printf 'worktrees_json_sha=%s\n' "$(sha256sum "$registry" | cut -c1-16)"
+    node -e '
+      const records = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+      const list = Array.isArray(records) ? records : Object.values(records.records ?? records.worktrees ?? records);
+      for (const r of list) if (r && typeof r.managedRoot === "string") console.log(r.managedRoot);
+    ' "$registry" | sort | while IFS= read -r copy; do
+      printf 'copy_head[%s]=%s\n' "$copy" "$(git -C "$copy" rev-parse HEAD 2>/dev/null || echo missing)"
+    done
+  else
+    printf 'worktrees_json_sha=absent\n'
+  fi
+}
+
+cmd_prod_check() {
+  local mode="${POSITIONAL[0]:-show}" file="$LAB_ROOT/.prod-fingerprint"
+  case "$mode" in
+    show) prod_fingerprint ;;
+    save)
+      mkdir -p "$LAB_ROOT"
+      prod_fingerprint >"$file"
+      info "saved production fingerprint to $file ($(wc -l <"$file") lines)"
+      ;;
+    compare)
+      [[ -f "$file" ]] || die "no saved fingerprint; run: lab.sh prod-check save"
+      local now
+      now="$(mktemp)"
+      prod_fingerprint >"$now"
+      if diff -u "$file" "$now"; then
+        info "production unchanged: unit start time, listener, checkout, registry and every registered copy's HEAD match the saved fingerprint"
+      else
+        rm -f "$now"
+        die "production state differs from the saved fingerprint (diff above)"
+      fi
+      rm -f "$now"
+      ;;
+    *) die "usage: lab.sh prod-check [show|save|compare]" ;;
+  esac
+}
+
 cmd_doctor() {
   load_prod_launch
   say "production launch source: $PROD_SOURCE"
@@ -989,6 +1040,9 @@ Commands
   logs                  tail the lab's server log (token redacted)
   destroy               stop and delete the whole lab directory
   doctor                preflight: what the harness would use
+  prod-check [save|compare]
+                        read-only fingerprint of production (unit start time, :3081, checkout,
+                        worktree registry, each registered copy's HEAD); save before, compare after
   help
 
 Options
@@ -1063,6 +1117,7 @@ main() {
     logs) cmd_logs ;;
     destroy) cmd_destroy ;;
     doctor) cmd_doctor ;;
+    prod-check) cmd_prod_check ;;
     help) usage ;;
     *) usage >&2; die "unknown command '$cmd'" ;;
   esac

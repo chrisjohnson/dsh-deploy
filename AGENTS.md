@@ -134,22 +134,81 @@ Released plugins in use: `dsh-better-git-worktree`, `dsh-continue-kicker`,
 
 ### Changing a plugin
 
-1. Check out `dsh-plugins` locally and temporarily pin the profile to it with a `link:`
-   spec (in the root and profile `package.json`).
-2. Edit the local copy.
-3. Test it in a lab or upgrade clone of this repo (`dsh --profile web --dump-config`,
-   and a private instance on its own `DSH_HOME` and port). **Never restart or signal the
-   production `dsh` service from a session running on it**: that ends every session in
-   it, including this one. Prepare the command and let Chris run it in a planned window.
-4. Open a PR to `dsh-plugins`.
-5. Merge, then release: a release PR bumps the version and CHANGELOG, and the tag
-   `<pkg>-v<ver>` is cut on the merge commit (see that repo's `docs/releasing.md`). Never
-   `unpublish`; deprecate instead.
-6. In a dsh-deploy PR, replace the temporary pin with the new tag spec (both
-   `package.json` files, plus any row change).
+The loop, all as the `dsh` user on the box, no sudo (the human path is
+`ssh local-ai-machine 'sudo -u dsh -n bash -s' < script.sh`). Run `scripts/lab.sh` from
+any checkout of this repo; it never writes to production:
+
+```sh
+scripts/lab.sh up                        # private instance on :3099, copy of prod data
+scripts/lab.sh link model-switch         # pin it to ~/dsh-lab/plugins/dsh-plugins (cloned if missing)
+#   edit ~/dsh-lab/plugins/dsh-plugins/packages/model-switch/..., then:
+scripts/lab.sh restart                   # no live reload: restart to pick the edit up
+scripts/lab.sh smoke --only model-switch,sessions
+scripts/lab.sh smoke                     # everything, before you release
+#   PR to dsh-plugins, merge, release tag <pkg>-v<ver> (that repo's docs/releasing.md)
+scripts/lab.sh unlink model-switch       # back to the released pin
+scripts/lab.sh down
+#   dsh-deploy PR: new tag spec in BOTH package.json files, `pnpm install`, then
+pnpm run check                           # fails if a link:/file: pin or local path is present
+```
+
+`scripts/lab.sh link <pkg> <path>` takes any checkout; `status` shows linked vs pinned
+packages and the tracked-file drift. Never restart or signal the production `dsh` service
+from a session running on it: that ends every session in it, including yours. Prepare the
+command and let Chris run it in a planned window.
 
 **A `link:` or `file:` pin is never the committed state.** Rollback is pinning the
 previous tag, reinstalling, and restarting in a planned window.
+
+### The lab (`scripts/lab.sh`, `scripts/lab-smoke/`)
+
+A lab is a clone of this repo under `~/dsh-lab/<name>` with its own `node_modules` (shared
+pnpm store), its own `DSH_HOME`, a throwaway `HOME`, and its own port (3099). It is started
+with the production unit's own node binary, flags (`--expose-internals`) and environment,
+read from the running service's `/proc` entries, so it boots the way production does. It
+copies a snapshot of production's `sessions`, `attachments`, `storages` and `plugins` state
+(read-only on the production side) so checks run against real history.
+
+- `link` pins a package to a local checkout in the lab only. pnpm accepts `link:` in this
+  hoisted workspace and `node_modules/<pkg>` becomes a symlink to the checkout, but a
+  linked package's `@deepseek-ai/*` peers resolve from its real path, outside
+  `node_modules`, and fail to import. While anything is linked the lab therefore starts
+  node with `--preserve-symlinks`. `file:` copies the files, needs no flag and goes stale
+  on edits, so `link:` is the one to use. A symlink also bypasses the package's `files`
+  allowlist, so `link` runs a pack check for files the published tarball would lack.
+- `smoke` modules, runnable alone with `--only`: `boot` (isolation, boot log, composed
+  profile), `ui` (sidebar, plugin pages, every right-sidebar tool, no `slot entry crashed`),
+  `sessions` (reopens copied sessions, restarts the lab, reopens them: the session-format
+  gate), `completion`, `web-search`, `image-search`, `webp`, `model-switch` (a real
+  `switch_model` call must succeed with no `INVALID_TOOL_OUTPUT`), `scheduled-queue`,
+  `loop-watchdog`, `worktree` (on a scratch repo the harness makes), `continue-kicker`
+  (kills the lab mid-turn and expects exactly one kick). `--skip-model` skips every check
+  that needs a real model turn; those show as SKIP, never PASS. A module whose plugin is
+  not mounted is SKIP. Results: `<lab>/.lab/smoke/RESULTS.md`, `results.json`, `shots/`.
+- Drift is information: DSH rewrites tracked files such as `cordis.patch.yml` when a
+  setting changes in the lab UI, and `status` lists them without treating them as a failure.
+- Model checks send real requests to the local models. `smoke` refuses to run them while a
+  speed benchmark is running; wait, use `--skip-model`, or pass `--force` knowingly.
+
+Safety rules:
+
+- **Registered working copies are real directories shared with production.** The lab
+  starts without the worktree registry, so the worktree plugin only sees copies the lab
+  makes. `--with-worktrees` copies the registry and warns loudly; with it, never Remove,
+  convert or archive a registered copy from the lab.
+- The lab refuses port 3081, a busy port and any directory inside the production checkout;
+  `down` signals only the lab's own processes. It never copies `.dsh/keys`, the scheduled
+  queue or other schedule state, and drops the GitHub App identity from the environment.
+  The loop watchdog runs observe-only.
+- `lab.sh prod-check save` before and `compare` after fingerprints the unit start time,
+  :3081, the checkout and every registered copy's HEAD, read-only.
+- `smoke --only sessions` opens only sessions whose last turn ended cleanly: reopening an
+  interrupted one makes continue-kicker run a turn in that session's real workspace.
+
+When a check fails: read the detail line and the `FAIL-*.png` screenshot in
+`<lab>/.lab/smoke/shots/`, then `lab.sh logs`. A model-turn failure that quotes a 500 or
+"Connection error" means the model backend is down, not the change. Re-run just that
+module with `--only` after fixing; `lab.sh reset` rebuilds the lab's data from production.
 
 ### Guardrails for plugin code (full set in the plugins repo's `AGENTS.md`)
 
