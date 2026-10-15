@@ -903,6 +903,30 @@ cmd_unlink() {
   [[ -z "$(lab_pid)" ]] || info "the lab is still running the linked code; run 'lab.sh restart'"
 }
 
+# Model checks send real requests to the local models. A speed benchmark in
+# flight on the box is measuring those same models, so refuse to disturb it.
+guard_benchmark() {
+  ((FORCE)) && return 0
+  local arg model_modules="completion web-search image-search webp model-switch scheduled-queue loop-watchdog continue-kicker worktree"
+  local only="" skip_model=0 prev=""
+  for arg in "${SMOKE_ARGS[@]+"${SMOKE_ARGS[@]}"}"; do
+    [[ "$prev" == "--only" ]] && only="$arg"
+    [[ "$arg" == "--skip-model" ]] && skip_model=1
+    prev="$arg"
+  done
+  ((skip_model)) && return 0
+  if [[ -n "$only" ]]; then
+    local touches=0 m
+    for m in ${only//,/ }; do [[ " $model_modules " == *" $m "* ]] && touches=1; done
+    ((touches)) || return 0
+  fi
+  local running
+  running="$(pgrep -f -a "${LAB_BENCH_PATTERN:-llm_decode_bench|llm-inference-bench}" 2>/dev/null | grep -v pgrep | head -1 || true)"
+  if [[ -n "$running" ]]; then
+    die "a benchmark appears to be running (${running:0:100}); model checks would disturb it. Wait for it, run with --skip-model, or pass --force"
+  fi
+}
+
 cmd_smoke() {
   assert_lab_dir_safe
   is_lab || die "lab '$LAB_NAME' does not exist; run: lab.sh up"
@@ -911,11 +935,17 @@ cmd_smoke() {
     info "[dry-run] would run: node scripts/lab-smoke/run.mjs ${SMOKE_ARGS[*]:-}"
     return 0
   }
-  local port
-  port="$(lab_port)"
-  LAB_DIR="$LAB_DIR" LAB_NAME="$LAB_NAME" LAB_PORT="${LAB_PORT_OVERRIDE:-$port}" LAB_ROOT="$LAB_ROOT" \
+  guard_benchmark
+  load_prod_launch
+  # The browser is the one the production service uses. The suite needs no other
+  # production variable (and never the model API key).
+  local chrome="" kv
+  for kv in "${PROD_ENV[@]}"; do [[ "$kv" == PLAYWRIGHT_CHROME_PATH=* ]] && chrome="${kv#PLAYWRIGHT_CHROME_PATH=}"; done
+  [[ -n "$chrome" || -n "${PLAYWRIGHT_CHROME_PATH:-}" ]] || die "no PLAYWRIGHT_CHROME_PATH in production's environment; export one for the smoke suite"
+  LAB_DIR="$LAB_DIR" LAB_NAME="$LAB_NAME" LAB_PORT="$(lab_port)" LAB_ROOT="$LAB_ROOT" \
     LAB_SH="$HARNESS_DIR/scripts/lab.sh" LAB_PLUGINS_DIR="$LAB_PLUGINS_DIR" \
-    PROD_DSH_HOME="$(load_prod_launch && printf '%s' "$PROD_DSH_HOME")" \
+    PLAYWRIGHT_CHROME_PATH="${PLAYWRIGHT_CHROME_PATH:-$chrome}" \
+    PROD_DSH_HOME="$PROD_DSH_HOME" \
     node "$HARNESS_DIR/scripts/lab-smoke/run.mjs" "${SMOKE_ARGS[@]+"${SMOKE_ARGS[@]}"}"
 }
 
