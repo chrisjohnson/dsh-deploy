@@ -5,7 +5,7 @@
 // same binary the production service uses (PLAYWRIGHT_CHROME_PATH).
 import { execFile } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { zstdDecompressSync } from 'node:zlib'
 
@@ -262,4 +262,49 @@ export function readSessionEvents(path) {
         return {}
       }
     })
+}
+
+/** Open one session from the sidebar by workspace and title; resolves once its conversation is showing. */
+export async function openSession(page, pick) {
+  const title = page.getByText(pick.title, { exact: true }).filter({ visible: true })
+  const more = page.getByText(/^Show \d+ more sessions?$/).filter({ visible: true })
+  for (let attempt = 0; attempt < 3 && (await title.count()) === 0; attempt++) {
+    // The group may already be open with the session behind "Show N more".
+    for (let i = 0; i < 12 && (await title.count()) === 0 && (await more.count()) > 0; i++) {
+      await more.first().click()
+      await sleep(400)
+    }
+    if ((await title.count()) > 0) break
+    // Otherwise the group is collapsed: open it (a second pass re-opens it if this closed it).
+    await page.getByText(pick.workspace, { exact: true }).filter({ visible: true }).first().click()
+    await sleep(700)
+  }
+  if ((await title.count()) === 0) return false
+  await title.first().scrollIntoViewIfNeeded()
+  await title.first().click()
+  await waitFor(
+    async () => {
+      const text = await bodyText(page)
+      return /Message or run a task/.test(text) && !/Describe what you want to build/.test(text)
+    },
+    { timeout: 30_000, what: `the session '${pick.title}' to open` }
+  )
+  return true
+}
+
+
+/** Title and workspace name of a session in the lab's data, or null if it is not there. */
+export function sessionInfo(env, sessionId) {
+  const root = join(env.dshHome, 'sessions')
+  for (const ws of readdirSync(root)) {
+    const dir = join(root, ws, sessionId)
+    if (!existsSync(dir)) continue
+    const file = ['session.v4.jsonl.zstd', 'session.v3.jsonl.zstd'].map((f) => join(dir, f)).find((f) => existsSync(f))
+    if (!file) return null
+    const events = readSessionEvents(file)
+    const title = [...events].reverse().find((e) => e.type === 'session/title')?.data?.title
+    const cwd = events[0]?.cwd
+    return title && cwd ? { id: sessionId, dir, title, workspace: cwd.split('/').filter(Boolean).pop() } : null
+  }
+  return null
 }

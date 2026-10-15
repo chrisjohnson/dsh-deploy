@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { bodyText, completedTurns, ensureWorkspace, newSession, openLab, send, transcript, turnFailure, waitFor, waitTurn } from '../lib.mjs'
 
-export const meta = { model: true, timeout: 300_000 }
+export const meta = { timeout: 300_000 }
 
 export async function run(ctx) {
   const { env } = ctx
@@ -15,8 +15,9 @@ export async function run(ctx) {
   try {
     await s.goto()
     await ensureWorkspace(env, page, 'lab-scratch')
-    await ctx.check('a solid red WebP attachment is described as red', async () => {
-      await newSession(page, 'lab-scratch')
+    await newSession(page, 'lab-scratch')
+
+    await ctx.check('a WebP file is accepted by the composer as an attachment', async () => {
       // Chromium encodes the WebP, so the fixture needs no image tooling on the box.
       const encoded = await page.evaluate(async () => {
         const canvas = document.createElement('canvas')
@@ -36,7 +37,17 @@ export async function run(ctx) {
       mkdirSync(join(env.meta, 'smoke'), { recursive: true })
       writeFileSync(file, Buffer.from(encoded.base64, 'base64'))
       await page.locator('input[type=file]').first().setInputFiles(file)
-      await waitFor(async () => /red\.webp/.test(await bodyText(page)), { timeout: 20_000, what: 'the attachment chip' })
+      // The composer shows the attachment as a thumbnail (a decoded blob/data image).
+      await waitFor(() => page.evaluate(() => [...document.images].some((i) => i.naturalWidth > 0 && /^(blob|data):/.test(i.src))), {
+        timeout: 20_000,
+        what: 'the attachment thumbnail'
+      })
+      await s.shot('webp-attached')
+      return 'red.webp attached, thumbnail shown'
+    })
+
+    await ctx.check('the model describes the WebP as red (it is converted before it reaches the backend)', async () => {
+      ctx.needModel()
       const before = await completedTurns(page)
       await send(page, 'What single color fills the attached image? Answer with one word.')
       try {
@@ -45,11 +56,11 @@ export async function run(ctx) {
         const failure = await turnFailure(page)
         throw new Error(failure && /webp|image|decode/i.test(failure) ? `the backend rejected the image (is the WebP patch applied?): ${failure}` : error.message)
       }
-      const text = await transcript(page)
       await s.shot('webp')
-      const reply = text.slice(text.lastIndexOf('red.webp'))
-      if (!/red/i.test(reply.split('What single color')[1] ?? reply)) throw new Error(`the reply does not say red: ${reply.replace(/\s+/g, ' ').slice(0, 200)}`)
-      return 'attached, converted, described as red'
+      const text = await transcript(page)
+      const reply = text.split('What single color fills the attached image?')[1] ?? text
+      if (!/red/i.test(reply)) throw new Error(`the reply does not say red: ${reply.replace(/\s+/g, ' ').slice(0, 200)}`)
+      return 'described as red'
     })
   } finally {
     await s.close()

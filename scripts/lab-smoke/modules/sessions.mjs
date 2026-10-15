@@ -8,7 +8,7 @@
 // would run an agent turn in a real workspace.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { Skip, bodyText, labSh, openLab, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
+import { Skip, bodyText, labSh, openLab, openSession, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
 
 export const meta = { timeout: 240_000 }
 
@@ -58,34 +58,6 @@ function shortlist(all, workspaces, n) {
   // sidebar only lists a workspace's recent sessions, so the opener walks this
   // list until it has opened `n`.
   return [...native.slice(0, 1), ...converted.slice(0, Math.max(1, Math.floor(n / 4))), ...old]
-}
-
-/** Open one session from the sidebar by workspace and title; resolves once its conversation is showing. */
-async function openSession(page, pick) {
-  const title = page.getByText(pick.title, { exact: true }).filter({ visible: true })
-  const more = page.getByText(/^Show \d+ more sessions?$/).filter({ visible: true })
-  for (let attempt = 0; attempt < 3 && (await title.count()) === 0; attempt++) {
-    // The group may already be open with the session behind "Show N more".
-    for (let i = 0; i < 12 && (await title.count()) === 0 && (await more.count()) > 0; i++) {
-      await more.first().click()
-      await sleep(400)
-    }
-    if ((await title.count()) > 0) break
-    // Otherwise the group is collapsed: open it (a second pass re-opens it if this closed it).
-    await page.getByText(pick.workspace, { exact: true }).filter({ visible: true }).first().click()
-    await sleep(700)
-  }
-  if ((await title.count()) === 0) return false
-  await title.first().scrollIntoViewIfNeeded()
-  await title.first().click()
-  await waitFor(
-    async () => {
-      const text = await bodyText(page)
-      return /Message or run a task/.test(text) && !/Describe what you want to build/.test(text)
-    },
-    { timeout: 30_000, what: `the session '${pick.title}' to open` }
-  )
-  return true
 }
 
 /**

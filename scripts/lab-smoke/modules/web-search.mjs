@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Skip, completedTurns, ensureWorkspace, newSession, openLab, send, transcript, waitTurn } from '../lib.mjs'
 
-export const meta = { needs: ['dsh-web-search-searxng'], model: true, timeout: 300_000 }
+export const meta = { needs: ['dsh-web-search-searxng'], timeout: 300_000 }
 
 function searxngUrl(env) {
   const pid = readFileSync(join(env.meta, 'pid'), 'utf8').trim()
@@ -32,6 +32,7 @@ export async function run(ctx) {
     })
 
     await ctx.check('web_search is called and its results reach the reply', async () => {
+      ctx.needModel()
       await newSession(page, 'lab-scratch')
       const before = await completedTurns(page)
       await send(page, 'Use the web_search tool to search for "nixos manual" and list the top 3 result titles with their URLs.')
