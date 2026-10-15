@@ -61,7 +61,7 @@ name and ask, or describe the exact divergence and let the human decide.
 
 ## Model list settings — re-verify on every backend swap
 
-`settings.yaml`'s hand-declared routes get **none** of pi-ai's
+`cordis.patch.yml`'s hand-declared `llm-pi-ai` routes get **none** of pi-ai's
 installed-catalog defaults — `contextWindow`, `maxTokens`, `input`,
 `reasoningEfforts` all silently assume the wrong thing unless declared
 explicitly. **Whenever a role gets reassigned to a different backend via
@@ -89,12 +89,11 @@ values still apply.
 
 ## Web-profile plugins are browser React
 
-`profiles/web/plugins/*` (that is `.dsh/profiles/web/plugins/`) are git-tracked,
-hand-written **React for the Web GUI**. A `client*.{js,mjs}` file mounts into the live
-composer/sidebar with no build, lint, typecheck or test between the edit and a user's
-browser. Read `profiles/web/plugins/AGENTS.md` before touching one — it covers the Rules
-of Hooks trap specific to this renderer (standard state arrives as hook-valued props),
-the generated-bundle and no-HMR/restart gotchas, and the gate script.
+Plugin client halves are **React for the Web GUI**: a `client*.{js,mjs}` file mounts into
+the live composer/sidebar with no build step between the edit and a user's browser.
+Plugin source lives in `chrisjohnson/dsh-plugins`; the root `AGENTS.md` covers the change
+workflow and the Rules of Hooks trap specific to this renderer (standard state arrives as
+hook-valued props).
 
 Symptom worth recognising cold: a blank GUI region plus `Minified React error
 #311`/`#310` in the console is a hook-count change in the plugin entry that owns that

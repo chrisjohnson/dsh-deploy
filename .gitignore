@@ -23,15 +23,14 @@ pnpm-store/
 # own "creator mode" - show up as plain git diffs. These are the known
 # state/secret paths within it, confirmed against a real running $DSH_HOME
 # (not guessed): session logs, generated artifacts, caches, and credentials/
-# keys that must never be committed. Everything else under .dsh/ (settings.yaml,
-# AGENTS.md, profiles/, .agent-presets/, skills/) stays tracked.
+# keys that must never be committed. Everything else under .dsh/ (AGENTS.md,
+# profiles/, .agent-presets/, skills/) stays tracked.
 .dsh/sessions/
 .dsh/attachments/
 .dsh/cache/
 .dsh/storages/
-# Per-plugin runtime state (dsh-git-worktree's registry and disabled-hooks dir
-# used to live here; dsh-better-git-worktree keeps its session -> worktree
-# registry here). Runtime state, never config.
+# Per-plugin runtime state (dsh-better-git-worktree keeps its session ->
+# worktree registry here). Runtime state, never config.
 .dsh/plugins/
 .dsh/keys/
 .dsh/.pnpm-store/
@@ -47,7 +46,7 @@ pnpm-store/
 .dsh/profiles/*/cordis.yml
 
 # Watchdog act/log mode override - written by the UI settings row,
-# read by semantic-loop-kicker on every check. Runtime state, not config.
+# read by loop-watchdog on every check. Runtime state, not config.
 .dsh/profiles/*/watchdog-mode.json
 
 # Working checkout of github.com/chrisjohnson/dsh-plugins (plugin source lives there,

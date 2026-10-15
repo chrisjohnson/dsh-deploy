@@ -1,0 +1,28 @@
+diff --git a/lib/index.js b/lib/index.js
+index e60aac4b4bd749b543270331e32639acdeeef54f..f3a6f4ccf204ba72ef680766f1a577c8d705ee8a 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1572,7 +1572,8 @@ var ResolutionRouter = class {
+ 	}
+ };
+ function internalModules() {
+-	const addon = createRequire(import.meta.url)("node-addon-require-builtin");
++	const req = createRequire(import.meta.url);
++	const addon = process.execArgv.includes("--expose-internals") ? { requireBuiltin: (id) => req(id) } : req("node-addon-require-builtin");
+ 	const esmModule = addon.requireBuiltin("internal/modules/esm/loader");
+ 	const cjsModule = addon.requireBuiltin("internal/modules/cjs/loader");
+ 	const cjsHelpers = addon.requireBuiltin("internal/modules/helpers");
+diff --git a/lib/worker/profile-resolution-bootstrap.js b/lib/worker/profile-resolution-bootstrap.js
+index 2864277625c243a2d0ef1357a3801098733280fc..01a8266a294f247dab4e00a3a952c61964effedb 100644
+--- a/lib/worker/profile-resolution-bootstrap.js
++++ b/lib/worker/profile-resolution-bootstrap.js
+@@ -459,7 +459,8 @@ var ResolutionRouter = class {
+ 	}
+ };
+ function internalModules() {
+-	const addon = createRequire(import.meta.url)("node-addon-require-builtin");
++	const req = createRequire(import.meta.url);
++	const addon = process.execArgv.includes("--expose-internals") ? { requireBuiltin: (id) => req(id) } : req("node-addon-require-builtin");
+ 	const esmModule = addon.requireBuiltin("internal/modules/esm/loader");
+ 	const cjsModule = addon.requireBuiltin("internal/modules/cjs/loader");
+ 	const cjsHelpers = addon.requireBuiltin("internal/modules/helpers");

@@ -9,6 +9,408 @@
 # playwright-browser gets a plain config-override row instead (see below),
 # since it self-mounts under id `playwright-browser` already.
 
+# Deployment settings. Every user-facing setting lives in this file as a row;
+# there is no separate $DSH_HOME/settings.yaml. A row's `config` replaces the
+# plugin's whole config object, so each row below carries its section
+# complete - edit a key in place rather than adding a second row for the
+# same id.
+
+- id: llm-pi-ai
+  config:
+    providers:
+      # Two providers, but as of 2026-08-21 BOTH talk directly to litellm
+      # (:4000), not through litellm-queue-haproxy-strix-apu/-r9700-egpu-dock.
+      # Those two haproxy instances were added on the assumption that
+      # concurrent GPU access was worse than serialized single-request-at-a-time
+      # access - a real A/B test found the opposite: 2 simultaneous requests
+      # against one GPU genuinely parallelized (higher aggregate throughput, not worse),
+      # so the forced serialization was net-negative, not protective. The
+      # haproxy containers are left defined/running for now (not torn down)
+      # in case this needs revisiting, but nothing routes through them.
+      #
+      # Kept as two providers (not consolidated into one) purely for the
+      # dsh model-picker UX - it groups by provider, so this keeps
+      # strix-apu vs r9700-egpu-dock roles visually separated even though
+      # both now resolve through the same litellm instance. litellm role
+      # IDs (medium-dense, medium-moe, etc.) stay exactly as-is and are NOT
+      # renamed per-GPU - the same role name can safely appear under (at
+      # most) one provider's models: list at a time without any
+      # collision/ambiguity risk.
+      #
+      # A role lives under whichever provider matches its CURRENTLY-pinned
+      # GPU, per scripts/set-role.sh's own GPU-hint output - this is
+      # manual-sync state (same deliberate philosophy docker/litellm/
+      # config.yaml's own header documents for why role values aren't
+      # git-tracked either), not automatically derived. If a role gets
+      # reassigned to a different GPU via set-role.sh, move its entry to
+      # match.
+      #
+      # reasoningEfforts (2026-09-06): pi-ai never infers reasoning support
+      # for a hand-declared route (same root cause as the contextWindow/
+      # maxTokens/input bugs above) - a model with none behaves exactly
+      # like a genuinely non-reasoning one, selector included. Every
+      # `reasoningEfforts` value below was confirmed by reading the actual
+      # backend's own chat template (via that build's llama-server /props,
+      # or the GGUF's embedded tokenizer.chat_template directly), not
+      # assumed from the model family name. Two real, different wire
+      # mechanisms are in play, and picking the wrong one is a silent
+      # no-op, not an error:
+      #   - graduated `reasoning_effort` string (medium-dense/Dirk only):
+      #     needs `compat.supportsReasoningEffort: true`.
+      #   - binary `enable_thinking` toggle (every other role below): the
+      #     template only checks true/false, there's no low/medium/high
+      #     distinction to offer. Delivered via `chat_template_kwargs`, which
+      #     needs `compat.thinkingFormat: chat-template` PLUS the
+      #     `$var: thinking.enabled` sentinel in `chatTemplateKwargs` (a
+      #     bare `chatTemplateKwargs` block with no `thinkingFormat` is
+      #     also a silent no-op - pi-ai's dispatch is gated on both).
+      #     The declared "medium" wire value is never read verbatim by
+      #     these templates, only whether it's present at all - offering
+      #     more than one non-off level here would be cosmetic, not real
+      #     control, so each one only offers off/on.
+      # RE-VERIFY THIS WHOLE BLOCK whenever a role gets reassigned via
+      # set-role.sh, same discipline as contextWindow/maxTokens/input -
+      # see dsh-home-seed/AGENTS.md's "Model list settings" section for
+      # exactly how to check a new backend before trusting either of the
+      # above.
+      local-ai-machine:
+        displayName: local-ai-machine
+        apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+        api: openai-completions
+        # Reached via 127.0.0.1, not a container DNS name or host.docker.internal:
+        # dsh itself is network_mode: host (see docker-compose.yml's dsh
+        # service comment), so it shares the host's own network namespace directly,
+        # same as litellm (also network_mode: host, bound straight to the host's
+        # :4000) - direct, no haproxy queue in between (see header above).
+        # streamIdleTimeoutMs (2026-09-15, task 2.2): default 300 000 ms is too
+        # short for this APU. A 7 035-token cold prefill measured 36.1 s at 728
+        # prompt tok/s (harness-tuning-plan.md §0); a 150 000-token context
+        # prefill is ~200 s, and under contention (another session or the
+        # watchdog) it crosses 300 s — causing `pi-ai stream idle timeout after
+        # 300000ms`, failed compactions, and retry storms (28 x 300 s ≈ 2.3 h
+        # lost in one session). Set to 900 000 ms (15 min) so a genuine long
+        # prefill is not treated as a failure.
+        streamIdleTimeoutMs: 900000
+        baseURL: http://127.0.0.1:4000/v1
+        # contextWindow/maxTokens (2026-08-21): pi-ai's own README is explicit
+        # that a hand-declared route (neither of these providers is in pi-ai's
+        # installed catalog) falls back to the ROUTE's defaultContextWindow
+        # (262,144) / defaultMaxTokens (32,768) for any model that doesn't
+        # size itself - and we were never setting either, so pi-ai silently
+        # assumed a context window exactly 2x the real one. Confirmed live:
+        # a medium-dense session hit `finish {reason: {kind: 'max-tokens'}}`
+        # with cacheReadTokens+inputTokens+outputTokens landing at exactly
+        # 131072 (the real -c 131072 on every GGUF build below, confirmed by
+        # grepping each build's docker-compose.yaml directly) while dsh's own
+        # UI reported the session only ~50% full - it was computing that
+        # percentage against the wrong 262144 denominator. This is also why
+        # compaction-basic's thresholdRatio: 0.6 fix never actually
+        # fired here: 60% of the WRONG 262144 (157,286) is past the point
+        # where the REAL backend runs out of room at 131072, so the session
+        # ran all the way to a native cutoff before compaction ever got a
+        # chance to run.
+        #
+        # small-moe/small-dense (2026-08-22): confirmed via litellm's own
+        # /model/info (queried through set-role.sh's exact credential-loading
+        # pattern - LITELLM_MASTER_KEY read from docker/.env, never printed -
+        # so this didn't need the raw key handled directly). small-moe ->
+        # glm-4.7-flash--llamacpp-vulkan-radv-strix-apu-v1 (-c 65536, no
+        # explicit -n cap set); small-dense ->
+        # qwen2.5-vl-7b-instruct--vllm-therock-gfx1151-strix-apu-v1
+        # (--max-model-len 32768, no explicit output cap set). maxTokens left
+        # unset for both (matching the absence of a real serving-config cap)
+        # rather than guessed - pi-ai's 32,768 route default comfortably fits
+        # under both real context windows either way, so leaving it unset is
+        # safe here, unlike contextWindow which was actively wrong.
+        # input: [text, image] (2026-09-02): pi-ai's own Model type has no
+        # auto-detection for hand-declared routes (same root cause as the
+        # contextWindow/maxTokens bug above) - `input` defaults to text-only
+        # unless a route explicitly lists "image", regardless of what the
+        # real backend actually supports. Confirmed via pi-ai's own
+        # transform-messages.js: any model whose `input` doesn't include
+        # "image" gets every image silently replaced with a text placeholder
+        # ("(image omitted: model does not support images)") BEFORE the
+        # request ever reaches the backend - this is why pasting a
+        # screenshot failed even after the backend itself was confirmed
+        # working via a real, correct multimodal completion (both directly
+        # against the llama-server container and through litellm using the
+        # exact role name). small-dense (qwen2.5-vl-7b-instruct) was ALSO
+        # missing this the whole time - it's a real vision model, this was
+        # never applied when the route was added.
+        # medium-moe BACKED ONTO occamy-1.0-mtp-q4--llamacpp-vulkan-radv-r9700-mtp-v2
+        # (port 8171) on 2026-09-28, replacing a route that pointed at a dead
+        # backend. All four settings re-verified against it: n_ctx 262144 live from
+        # /props, -n 8192, an mmproj IS mounted (it is a real vision model, so
+        # input: [text, image] is correct), and a chat template that carries
+        # enable_thinking rather than reasoning_effort. That last one is why
+        # reasoningEfforts stays false below.
+        #
+        # medium-moe contextWindow: 262144 is the declared value in this
+        # route. The previous comment justified it by citing Ornith v9's
+        # --kv-unified-per-slot 262144, but medium-moe now runs on occamy,
+        # not Ornith — that justification was stale. Per AGENTS.md's
+        # "Model list settings" rule, contextWindow should be re-verified
+        # against the live backend after any role reassignment; that cannot
+        # be done here without backend archaeology (out of scope), so the
+        # Ornith citation is removed rather than restated. The 262144
+        # declaration stands as the route's current value.
+        models:
+          - id: medium-moe
+            contextWindow: 262144
+            maxTokens: 8192
+            input: [ text, image ]
+            # reasoningEfforts (2026-09-15, task 2.1): the declared off/medium
+            # toggle was a silent no-op — selecting "off" still thinks.
+            # Confirmed from source: dsh-llm-pi-ai's resolveReasoningLevel
+            # (lib/index.js:1691) returns the selected level name; profileOptions
+            # (lib/index.js:1661) converts "off" to undefined; pi-ai's
+            # resolveChatTemplateKwargValue (dist/api/openai-completions.js:794)
+            # reads options.reasoningEffort and, at line 798, returns
+            # `!!reasoningEffort` for the `$var: thinking.enabled` sentinel.
+            # When "off" is selected reasoningEffort is undefined, so
+            # omitWhenOff drops the key entirely; the llama.cpp template guard
+            # `{%- if enable_thinking is defined and is false %}` treats
+            # omission as thinking ON. When "medium" is selected, !!reasoningEffort
+            # is true → enable_thinking: true. Either way the model thinks.
+            # The mechanism cannot express "thinking off", so stop offering
+            # levels that cannot work rather than relabeling them.
+            reasoningEfforts: false
+          - id: big-moe
+            contextWindow: 262144
+            # maxTokens: left unset, same as small-moe/small-dense above - the
+            # build's own launch command has no -n output cap, so there is no
+            # real serving-side limit to mirror here and pi-ai's 32,768 route
+            # default fits comfortably under the real context window.
+            # contextWindow: 262144 is the live value, not a copy - verified
+            # 2026-09-27 against the backend's own /props (n_ctx: 262144) and
+            # that build's docker-compose.yaml (-c 262144, the model's full
+            # native training context).
+            # input (2026-09-28): big-moe's build now MOUNTS a vision projector and
+            # passes --mmproj, so this is no longer text-only. Verified two ways:
+            # the server log says "loaded multimodal model, '/mmproj/mmproj-BF16.gguf'",
+            # and two screenshots were described accurately, including their on-screen
+            # text. The projector (mmproj-BF16.gguf, 908MB) comes from the same unsloth
+            # repo as the weights.
+            #
+            # Vision needs BOTH halves: this declaration, and the mount on the server.
+            # Either alone is a silent no-op - pi-ai will not send an image the route
+            # does not advertise, and a server with no projector cannot read one.
+            input: [ text, image ]
+            # reasoningEfforts (2026-09-28): the levels below are still the right
+            # DECLARATION, but the sentence further down saying "omitting it leaves
+            # the template's xhigh default in force" is now STALE. The server default
+            # is medium: the build added 2026-09-28 passes `--reasoning-effort medium`,
+            # so a request that names no level gets medium, and a request that names
+            # one still wins. That change was worth 6.2x on wall time for the standard
+            # probe (257.1 s -> 41.6 s, 24,376 -> 2,224 characters of thinking) with
+            # the answer still correct, because ~90% of what this model generates is
+            # thinking. Keep xhigh available for work that warrants it.
+            #
+            # reasoningEfforts (2026-09-27): big-moe currently backs onto
+            # qwen3.8-flash-next-iq4xs--llamacpp-rocm100-lazy-direct-budget-
+            # strixhalo-mtp-v1 on the APU, port 8184 (litellm /model/info,
+            # cross-checked against that build's -dev ROCm0). SWAPPED 2026-09-28
+            # from ...-rocm714-strixhalo-mtp-v1 after measuring the replacement at
+            # 2.62x its prefill and 2.36x its decode at 64k context, and 41% faster
+            # on an agentic compaction. All four settings below were re-verified
+            # against the new backend and all four stand unchanged: -c 262144, no
+            # -n cap, no mmproj mounted (text-only), and a chat template that is
+            # byte-identical because it comes from the GGUF.
+            #
+            # The "-budget" in the build name is load-bearing, not decoration: the
+            # engine has --reasoning-budget 8192. Without it the model's thinking
+            # block consumes the whole max_tokens budget and `content` comes back
+            # EMPTY with finish_reason=length - measured on this role through
+            # litellm at max_tokens=600, at low/medium/xhigh alike. big-moe leaves
+            # maxTokens unset, so pi-ai's 32768 default applies and the failure
+            # needs >32k of thinking to bite: rare, but it is the failed-compaction
+            # shape, and the harness reads it as slowness rather than as an error. Its chat template takes a graduated top-level
+            # `reasoning_effort` string - the same wire mechanism as
+            # medium-dense/Dirk below, NOT the binary enable_thinking /
+            # chat-template path the older strix-apu roles declared. The
+            # template's own validation accepts xhigh (its default), medium and
+            # low, and aliases `high` onto xhigh, so those three are the only
+            # distinct spellings worth offering. There is deliberately no "off":
+            # this template's real thinking-off switch is the separate binary
+            # `enable_thinking` template variable, and pi-ai's dispatch takes
+            # exactly one thinkingFormat per route, so the graduated and
+            # chat-template mechanisms cannot be combined (a chatTemplateKwargs
+            # value must carry a $var, leaving no way to send reasoning_effort
+            # alongside it). Declaring "off" under the graduated mechanism would
+            # send nothing and silently leave thinking on - the same no-op
+            # medium-moe's comment above documents - so the level is omitted
+            # rather than declared broken. Verified live through litellm:
+            # reasoning_effort low/medium/xhigh all reach the backend and change
+            # the request, and omitting it leaves the template's xhigh default
+            # in force.
+            reasoningEfforts:
+              low: low
+              medium: medium
+              xhigh: xhigh
+            compat:
+              supportsReasoningEffort: true
+          - id: medium-dense
+            contextWindow: 262144
+            maxTokens: 16384
+            input: [ text, image ]
+            # reasoningEfforts (2026-09-06): confirmed live via Dirk's own
+            # /props chat_template — graduated `reasoning_effort` (not the
+            # binary switch every strix-apu role above uses). Unrecognized
+            # values fall back to 'medium' safely (no error), but
+            # 'high'/'max'/'ultracode'/'extreme' are all aliases for
+            # 'xhigh' in this template, not distinct levels — only
+            # declaring the three that actually differ. This mechanism
+            # needs `compat.supportsReasoningEffort: true`, NOT the
+            # chat-template/$var block the other roles use.
+            reasoningEfforts:
+              "off":
+              low: low
+              medium: medium
+              xhigh: xhigh
+            compat:
+              supportsReasoningEffort: true
+      local-ai-machine-cloud:
+        displayName: local-ai-machine (cloud proxy)
+        apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:4000/v1
+        models:
+          - id: deepseek-flash
+            # contextWindow (2026-09-14): DeepSeek-V4.1-Flash's own config.json
+            # (deepseek-ai/DeepSeek-V4.1-Flash on HF) - max_position_embeddings:
+            # 1048576 (1M native, via YaRN rope_scaling factor 16 from an
+            # original 65536 trained length). maxTokens: the model's own README
+            # recommended-sampling-parameters table states "max_tokens >= 256K"
+            # for the 1M context_window - used directly, not independently
+            # re-verified via a real oversized completion (would need account
+            # balance - see below).
+            contextWindow: 1048576
+            maxTokens: 262144
+            # input: text only for now, NOT [text, image] - DeepSeek-V4.1-Flash
+            # IS natively multimodal (vision_config present in its official
+            # config.json, pipeline_tag: image-text-to-text, real MMMU-Pro/
+            # DocVQA benchmark scores) but that's the HF checkpoint's own
+            # capability, not a confirmation that litellm's deepseek/ provider
+            # actually forwards image content correctly over DeepSeek's hosted
+            # API. Same failure mode this file has hit twice before (small-dense
+            # and medium-moe both silently lost image support from a missing
+            # `input` declaration) can also go the OTHER way - claiming a
+            # capability that doesn't actually work end to end. Upgrade to
+            # [text, image] once a real multimodal call is confirmed working
+            # through this exact route.
+            # reasoningEfforts (2026-09-14): confirmed live, both direct against
+            # api.deepseek.com and through litellm - a plain top-level
+            # `reasoning_effort` string, same graduated mechanism as medium-dense
+            # above (needs `compat.supportsReasoningEffort: true`, not the
+            # chat-template/$var block). Resolves the ambiguity between
+            # DeepSeek's API docs (string "high" in every code example) and the
+            # model's own README ("continuously controllable... integer 1-100")
+            # in favor of the docs: the public API only exposes the discrete
+            # string presets, the 1-100 scale is an internal/native capability
+            # not surfaced here. "low" produced 17 reasoning_tokens and "high"
+            # produced 13 on the same trivial prompt (real usage.
+            # completion_tokens_details.reasoning_tokens, both calls, not
+            # inferred) - both accepted with no error either way, no
+            # unrecognized-param drop. Four values, not three: this plugin's own
+            # disabled dsh-llm-deepseek adapter (see the llm-deepseek block at
+            # the top of this file) declares reasoningEffort as
+            # z.union(["off","low","high","max"]) in its own schema - same
+            # vendor, trusted as the real accepted set since "off" and "max"
+            # weren't independently tested here (account balance was spent
+            # confirming low/high; low-risk to trust the adapter's own enum for
+            # the other two rather than spending more to re-confirm what
+            # DeepSeek's own code already asserts).
+            reasoningEfforts:
+              "off": "off"
+              low: low
+              high: high
+              max: max
+            compat:
+              supportsReasoningEffort: true
+
+# Default model for newly composed Sessions: big-moe, the maximum-intelligence
+# role. Switched from medium-moe (the fast/light role) through the settings UI
+# on 2026-10-09 and confirmed as the intended default by Chris on 2026-10-13:
+# quality over latency for interactive sessions, with medium-moe still
+# selectable per session and per subagent. Subagents that name no route
+# inherit the parent Session's route, so this also makes big-moe the subagent
+# default.
+- id: agent-default-model
+  config:
+    provider: local-ai-machine
+    model: big-moe
+
+- id: locale
+  config:
+    preference: en
+
+# Welcome-notice state, owned by the General settings page.
+- id: ui-settings-general
+  config:
+    welcomeNoticeVersion: 2026-08-13.1
+
+# Model routes the subagent tools may pick for a delegated child.
+- id: subagent-model-selection-settings
+  config:
+    enabled: true
+    allowedModels:
+      - provider: local-ai-machine
+        model: medium-moe
+      - provider: local-ai-machine
+        model: big-moe
+      # medium-dense REMOVED 2026-09-28: it routes to dirk on 8161, which is stopped,
+      # so offering it handed a delegate a route that cannot answer. Re-add it if dirk
+      # is brought back.
+      - provider: local-ai-machine-cloud
+        model: deepseek-flash
+
+# dsh-better-sidebar Side card preferences. titleBarScheme/titleBarCompat
+# are left out: the title-bar strip they configured no longer exists.
+- id: better-sidebar
+  config:
+    viewersEnabled:
+      code: true
+
+# Model catalog for the DeepSeek Messages-API provider (the base bundle's
+# @deepseek-ai/dsh-llm-deepseek-api-key row).
+- id: llm-deepseek
+  config:
+    models:
+      - id: deepseek-flash
+        name: DeepSeek-V41-Flash
+        contextWindow: 1000000
+        inputModalities:
+          - text
+          - image
+        imagePixelBudget: 640000
+        imageMaxBytes: 1048576
+        systemPromptUpdate: in-history
+      - id: deepseek-v4-flash
+        name: DeepSeek-V4-Flash
+        description: Fast, efficient, and economical; suited to focused, routine, or
+          parallel tasks.
+        contextWindow: 1000000
+        inputModalities:
+          - text
+      - id: deepseek-v4-flash-vision-exp
+        name: DeepSeek-V4-Flash-Vision-Exp
+        contextWindow: 1000000
+        inputModalities:
+          - text
+          - image
+        imagePixelBudget: 640000
+        imageMaxBytes: 1048576
+
+# dsh-web-search-searxng's bundle patch inserts this row and selects it as
+# ctx.web's search provider; this row only points it at the box's SearXNG.
+# The package's own fallback variable is $SEARXNG_URL, but the dsh unit
+# exports SEARXNG_BASE_URL (shared with image-search-searxng below), so the
+# row names it explicitly. A row's config replaces the whole object - restate
+# every key when adding one.
+- id: web-search-searxng
+  config:
+    baseURL: !!js process.env.SEARXNG_BASE_URL
+
 # Chris's explicit request (M-154, replaces the old Docker image's bare
 # global playwright CLI): dsh-playwright-browser gives dsh proper
 # browser_* tools instead of shell-invoked one-liners, and unlike the CLI
@@ -33,271 +435,86 @@
     viewportWidth: 1920
     viewportHeight: 1080
     executablePath: !!js process.env.PLAYWRIGHT_CHROME_PATH
+
+# Plugins released from chrisjohnson/dsh-plugins. Each one's bundle inserts its
+# own row (installed by exact git tag in package.json, listed in the profile's
+# `bundles`), so the rows below are config-only overrides by id. A row's
+# `config` replaces the plugin's whole config object, so each row lists every
+# key it needs; keys left out fall back to the package's defaults. Key names
+# and defaults are in each package's README.
+
+# Host-plane auto-continue watcher: sends a follow-up user message when a turn
+# halts on an output-token limit, a reasoning-only empty stop, or a crash
+# ('interrupted' markers are synthesized when a session loads), and gives up
+# after maxConsecutiveKicks kicks with no progress in between. Subagent
+# sessions are left alone (auto-kicking a delegated child fights its parent's
+# own retry flow). Every kick and skip is logged with its reason:
+# `journalctl -u dsh | grep continue-kicker`. The package default for
+# maxConsecutiveKicks is 5; this deployment stops at 3.
+- id: continue-kicker
+  config:
+    cooldownMs: 60000
+    liveKickDelayMs: 3000
+    maxConsecutiveKicks: 3
+    kickOnInterrupted: true
+    kickOnMaxTokens: true
+    kickOnEmptyCompletion: true
+    includeSubagents: false
+
+# Model-facing image_search tool over the same SearXNG instance
+# dsh-web-search-searxng uses for text search, querying its `images` category.
+# Same env-var convention as web-search-searxng above (SEARXNG_BASE_URL /
+# SEARXNG_API_KEY), plus SEARXNG_NUM_RESULTS for the default result count.
+- id: image-search-searxng
+  config:
+    baseURL: !!js process.env.SEARXNG_BASE_URL
+    maxResults: !!js process.env.SEARXNG_NUM_RESULTS
+    apiKey: !!js process.env.SEARXNG_API_KEY
+
+# Stuck-session signal: a deterministic repetition check over the recent
+# events, plus an LLM adjudication of ambiguous windows (medium-moe through
+# litellm on :4000, thinking switched off with chat_template_kwargs so the
+# one-line verdict is not swallowed by reasoning). Every evaluation appends a
+# line to the ledger; intervention stays off (interventionEnabled defaults to
+# false) and the act/log mode is toggled at runtime by the UI through the mode
+# file. The ledger and mode file paths are relative to $DSH_HOME and keep the
+# existing evaluation history and the toggle; leaving them out would start a
+# new empty ledger and ignore the toggle. Every other key is the package
+# default.
+- id: loop-watchdog
+  config:
+    llmBaseUrl: http://127.0.0.1:4000/v1
+    llmModel: medium-moe
+    llmApiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+    llmExtraBody:
+      chat_template_kwargs:
+        enable_thinking: false
+    ledgerFile: storages/semantic-loop-kicker/evaluations.jsonl
+    modeFile: profiles/web/watchdog-mode.json
+
+# In-session model switching for the agent itself: `switch_model` (agent picks
+# provider/model) and `switch_model_escalate` (escape hatch, no arguments;
+# deployment policy picks the route), plus a context-window fit guard that
+# compacts on a big-window route, or refuses with numbers, before a downward
+# switch strands a session.
 #
-# No settings-path redirect here (the old Docker cordis.patch.yml carried
-# one): that was purely a bind-mount rename limitation
-# (dsh-atomic-write commits every settings write via a same-directory
-# temp file + rename, which can't replace an active single-file Docker
-# bind mount). $DSH_HOME/settings.yaml on a real filesystem needs no
-# override - confirmed working in M-153.
+# escalationProvider/Model is the escape-hatch route: big-moe, because an
+# escalation the agent reaches for when stuck should be the strongest model
+# available. readerProvider/Model is the big-window route the repair moves to
+# before compacting; it must be able to hold the whole conversation, hence the
+# cloud 1M-window route. fitRatio/summaryReserveTokens are the guard's safety
+# margins; autoCompact: false downgrades the guard to warn-and-refuse.
+- id: model-switch
+  config:
+    escalationProvider: local-ai-machine
+    escalationModel: big-moe
+    readerProvider: local-ai-machine-cloud
+    readerModel: deepseek-flash
+    fitRatio: 0.8
+    summaryReserveTokens: 10000
+    autoCompact: true
 
-# Host-plane auto-continue watcher.
-# DSH equivalent of local-ai-machine's pi-web-session-watcher, but
-# in-process rather than an external poller - dsh's session/agent registries
-# are directly reachable from host-plane plugin code, so no separate service
-# or REST polling is needed the way pi-web (a closed prebuilt image) required.
-#
-# Two triggers feed one shared decision function:
-#
-#   - agent/created tail inspection - the path for crash recovery
-#     ('interrupted' markers are synthesized during session load and never
-#     publish live) and for reopen-after-the-fact cases.
-#   - Live watcher per agent on agent.ctx 'session/event': 'max-tokens'
-#     IS a real streamed finish reason (unlike interrupted), and unattended
-#     halts have no reopen event to lean on. Schedules a delayed
-#     re-analysis of the same tail guards rather than acting on the raw
-#     event.
-#
-# Kick conditions: unresolved 'interrupted' boundary, or any 'max-tokens'
-# boundary (no content-shape check on the final message - kind ===
-# 'max-tokens' is always a budget-cut generation, never a model-chosen
-# stop). Deliberately does NOT fire on 'completed', 'aborted', 'error',
-# tails already followed by a user/assistant message (recovered manually
-# or otherwise), subagent sessions by default (auto-kicking a delegated
-# child fights its parent orchestrator's own retry flow), or after
-# maxConsecutiveKicks consecutive kicks with no progress (runaway guard
-# against think-cap-think loops; logs loudly instead of kicking).
-# Max-tokens kicks use a reason-aware prompt forbidding re-derivation of
-# the lost reasoning. Every kick AND skip is logged with its reason - see
-# .dsh/profiles/web/plugins/continue-kicker.mjs for the full rationale.
-- insert:
-    - id: continue-kicker
-      name: ./plugins/continue-kicker.mjs
-      config:
-        cooldownMs: 60000
-        liveKickDelayMs: 3000
-        maxConsecutiveKicks: 3
-        kickOnInterrupted: true
-        kickOnMaxTokens: true
-        includeSubagents: false
-
-    # dsh-better-git-worktree: the deployment's own git-worktree session
-    # plugin (source under ./plugins/dsh-better-git-worktree, README there).
-    # Host half owns the session -> worktree registry, the cached status
-    # pipeline, the model-facing `worktree_convert` tool, and the private
-    # /betterGitWorktree JSON route; the Client half is served from the
-    # package's ./client export. It targets a *revisioned* entry (rather than
-    # index.mjs) so host code can be reloaded live by
-    # `node scripts/dev-reload-host.mjs` - see the plugin README.
-    - id: better-git-worktree
-      name: ./plugins/dsh-better-git-worktree/entry-r61.mjs
-
-    # Model-facing image_search tool over the same self-hosted SearXNG
-    # instance dsh-web-search-searxng uses for text search, querying its
-    # `images` category. Same env-var convention as dsh-web-search-searxng
-    # (SEARXNG_BASE_URL / SEARXNG_API_KEY) so no new deployment config is
-    # needed. See plugins/image-search-searxng.mjs for why this is a
-    # standalone tool rather than an extension of web_search/dsh-web, and
-    # why it returns markdown links rather than real image attachments.
-    - id: image-search-searxng
-      name: ./plugins/image-search-searxng.mjs
-      config:
-        baseURL: !!js process.env.SEARXNG_BASE_URL ?? 'http://localhost:8888'
-        maxResults: !!js Number(process.env.SEARXNG_NUM_RESULTS ?? 8)
-        apiKey: !!js process.env.SEARXNG_API_KEY
-
-    # "System 1" STUCK SIGNAL (re-steered per scratch/kicker-brief.md): the
-    # goal is a trustworthy "this session is stuck" signal the operator
-    # leaves armed - precision over recall. Two layers:
-    #
-    #   1. Deterministic fingerprint fast path (no LLM, no GPU): over the
-    #      last fpWindowEvents raw events, hash (tool, normalized args) and
-    #      flag repetition with NO new information (>=3 repeats with <=1
-    #      distinct result, or >=5 with <=2). Primary trigger.
-    #   2. LLM adjudication for ambiguous windows: medium-moe (direct
-    #      litellm, thinking off via chat_template_kwargs) judges whether
-    #      the last 6 substantive events produced NEW information, replying
-    #      "PROGRESS:<0-100>" or "LOOP:<0-100>" (lenient parse).
-    #
-    # Every evaluation appends one JSON line to
-    # $DSH_HOME/storages/semantic-loop-kicker/evaluations.jsonl carrying BOTH
-    # layers - the deterministic fingerprint result (including "ran and found
-    # no repetition", which decides nothing and used to leave no trace) and,
-    # when the code layer was inconclusive, the model's verdict - plus band,
-    # fingerprints, window, latency and outcome. That ledger is the interface
-    # every consumer reads; the evals panel row below is the first one. The
-    # path is persistent so the panel can read history across restarts (the
-    # old /tmp location was wiped on reboot).
-    #
-    # Bands: conf>=bandStuck -> "stuck" (actionable), >=bandWatch -> "watch",
-    # else "noise". Intervention is one consumer of the signal, gated by ALL:
-    # stuck band + SUSTAINED (>=2 consecutive stuck decisions) + act mode +
-    # not already acted in this streak. Non-destructive text, agent.steer
-    # (immediate, not queued). One nudge per stuck episode.
-    # Act/log mode: interventionEnabled here is the DEFAULT; the UI settings
-    # row (dynamic plugin) writes profiles/web/watchdog-mode.json, which the
-    # watchdog reads on every check - a toggle takes effect within one
-    # cooldown window, no restart.
-    # Busy-yield: after a slow LLM call (>busyYieldMs) the next check skips
-    # rather than competing with the session's own work.
-    # Skip coalescing: steps arrive far more often than the cooldown allows,
-    # so only the FIRST skip of a stretch is recorded - otherwise the ledger
-    # gains a row every few seconds and buries the real evaluations. A real
-    # evaluation ends the stretch, so the next one gets its own marker.
-    #
-    # Offline-tuned 2026-09-25 on 11 real-session anchors (3 iters each):
-    # 30/33, ZERO false positives, 3 false negatives (one ambiguous anchor,
-    # all in the non-actionable noise band). Harness:
-    # scratch/wd-tune/wd-tune.mjs.
-    # Host edits are invisible without a restart (node caches ES modules by
-    # URL), so the row points at a versioned re-export of the real module. To
-    # reload after an edit: copy the current -rN.mjs entry to -rN+1.mjs, bump
-    # the `?r=` inside the copy, repoint this row at it, delete the old one.
-    # (Bumping only the query inside the same entry file does nothing - the
-    # entry's own URL is the cache key the loader already holds.) Same lever as
-    # dsh-better-git-worktree, see its scripts/dev-reload-host.mjs; preferred
-    # here because other agent sessions may be mid-turn when it changes.
-    #
-    # Log sinks (the logConsole/logFile/logDsh/logDshErrors keys): this
-    # watchdog evaluated EVERY agent step of EVERY session and printed a
-    # stage line for each to stdout, which is the systemd journal - ~2700 of
-    # the last 4000 `journalctl -u dsh` lines were this plugin, burying the
-    # service's own output. Silenced 2026-09-28 by routing the whole verbose
-    # trail to the file log only. Re-enable by flipping logConsole (or
-    # logDsh) to true here - the watcher remounts the row live, so unlike a
-    # code change this needs no -rN bump and no restart. The evaluations.jsonl
-    # ledger is not a log and always writes: it is what the evals panel and
-    # any future escalation consumer read.
-    - id: semantic-loop-kicker
-      name: ./plugins/semantic-loop-kicker-r5.mjs
-      config:
-        cooldownMs: 30000
-        maxTranscriptLines: 6
-        includeSubagents: false
-        interventionEnabled: false
-        watchdogTimeoutMs: 25000
-        fpWindowEvents: 60
-        busyYieldMs: 15000
-        bandStuck: 90
-        bandWatch: 70
-        # Diagnostic sinks: stdout->journal off, /tmp/semantic-loop-kicker.log
-        # on, ctx.logger off except genuine errors.
-        logConsole: false
-        logFile: true
-        logDsh: false
-        logDshErrors: true
-
-    # The ledger READER: a right-sidebar tab (registered through
-    # dsh-better-sidebar's ctx.betterSidebar.registerTab, which its own bundle
-    # mounts) visualizing the watchdog's evaluations for the CURRENT session.
-    # It is a pure consumer - it never writes the ledger and never influences a
-    # decision, which is what keeps the signal consumer-agnostic.
-    #
-    # The panel is split along the signal's own two layers, which is the point:
-    #   code lane  - the deterministic fingerprint layer, including the "ran and
-    #                found no repetition" evaluations that decide nothing and
-    #                would otherwise be invisible
-    #   model lane - the LLM adjudications, drawn linked to the code marker they
-    #                escalated from
-    #   skip lane  - steps deliberately not evaluated (no-signal / cooldown /
-    #                busy-yield), so gaps in coverage are explicit, not silent
-    # A synced ledger lists the same evaluations in time order; selecting a
-    # marker or a row in either view opens that evaluation's full record:
-    # fingerprint groups, the model's raw reply, confidence, band, streak,
-    # latency, and the exact transcript window it judged.
-    #
-    # Host half (index.mjs) exposes the ledger over the /api fence
-    # (/api/semanticLoopEvals/{list,sessions,detail}): compact rows for the
-    # graph and ledger, and ONE full record (with its KB-sized transcript
-    # window) only for the row being inspected. Client half (client.mjs) is
-    # auto-mounted from this package's dsh.client declaration - same pattern as
-    # scheduled-queue. It also normalizes the older decisions-only (v1) ledger
-    # records into the current two-phase shape, so the panel reads both eras.
-    - id: semantic-loop-evals
-      name: ./plugins/semantic-loop-evals/index.mjs
-
-    # In-session model switching for the agent itself: `switch_model`
-    # (agent picks provider/model + the first message the new model receives)
-    # and `switch_model_escalate` (escape hatch - no arguments needed;
-    # deployment policy picks the route). Reuses the
-    # sessionController.selectModel path (same validation, durable
-    # model/selection event, "model changed" boundary notice, default-model
-    # persistence as the UI) plus agent.steer() so the notice is delivered
-    # immediately after the switch, before the new model picks up other work.
-    #
-    # As of 2026-09-28 the row also carries a CONTEXT-WINDOW FIT GUARD, because a
-    # downward switch (deepseek-flash 1M -> a local 262k role) used to strand the
-    # session: the first request on the smaller route dies with
-    # ContextWindowExceededError, and dsh's own overflow recovery cannot save it
-    # because it summarizes with the very model that overflowed. A model must
-    # READ a conversation in order to compact it, so the only moment a
-    # 421k-token session can be condensed is while a big-window model is still
-    # routed. The guard therefore compacts to fit BEFORE the route changes, or
-    # refuses the switch with numbers and points at subagent delegation. See
-    # plugins/model-switch/host.mjs for the full incident write-up.
-    #
-    # The row is now a package (versioned host entry + client.mjs) rather than a
-    # bare .mjs, because the interactive half needs a browser bundle: a pill
-    # beside the model picker, and an actionable banner under the composer
-    # offering the one-click "compact on a big-window route, then come back"
-    # repair, for the switches the guard cannot intercept (the composer picker
-    # calls sessionController.selectModel directly). See the entry's own header
-    # for the -rN reload ritual; the package's `dsh.client` declaration mounts
-    # client.mjs, so no `dsh.client` key belongs here.
-    #
-    # As of 2026-10-11 that banner is COLLAPSED BY DEFAULT. Past the auto-compact
-    # line nothing fails and nothing is stranded, so the paragraph no longer takes
-    # the composer until it is asked for: the pill is the handle (click or Enter
-    # opens it, and it re-measures on the way in). The hard case - past the route's
-    # own window, where the next request 400s and the automatic rescue summarises
-    # with the route that just overflowed - still opens itself once per
-    # session+route, and stays closed if it is closed by hand.
-    #
-    # escalationProvider/Model is the escape-hatch route. readerProvider/Model is
-    # the big-window route the interactive repair moves to before compacting; it
-    # must be able to hold the whole conversation. fitRatio/summaryReserveTokens
-    # are the guard's safety margins; autoCompact: false downgrades the guard to
-    # warn-and-refuse without compacting.
-    - id: model-switch
-      name: ./plugins/model-switch/entry-r6.mjs
-      config:
-        escalationProvider: local-ai-machine
-        # medium-dense until 2026-09-28, when it was found to route to a stopped
-        # build (dirk, port 8161) - so the escape hatch was broken. big-moe is the
-        # semantic fit rather than medium-moe: an escalation the agent reaches for
-        # when stuck should be the strongest model available, and medium-moe is the
-        # fast/light role. readerModel stays on the cloud route deliberately - it
-        # has to hold a whole conversation to compact it.
-        escalationModel: big-moe
-        readerProvider: local-ai-machine-cloud
-        readerModel: deepseek-flash
-        fitRatio: 0.8
-        summaryReserveTokens: 10000
-        autoCompact: true
-
-    # Composer scheduled-send: DISABLED 2026-09-27.
-    # Root cause: scheduled messages appeared in every session window, not just
-    # the session they were scheduled for - the dock slot is not yet scoped to
-    # the target session in DSH itself. Source left on disk; re-enable once DSH
-    # adds per-session scoping for the dock slot.
-    # - id: scheduled-queue
-    #   name: ./plugins/scheduled-queue/index.mjs
-
-# The sidebar browsing region is a `single` slot whose child seat
-# (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
-# declared it, so dsh-better-git-worktree cannot sit beside the official
-# Workspace row — it stands in for it. The plugin publishes the
-# `betterGitWorktreeWorkspaceProvider` marker on the ROOT context while it is
-# active, which is what elects the official row out here at boot (and what puts
-# it back when the plugin is not mounted). Its Host half also re-evaluates this
-# row through the Loader on activation and restores the composed option on
-# teardown.
-- id: ui-workspace
-  disabled: !!js "!!get('betterGitWorktreeWorkspaceProvider')"
-
-# The official Workspace row needs no row here: dsh-better-git-worktree stands
-# in for it (see the plugin's host `mountWorkspaceProviderElection`), because
-# the sidebar browsing region is a `single` slot whose child seat
-# (sidebar.workspaces.directoryFlow) can only be rendered by the entry that
-# declared it. The plugin disables the official row on activation and restores
-# its composed `disabled` option on teardown, so this stays self-contained.
+# better-git-worktree (git worktree sessions), scheduled-queue (composer
+# scheduled-send) and the official schedule bundle
+# (@deepseek-ai/dsh-experimental-schedule-bundle) mount from `bundles` and
+# need no row here.
