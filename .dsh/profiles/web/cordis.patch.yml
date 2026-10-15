@@ -347,7 +347,7 @@
 # Welcome-notice state, owned by the General settings page.
 - id: ui-settings-general
   config:
-    welcomeNoticeVersion: 2026-08-13.1
+    welcomeNoticeVersion: 2026-09-28.1
 
 # Model routes the subagent tools may pick for a delegated child.
 - id: subagent-model-selection-settings
