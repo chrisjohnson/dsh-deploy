@@ -467,14 +467,17 @@
 # and defaults are in each package's README.
 
 # Host-plane auto-continue watcher: sends a follow-up user message when a turn
-# halts on an output-token limit, a reasoning-only empty stop, or a crash
-# ('interrupted' markers are synthesized when a session loads), and gives up
-# after maxConsecutiveKicks kicks with no progress in between. Subagent
-# sessions are left alone (auto-kicking a delegated child fights its parent's
-# own retry flow). Every kick and skip is logged with its reason:
+# halts on an output-token limit, a reasoning-only empty stop, an error, or a
+# crash ('interrupted' markers are synthesized when a session loads). It gives
+# up after maxConsecutiveKicks consecutive kicks; the count is read from the
+# session log, so it survives restarts, and it resets on a user message or a
+# completed turn. Subagent sessions are left alone (auto-kicking a delegated
+# child fights its parent's own retry flow). Every kick and skip is logged with
+# its reason; logToStderr sends those lines to the journal:
 # `journalctl -u dsh | grep continue-kicker`. The package default for
 # maxConsecutiveKicks is 5; this deployment stops at 3.
 - id: continue-kicker
+  name: dsh-continue-kicker
   config:
     cooldownMs: 60000
     liveKickDelayMs: 3000
@@ -482,7 +485,9 @@
     kickOnInterrupted: true
     kickOnMaxTokens: true
     kickOnEmptyCompletion: true
+    kickOnError: true
     includeSubagents: false
+    logToStderr: true
 
 # Model-facing image_search tool over the same SearXNG instance
 # dsh-web-search-searxng uses for text search, querying its `images` category.
