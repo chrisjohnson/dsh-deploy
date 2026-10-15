@@ -68,3 +68,6 @@ pnpm-store/
 
 # DSH's startup diagnostics, written when a boot fails.
 .dsh/logs/
+
+# DSH config editor lock file, created next to cordis.patch.yml writes.
+.x.lock

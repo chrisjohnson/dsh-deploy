@@ -176,15 +176,44 @@
             # levels that cannot work rather than relabeling them.
             reasoningEfforts: false
           - id: big-moe
-            contextWindow: 262144
-            # maxTokens: left unset, same as small-moe/small-dense above - the
-            # build's own launch command has no -n output cap, so there is no
-            # real serving-side limit to mirror here and pi-ai's 32,768 route
-            # default fits comfortably under the real context window.
-            # contextWindow: 262144 is the live value, not a copy - verified
-            # 2026-09-27 against the backend's own /props (n_ctx: 262144) and
-            # that build's docker-compose.yaml (-c 262144, the model's full
-            # native training context).
+            # contextWindow (2026-10-15): set to 524288 (512k) at Chris's
+            # explicit request. The 262144 it replaced was NOT a considered
+            # value for the current backend - it was carried over from the
+            # pre-halogen llama.cpp build (-c 262144), and big-moe has since
+            # moved engines entirely. Re-verified live before touching it, per
+            # AGENTS.md's "re-verify on every backend swap":
+            #   - litellm /model/info resolves big-moe ->
+            #     openai/qwen3.8-flash-next-hgnv2-yarn1m--halogen-strix-apu-v1
+            #     at http://127.0.0.1:8213/v1.
+            #   - that server's own /v1/models reports max_model_len and
+            #     n_ctx/n_ctx_train 1048576 (1M).
+            #   - the two processes behind it agree, read from `ps` rather
+            #     than inferred: flash_serve --ck /native-ckpt/
+            #     qwen38-flash-next-v2.hgn --ctx 1048576 --kv-pool 1048576,
+            #     and serve_api.py --context 1048576.
+            # The KV pool is really granted at 1M, not auto-shrunk the way
+            # halogen's sizer shrank the GGUF Q4_K_XL trial (524288 requested,
+            # 262144 granted, "host RAM cannot spare it") - a live 1048576 is
+            # what an honored request looks like, that trial reported the
+            # shrunk number instead.
+            # So 512k is a deliberate UNDER-declaration of a real 1M window.
+            # That is the safe direction: the failure this file has been bitten
+            # by twice is declaring MORE than the backend serves, which makes
+            # the UI's own "% full" wrong and lets a session run past the real
+            # cutoff before compaction fires. The cost is compaction firing
+            # earlier than the hardware strictly requires. Raise to 1048576 if
+            # the full window is wanted.
+            contextWindow: 524288
+            # maxTokens: still left unset, same as small-moe/small-dense above,
+            # so pi-ai's 32768 route default is what actually goes out.
+            # FLAGGED, not fixed (2026-10-15): the old justification here ("the
+            # build's own launch command has no -n output cap") no longer holds
+            # for this backend - the halogen API layer advertises
+            # max_tokens_cap 65536 / max_tokens_default 8192, and the engine
+            # underneath ran with --max-tok 16384. 32768 is inside the API's
+            # cap but above the engine's own --max-tok; whether that truncates
+            # a long generation was not tested, and settling it is a separate
+            # decision from the context window.
             # input (2026-09-28): big-moe's build now MOUNTS a vision projector and
             # passes --mmproj, so this is no longer text-only. Verified two ways:
             # the server log says "loaded multimodal model, '/mmproj/mmproj-BF16.gguf'",
@@ -216,6 +245,23 @@
             # against the new backend and all four stand unchanged: -c 262144, no
             # -n cap, no mmproj mounted (text-only), and a chat template that is
             # byte-identical because it comes from the GGUF.
+            #
+            # SUPERSEDED (2026-10-15): that paragraph describes the llama.cpp
+            # backend (port 8184), which big-moe no longer runs on. Its
+            # "-c 262144, no -n cap, no mmproj mounted" summary is stale on all
+            # three counts - the live backend is the halogen-native build
+            # (flash_serve --ck .../qwen38-flash-next-v2.hgn --ctx 1048576
+            # --kv-pool 1048576 --max-tok 16384 behind serve_api.py); the full
+            # verification lives in the contextWindow comment above. Also
+            # stale with it: the 2026-09-28 note above saying the server default
+            # effort is medium came from that build's `--reasoning-effort
+            # medium`. No such flag exists on this engine, and the live chat
+            # template's own default is `reasoning_effort|default('xhigh')`,
+            # so the effective default is likely xhigh again - re-confirm
+            # end-to-end before trusting the latency numbers that change was
+            # worth. The DECLARATION below still matches the live template,
+            # which accepts exactly xhigh/medium/low and raises on anything
+            # else.
             #
             # The "-budget" in the build name is load-bearing, not decoration: the
             # engine has --reasoning-budget 8192. Without it the model's thinking
@@ -370,36 +416,13 @@
   config:
     viewersEnabled:
       code: true
+    agentOpenTools: true
 
 # Model catalog for the DeepSeek Messages-API provider (the base bundle's
 # @deepseek-ai/dsh-llm-deepseek-api-key row).
 - id: llm-deepseek
   config:
-    models:
-      - id: deepseek-flash
-        name: DeepSeek-V41-Flash
-        contextWindow: 1000000
-        inputModalities:
-          - text
-          - image
-        imagePixelBudget: 640000
-        imageMaxBytes: 1048576
-        systemPromptUpdate: in-history
-      - id: deepseek-v4-flash
-        name: DeepSeek-V4-Flash
-        description: Fast, efficient, and economical; suited to focused, routine, or
-          parallel tasks.
-        contextWindow: 1000000
-        inputModalities:
-          - text
-      - id: deepseek-v4-flash-vision-exp
-        name: DeepSeek-V4-Flash-Vision-Exp
-        contextWindow: 1000000
-        inputModalities:
-          - text
-          - image
-        imagePixelBudget: 640000
-        imageMaxBytes: 1048576
+    models: []
 
 # dsh-web-search-searxng's bundle patch inserts this row and selects it as
 # ctx.web's search provider; this row only points it at the box's SearXNG.
@@ -444,14 +467,17 @@
 # and defaults are in each package's README.
 
 # Host-plane auto-continue watcher: sends a follow-up user message when a turn
-# halts on an output-token limit, a reasoning-only empty stop, or a crash
-# ('interrupted' markers are synthesized when a session loads), and gives up
-# after maxConsecutiveKicks kicks with no progress in between. Subagent
-# sessions are left alone (auto-kicking a delegated child fights its parent's
-# own retry flow). Every kick and skip is logged with its reason:
+# halts on an output-token limit, a reasoning-only empty stop, an error, or a
+# crash ('interrupted' markers are synthesized when a session loads). It gives
+# up after maxConsecutiveKicks consecutive kicks; the count is read from the
+# session log, so it survives restarts, and it resets on a user message or a
+# completed turn. Subagent sessions are left alone (auto-kicking a delegated
+# child fights its parent's own retry flow). Every kick and skip is logged with
+# its reason; logToStderr sends those lines to the journal:
 # `journalctl -u dsh | grep continue-kicker`. The package default for
 # maxConsecutiveKicks is 5; this deployment stops at 3.
 - id: continue-kicker
+  name: dsh-continue-kicker
   config:
     cooldownMs: 60000
     liveKickDelayMs: 3000
@@ -459,7 +485,9 @@
     kickOnInterrupted: true
     kickOnMaxTokens: true
     kickOnEmptyCompletion: true
+    kickOnError: true
     includeSubagents: false
+    logToStderr: true
 
 # Model-facing image_search tool over the same SearXNG instance
 # dsh-web-search-searxng uses for text search, querying its `images` category.
