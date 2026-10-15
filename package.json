@@ -3,6 +3,9 @@
   "private": true,
   "description": "Native (no Docker) dsh (DeepSeek Harness) install for local-ai-machine. Minimal bootstrap (M-153) - see AGENTS.md.",
   "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "check": "node scripts/check-no-links.mjs"
+  },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.0-rc.2",
     "dsh-web-search-searxng": "0.5.1",
