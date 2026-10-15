@@ -23,6 +23,10 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # ---------------------------------------------------------------------------
 LAB_ROOT="${LAB_ROOT:-$HOME/dsh-lab}"
 LAB_NAME="${LAB_NAME:-default}"
+# An explicit port (flag or environment) wins; otherwise an existing lab keeps the
+# port it was started on, and a new one gets 3099.
+PORT_EXPLICIT=0
+[[ -n "${LAB_PORT:-}" ]] && PORT_EXPLICIT=1
 LAB_PORT="${LAB_PORT:-3099}"
 LAB_SOURCE="${LAB_SOURCE:-https://github.com/chrisjohnson/dsh-deploy.git}"
 LAB_REF="${LAB_REF:-main}"
@@ -1080,7 +1084,7 @@ main() {
       --with-worktrees) WITH_WORKTREES=1 ;;
       --force) FORCE=1 ;;
       --name) LAB_NAME="${2:?--name needs a value}"; shift ;;
-      --port) LAB_PORT="${2:?--port needs a value}"; shift ;;
+      --port) LAB_PORT="${2:?--port needs a value}"; PORT_EXPLICIT=1; shift ;;
       --ref) LAB_REF="${2:?--ref needs a value}"; shift ;;
       --source) LAB_SOURCE="${2:?--source needs a value}"; shift ;;
       --sessions)
@@ -1096,6 +1100,7 @@ main() {
   done
   [[ -z "$SESSIONS_LIMIT" || "$SESSIONS_LIMIT" =~ ^[0-9]+$ ]] || die "--sessions needs a number"
   resolve_paths
+  if ((!PORT_EXPLICIT)) && [[ -f "$LAB_META/port" ]]; then LAB_PORT="$(cat "$LAB_META/port")"; fi
   # One mutating command per lab at a time.
   case "$cmd" in
     up | down | restart | reset | link | unlink | destroy | kill)

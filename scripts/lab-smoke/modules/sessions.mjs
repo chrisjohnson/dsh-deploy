@@ -6,9 +6,9 @@
 // Only sessions whose last turn ended cleanly are opened. A session that looks
 // crash-orphaned would make dsh-continue-kicker send "continue" into it, which
 // would run an agent turn in a real workspace.
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { bodyText, labSh, openLab, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
+import { Skip, bodyText, labSh, openLab, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
 
 export const meta = { timeout: 240_000 }
 
@@ -143,7 +143,12 @@ export async function run(ctx) {
       await probe.close()
     }
     list = shortlist(candidates(ctx.env), workspaces, wanted)
-    if (list.length === 0) throw new Error('no copied session qualifies (was the lab started with --empty-data?)')
+    if (list.length === 0) {
+      const mode = existsSync(join(ctx.env.meta, 'data-mode')) ? readFileSync(join(ctx.env.meta, 'data-mode'), 'utf8').trim() : ''
+      // A lab seeded with --empty-data or only the newest N sessions may hold nothing suitable.
+      if (mode === 'empty' || mode.startsWith('sessions=')) throw new Skip(`the lab's data is '${mode}': no copied session qualifies; start without --sessions for this check`)
+      throw new Error('no copied session qualifies: none ended its last turn cleanly in a workspace the sidebar lists')
+    }
     return `${list.length} candidates (${list.filter((p) => p.v3only).length} still in the old format)`
   })
   if (list.length === 0) return
