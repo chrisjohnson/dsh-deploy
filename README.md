@@ -60,6 +60,19 @@ repo runs its `web` subcommand (`dsh web`) as a long-running native process.
   listed in the web profile's `bundles`); their source is not in this repo. See
   `AGENTS.md` for the change workflow.
 
+- **`scripts/lab.sh`, `scripts/lab-smoke/`**: a disposable second instance for verifying
+  a change before it ships (a plugin edit in `dsh-plugins`, or a change here). `lab.sh up`
+  clones this repo into `~/dsh-lab/<name>`, installs against the shared pnpm store, copies
+  a read-only snapshot of production's session data and boots it on :3099 with the
+  production unit's own node binary, flags and environment. `lab.sh link <pkg>` pins a
+  plugin to a local checkout in the lab only; `lab.sh smoke` drives the browser UI with
+  Playwright through one module per area (boot, ui, sessions, completion, web-search,
+  image-search, webp, model-switch, scheduled-queue, loop-watchdog, worktree,
+  continue-kicker) and writes `RESULTS.md`. It runs as the `dsh` user with no sudo and
+  never touches production. `scripts/check-no-links.mjs` (`pnpm run check`) fails if a
+  `link:`/`file:` pin or local path is committed. `AGENTS.md` has the full loop, the
+  safety rules and what to do when a check fails.
+
 ## Running it
 
 The box's NixOS config declares a `dsh` systemd service (`User = "dsh"`,

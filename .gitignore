@@ -62,8 +62,12 @@ pnpm-store/
 # if it does, it is a stale copy, not config.
 .dsh/settings.yaml.imported
 
-# Disposable lab copies of DSH_HOME used to rehearse upgrades.
+# Disposable lab state: copies of DSH_HOME used to rehearse upgrades, and what
+# scripts/lab.sh keeps per lab (pid, log, access URL, smoke results).
 .lab/
+
+# DSH's startup diagnostics, written when a boot fails.
+.dsh/logs/
 
 # DSH config editor lock file, created next to cordis.patch.yml writes.
 .x.lock
