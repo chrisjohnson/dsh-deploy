@@ -94,18 +94,21 @@ export async function run(ctx) {
       const before = await completedTurns(page)
       await send(page, 'Reply with exactly: wt-ok')
       await waitTurn(page, before)
+      // The row's archive action is revealed on hover and clicked by event, like the
+      // other hover-only row buttons; it is the plugin's shadow of the official one.
       const row = page.getByText('Reply with exactly: wt-ok', { exact: true }).filter({ visible: true }).first()
       await row.hover()
-      await page.locator('[aria-label*="rchive" i]').filter({ visible: true }).first().click()
+      const archive = row.locator('xpath=ancestor::*[.//button[@aria-label="Archive session"]][1]').locator('[aria-label="Archive session"]').first()
+      await archive.dispatchEvent('click')
       const dialog = page.locator('[role=dialog], [role=alertdialog]').first()
       await dialog.waitFor({ timeout: 15_000 })
       const text = await dialog.innerText()
       await s.shot('worktree-archive-dialog')
       if (!/uncommitted/i.test(text)) throw new Error(`the dialog does not warn about uncommitted work: ${text.replace(/\n+/g, ' | ').slice(0, 300)}`)
       for (const label of ['Remove', 'Keep', 'Cancel']) {
-        if (!(await dialog.getByRole('button', { name: label }).count())) throw new Error(`the dialog has no ${label} button`)
+        if (!(await dialog.getByRole('button', { name: label, exact: true }).count())) throw new Error(`the dialog has no ${label} button`)
       }
-      await dialog.getByRole('button', { name: 'Cancel' }).click()
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).first().click()
       if (!existsSync(copy.managedRoot)) throw new Error('Cancel removed the copy')
       return 'warned, three choices, Cancel kept the copy'
     })
@@ -126,6 +129,7 @@ export async function run(ctx) {
 
     await ctx.check('worktree_convert moves a session and its uncommitted work into a copy; Remove needs the confirmed plan', async () => {
       ctx.needModel()
+      await page.keyboard.press('Escape') // a dialog left open by an earlier check must not eat the next one
       await newSession(page, 'lab-wt-repo')
       const before = await completedTurns(page)
       await send(page, 'Reply with exactly: convert-ok')

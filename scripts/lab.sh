@@ -418,7 +418,7 @@ redact() { sed -E 's/(token=)[A-Za-z0-9_-]+/\1REDACTED/g'; }
 BOOT_PROBLEMS=0
 verify_boot() {
   BOOT_PROBLEMS=0
-  local line_re='skip|admission|did not activate|failed to import|incompatib|unsupported|no-getter|error|exception|unhandled|rejection|cannot find|ERR_|^[[:space:]]+at '
+  local line_re='skipping profile bundle|admission|did not activate|failed to import|incompatib|unsupported/|no-getter|\berror:| error |fatal|exception|unhandled|rejection|cannot find|ERR_|^[[:space:]]+at '
   local lines count
   lines="$(grep -v -E '^dsh web: http' "$LAB_LOG" | grep -i -E "$line_re" | redact | head -n 20 || true)"
   count="$(printf '%s' "$lines" | grep -c . || true)"
@@ -949,7 +949,7 @@ cmd_smoke() {
   LAB_DIR="$LAB_DIR" LAB_NAME="$LAB_NAME" LAB_PORT="$(lab_port)" LAB_ROOT="$LAB_ROOT" \
     LAB_SH="$HARNESS_DIR/scripts/lab.sh" LAB_PLUGINS_DIR="$LAB_PLUGINS_DIR" \
     PLAYWRIGHT_CHROME_PATH="${PLAYWRIGHT_CHROME_PATH:-$chrome}" \
-    PROD_DSH_HOME="$PROD_DSH_HOME" \
+    PROD_DSH_HOME="$PROD_DSH_HOME" LAB_FORCE="$FORCE" \
     node "$HARNESS_DIR/scripts/lab-smoke/run.mjs" "${SMOKE_ARGS[@]+"${SMOKE_ARGS[@]}"}"
 }
 

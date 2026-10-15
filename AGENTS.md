@@ -205,6 +205,20 @@ Safety rules:
 - `smoke --only sessions` opens only sessions whose last turn ended cleanly: reopening an
   interrupted one makes continue-kicker run a turn in that session's real workspace.
 
+Lab recipes (all lab-only, never committed):
+
+- `LAB_ROOT` (default `~/dsh-lab`) holds labs as `$LAB_ROOT/<name>`; `--name`/`LAB_NAME` pick one, `--port`/`LAB_PORT` its port.
+  The lab clone has its own `cordis.patch.yml`: edit it there (it is a plain tracked-file diff, shown by `status`).
+- Pin by hand the way `lab.sh link` does: set `"<pkg>": "link:<abs path>/packages/<dir>"` in the root and
+  `.dsh/profiles/web/package.json`, `pnpm install` (not frozen), start node with `--preserve-symlinks`.
+  Swap back by restoring both manifests and `pnpm-lock.yaml` from git and `pnpm install --frozen-lockfile`.
+- `lab.sh kill` SIGKILLs the lab server mid-turn (crash test); `lab.sh up` brings it back with the same data.
+- To force an error halt (for example to exercise continue-kicker's `kickOnError`), point a lab-only provider's `baseURL`
+  in the lab's `cordis.patch.yml` at the dead route `http://127.0.0.1:1/v1`; every turn on it then fails at once.
+- Plugin loggers are quiet by default; the `logToStderr` setting makes plugin logs reach the lab's stderr log
+  (`lab.sh logs`).
+- DSH rewrites tracked files in the lab (for example `cordis.patch.yml` when a setting changes); that is information, not a failure.
+
 When a check fails: read the detail line and the `FAIL-*.png` screenshot in
 `<lab>/.lab/smoke/shots/`, then `lab.sh logs`. A model-turn failure that quotes a 500 or
 "Connection error" means the model backend is down, not the change. Re-run just that

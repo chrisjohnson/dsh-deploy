@@ -7,7 +7,8 @@ import { Skip, accessUrl, redact } from '../lib.mjs'
 
 export const meta = { timeout: 60_000 }
 
-const SUSPICIOUS = /skip|admission|did not activate|failed to import|incompatib|unsupported|no-getter|error|exception|unhandled|rejection|cannot find|ERR_|^\s+at /i
+// Real failure shapes only: the bare word "error" appears in healthy plugin startup lines (kickOnError=...).
+const SUSPICIOUS = /skipping profile bundle|admission|did not activate|failed to import|incompatib|unsupported\/|no-getter|\berror:| error |fatal|exception|unhandled|rejection|cannot find|ERR_|^\s+at /i
 
 const readEnviron = (pid) =>
   Object.fromEntries(

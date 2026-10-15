@@ -9,6 +9,7 @@
 // Results are rewritten after EVERY check: <lab>/.lab/smoke/RESULTS.md and
 // results.json. The exit code is non-zero only when a check FAILed; SKIP means
 // "could not be automated or not applicable here" and is never a pass.
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -22,11 +23,12 @@ const ORDER = [
   'web-search',
   'image-search',
   'webp',
-  'model-switch',
   'scheduled-queue',
   'loop-watchdog',
   'worktree',
-  'continue-kicker'
+  'continue-kicker',
+  // Last: a successful switch becomes the lab's default model for new sessions.
+  'model-switch'
 ]
 
 function parseArgs(argv) {
@@ -117,10 +119,28 @@ function makeCtx(moduleName, meta) {
     /** Call first inside a check that sends a real model turn: SKIP under --skip-model. */
     needModel() {
       if (args.skipModel) throw new Skip('--skip-model: needs a real model turn')
+      const bench = benchmarkRunning()
+      if (bench) throw new Skip(`a benchmark is running (${bench.slice(0, 70)}); not sending model requests`)
     },
     skip(name, reason) {
       record(moduleName, name, 'SKIP', 0, reason)
     }
+  }
+}
+
+/**
+ * A speed benchmark in flight is measuring the same local models the model checks
+ * would hit. lab.sh smoke refuses to start then; this re-checks before each model
+ * turn so a benchmark that starts mid-run is not disturbed. LAB_FORCE=1 skips it.
+ */
+function benchmarkRunning() {
+  if (process.env.LAB_FORCE === '1') return null
+  const pattern = process.env.LAB_BENCH_PATTERN ?? 'llm_decode_bench|llm-inference-bench'
+  try {
+    const out = execFileSync('pgrep', ['-f', '-a', pattern], { encoding: 'utf8' })
+    return out.split('\n').find((line) => line && !/pgrep/.test(line)) ?? null
+  } catch {
+    return null
   }
 }
 
@@ -140,6 +160,10 @@ for (const name of wanted) {
   }
   if (meta.model && args.skipModel) {
     ctx.skip('(module)', '--skip-model: needs a real model turn')
+    continue
+  }
+  if (meta.model && benchmarkRunning()) {
+    ctx.skip('(module)', `a benchmark is running (${benchmarkRunning().slice(0, 70)}); not sending model requests`)
     continue
   }
   try {
