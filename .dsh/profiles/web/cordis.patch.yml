@@ -384,7 +384,7 @@
 - id: agent-default-model
   config:
     provider: local-ai-machine
-    model: big-moe
+    model: medium-moe
 
 - id: locale
   config:
@@ -414,9 +414,9 @@
 # are left out: the title-bar strip they configured no longer exists.
 - id: better-sidebar
   config:
+    agentOpenTools: true
     viewersEnabled:
       code: true
-    agentOpenTools: true
 
 # Model catalog for the DeepSeek Messages-API provider (the base bundle's
 # @deepseek-ai/dsh-llm-deepseek-api-key row).
