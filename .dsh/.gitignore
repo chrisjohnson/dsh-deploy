@@ -1,0 +1,13 @@
+# dsh-taskboard's local store (machine state, not project source).
+#
+# Scoped to the store files only - do NOT widen this to `*`. This deployment
+# runs with DSH_HOME inside the git checkout (M-153), so .dsh/ also holds
+# tracked config (AGENTS.md, profiles/); a blanket ignore here would hide
+# those from git add/status. The taskboard plugin only writes this marker
+# when it is absent and leaves an existing one alone, so this narrow rule
+# persists across service restarts. If the plugin ever rewrites it back to
+# `*`, that is a plugin bug: report it upstream (shengsheng90/DSH-taskboard).
+taskboard.sqlite
+taskboard.sqlite-shm
+taskboard.sqlite-wal
+taskboard-attachments/
