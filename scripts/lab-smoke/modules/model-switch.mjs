@@ -22,10 +22,12 @@ export async function run(ctx) {
       const from = await currentModel(page)
       // Any other model that is up will do; medium-moe is the one the lab expects.
       const to = from === 'medium-moe' ? 'big-moe' : 'medium-moe'
+      // medium-moe/medium-dense live on the eGPU provider, big-moe on the APU one.
+      const toProvider = to === 'big-moe' ? 'local-ai-machine (apu)' : 'local-ai-machine (eGPU)'
       const before = await completedTurns(page)
       await send(
         page,
-        `Call the switch_model tool exactly once with provider "local-ai-machine", model "${to}" and message "Reply with exactly: switched-ok". Do not do anything else first.`
+        `Call the switch_model tool exactly once with provider "${toProvider}", model "${to}" and message "Reply with exactly: switched-ok". Do not do anything else first.`
       )
       await waitTurn(page, before, { timeout: 300_000 })
       // The tool hands the message to the new model at once, which is a second turn.

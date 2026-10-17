@@ -73,8 +73,8 @@
       # see dsh-home-seed/AGENTS.md's "Model list settings" section for
       # exactly how to check a new backend before trusting either of the
       # above.
-      local-ai-machine:
-        displayName: local-ai-machine
+      local-ai-machine (apu):
+        displayName: local-ai-machine (APU)
         apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
         api: openai-completions
         # Reached via 127.0.0.1, not a container DNS name or host.docker.internal:
@@ -82,15 +82,11 @@
         # service comment), so it shares the host's own network namespace directly,
         # same as litellm (also network_mode: host, bound straight to the host's
         # :4000) - direct, no haproxy queue in between (see header above).
-        # streamIdleTimeoutMs (2026-09-15, task 2.2): default 300 000 ms is too
-        # short for this APU. A 7 035-token cold prefill measured 36.1 s at 728
-        # prompt tok/s (harness-tuning-plan.md §0); a 150 000-token context
-        # prefill is ~200 s, and under contention (another session or the
-        # watchdog) it crosses 300 s — causing `pi-ai stream idle timeout after
-        # 300000ms`, failed compactions, and retry storms (28 x 300 s ≈ 2.3 h
-        # lost in one session). Set to 900 000 ms (15 min) so a genuine long
-        # prefill is not treated as a failure.
-        streamIdleTimeoutMs: 900000
+        # streamIdleTimeoutMs: left at the pi-ai default (300 000 ms / 5 min).
+        # The APU runs big-moe (halogen flash-next, 1M-context engine) which has
+        # fast prefill; the default idle window is fine. The eGPU provider
+        # (medium-moe / medium-dense on llama.cpp -np 1) carries 900 000 ms
+        # because queued requests behind a long first generation need the headroom.
         baseURL: http://127.0.0.1:4000/v1
         # contextWindow/maxTokens (2026-08-21): pi-ai's own README is explicit
         # that a hand-declared route (neither of these providers is in pi-ai's
@@ -155,26 +151,6 @@
         # Ornith citation is removed rather than restated. The 262144
         # declaration stands as the route's current value.
         models:
-          - id: medium-moe
-            contextWindow: 262144
-            maxTokens: 8192
-            input: [ text, image ]
-            # reasoningEfforts (2026-09-15, task 2.1): the declared off/medium
-            # toggle was a silent no-op — selecting "off" still thinks.
-            # Confirmed from source: dsh-llm-pi-ai's resolveReasoningLevel
-            # (lib/index.js:1691) returns the selected level name; profileOptions
-            # (lib/index.js:1661) converts "off" to undefined; pi-ai's
-            # resolveChatTemplateKwargValue (dist/api/openai-completions.js:794)
-            # reads options.reasoningEffort and, at line 798, returns
-            # `!!reasoningEffort` for the `$var: thinking.enabled` sentinel.
-            # When "off" is selected reasoningEffort is undefined, so
-            # omitWhenOff drops the key entirely; the llama.cpp template guard
-            # `{%- if enable_thinking is defined and is false %}` treats
-            # omission as thinking ON. When "medium" is selected, !!reasoningEffort
-            # is true → enable_thinking: true. Either way the model thinks.
-            # The mechanism cannot express "thinking off", so stop offering
-            # levels that cannot work rather than relabeling them.
-            reasoningEfforts: false
           - id: big-moe
             # contextWindow (2026-10-15): set to 524288 (512k) at Chris's
             # explicit request. The 262144 it replaced was NOT a considered
@@ -295,6 +271,40 @@
               xhigh: xhigh
             compat:
               supportsReasoningEffort: true
+      local-ai-machine (eGPU):
+        displayName: local-ai-machine (eGPU)
+        apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
+        api: openai-completions
+        # Same litellm (:4000) as the APU provider, but this entry exists so the
+        # eGPU models (medium-moe, medium-dense) can carry their own
+        # streamIdleTimeoutMs. medium-moe runs llama.cpp -np 1: when a second
+        # request queues behind a long first generation, the dsh-side
+        # streamIdleTimeoutMs is what fires if the queue wait exceeds it.
+        # 900 000 ms (15 min) gives enough headroom for a queued request to
+        # eventually get its slot without being killed mid-wait.
+        streamIdleTimeoutMs: 900000
+        baseURL: http://127.0.0.1:4000/v1
+        models:
+          - id: medium-moe
+            contextWindow: 262144
+            maxTokens: 8192
+            input: [ text, image ]
+            # reasoningEfforts (2026-09-15, task 2.1): the declared off/medium
+            # toggle was a silent no-op — selecting "off" still thinks.
+            # Confirmed from source: dsh-llm-pi-ai's resolveReasoningLevel
+            # (lib/index.js:1691) returns the selected level name; profileOptions
+            # (lib/index.js:1661) converts "off" to undefined; pi-ai's
+            # resolveChatTemplateKwargValue (dist/api/openai-completions.js:794)
+            # reads options.reasoningEffort and, at line 798, returns
+            # `!!reasoningEffort` for the `$var: thinking.enabled` sentinel.
+            # When "off" is selected reasoningEffort is undefined, so
+            # omitWhenOff drops the key entirely; the llama.cpp template guard
+            # `{%- if enable_thinking is defined and is false %}` treats
+            # omission as thinking ON. When "medium" is selected, !!reasoningEffort
+            # is true → enable_thinking: true. Either way the model thinks.
+            # The mechanism cannot express "thinking off", so stop offering
+            # levels that cannot work rather than relabeling them.
+            reasoningEfforts: false
           - id: medium-dense
             contextWindow: 262144
             maxTokens: 16384
@@ -383,8 +393,8 @@
 # default.
 - id: agent-default-model
   config:
-    provider: local-ai-machine
-    model: medium-moe
+    provider: local-ai-machine (apu)
+    model: big-moe
 
 - id: locale
   config:
@@ -400,13 +410,12 @@
   config:
     enabled: true
     allowedModels:
-      - provider: local-ai-machine
+      - provider: local-ai-machine (eGPU)
         model: medium-moe
-      - provider: local-ai-machine
+      - provider: local-ai-machine (eGPU)
+        model: medium-dense
+      - provider: local-ai-machine (apu)
         model: big-moe
-      # medium-dense REMOVED 2026-09-28: it routes to dirk on 8161, which is stopped,
-      # so offering it handed a delegate a route that cannot answer. Re-add it if dirk
-      # is brought back.
       - provider: local-ai-machine-cloud
         model: deepseek-flash
 
@@ -534,7 +543,7 @@
 # margins; autoCompact: false downgrades the guard to warn-and-refuse.
 - id: model-switch
   config:
-    escalationProvider: local-ai-machine
+    escalationProvider: local-ai-machine (apu)
     escalationModel: big-moe
     readerProvider: local-ai-machine-cloud
     readerModel: deepseek-flash
