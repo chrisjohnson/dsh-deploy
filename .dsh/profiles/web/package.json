@@ -12,7 +12,7 @@
     "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch",
     "dsh-scheduled-queue": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-scheduled-queue-v0.1.0&path:/packages/scheduled-queue",
     "@deepseek-ai/dsh-experimental-schedule-bundle": "0.2.0-rc.2",
-    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.1&path:/packages/better-git-worktree"
+    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.2&path:/packages/better-git-worktree"
   },
   "dsh": {
     "profile": {
