@@ -20,9 +20,10 @@ export async function run(ctx) {
     await ctx.check('switch_model succeeds and the session continues on the new model', async () => {
       await newSession(page, 'lab-scratch')
       const from = await currentModel(page)
-      // Any other model that is up will do; medium-moe is the one the lab expects.
-      const to = from === 'medium-moe' ? 'big-moe' : 'medium-moe'
-      // medium-moe/medium-dense live on the eGPU provider, big-moe on the APU one.
+      // Switch between the two models that are currently up (big-moe on the APU,
+      // medium-dense on the eGPU). medium-moe's backend is stopped, so it is not a
+      // valid switch target for this check.
+      const to = from === 'big-moe' ? 'medium-dense' : 'big-moe'
       const toProvider = to === 'big-moe' ? 'local-ai-machine (apu)' : 'local-ai-machine (eGPU)'
       const before = await completedTurns(page)
       await send(

@@ -547,6 +547,16 @@
     escalationModel: big-moe
     readerProvider: local-ai-machine-cloud
     readerModel: deepseek-flash
+    # preferredRoutes is the ordered escalation ladder the fit guard recommends
+    # when a conversation outgrows its route: strongest local first (big-moe),
+    # then the eGPU dense shape (medium-dense), then the cloud 1M fallback
+    # (deepseek-flash). pickSuggestion tries them in exactly this order - the
+    # first that still fits wins; smallest-fitting is only the fallback when
+    # none of these do.
+    preferredRoutes:
+      - local-ai-machine (apu)/big-moe
+      - local-ai-machine (eGPU)/medium-dense
+      - local-ai-machine-cloud/deepseek-flash
     fitRatio: 0.8
     summaryReserveTokens: 10000
     autoCompact: true
