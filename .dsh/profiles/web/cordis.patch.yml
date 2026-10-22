@@ -393,8 +393,8 @@
 # default.
 - id: agent-default-model
   config:
-    provider: local-ai-machine (apu)
-    model: big-moe
+    provider: local-ai-machine-cloud
+    model: deepseek-flash
 
 - id: locale
   config:
@@ -565,3 +565,25 @@
 # scheduled-send) and the official schedule bundle
 # (@deepseek-ai/dsh-experimental-schedule-bundle) mount from `bundles` and
 # need no row here.
+
+# dsh-model-capacity (Activity): process-wide per-provider model-call gate.
+# The cloud proxy is unlimited; APU and eGPU each own a FIFO queue. 2/2 is the
+# measured sweet spot for this box (2 simultaneous calls per GPU parallelize
+# better than serialized access); tune here without a code change.
+- id: model-capacity
+  config:
+    enabled: true
+    defaultMaxConcurrent: 1
+    limits:
+      - provider: local-ai-machine (apu)
+        maxConcurrent: 2
+      - provider: local-ai-machine (eGPU)
+        maxConcurrent: 2
+      - provider: local-ai-machine-cloud
+        unlimited: true
+    queueLimitPerProvider: 1000
+    reservationTtlMs: 300000
+    subagentTools:
+      - subagent
+      - subagent_fork
+      - spawn_teammate
