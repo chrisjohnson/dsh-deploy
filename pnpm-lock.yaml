@@ -323,6 +323,9 @@ importers:
       dsh-loop-watchdog:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))
+      dsh-math-literal:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal
       dsh-model-capacity:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.1.0&path:/packages/model-capacity
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/558dcbdbef7501d0d54c2c8d83b879c4c5c2cf1e#path:/packages/model-capacity(@deepseek-ai/cordis@4.0.4)
@@ -4146,6 +4149,11 @@ packages:
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
     peerDependencies:
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2
+
+  dsh-math-literal@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal:
+    resolution: {gitHosted: true, integrity: sha512-QitggJWxDfPF6xZrUFIQ0xIqdo4j6UgGc0WWmc7dbCbgp7RyUgGvcr9oM5x793uTWqt3KVVRI3kSLuRwdj/pDw==, path: /packages/math-literal, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e}
+    version: 0.1.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
   dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/558dcbdbef7501d0d54c2c8d83b879c4c5c2cf1e#path:/packages/model-capacity:
     resolution: {gitHosted: true, integrity: sha512-gdkNfNNowVXjJceiS3slvoCrIoxiq9htv1ZHVs9MqTijfW/s6B81MQHkJi3+MV0CgOxAp/QRRI0S+2wlKfsJ3A==, path: /packages/model-capacity, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/558dcbdbef7501d0d54c2c8d83b879c4c5c2cf1e}
@@ -9878,6 +9886,8 @@ snapshots:
   dsh-loop-watchdog@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)):
     dependencies:
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
+
+  dsh-math-literal@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal: {}
 
   dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/558dcbdbef7501d0d54c2c8d83b879c4c5c2cf1e#path:/packages/model-capacity(@deepseek-ai/cordis@4.0.4):
     dependencies:
