@@ -599,9 +599,9 @@
     defaultMaxConcurrent: 1
     limits:
       - provider: local-ai-machine (apu)
-        maxConcurrent: 2
+        maxConcurrent: 3
       - provider: local-ai-machine (eGPU)
-        maxConcurrent: 2
+        maxConcurrent: 1
       - provider: local-ai-machine-cloud
         unlimited: true
     queueLimitPerProvider: 1000
