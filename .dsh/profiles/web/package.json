@@ -15,7 +15,7 @@
     "dsh-web-search-searxng": "0.5.1",
     "dsh-session-cost": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost",
     "dsh-model-capacity": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.2.0&path:/packages/model-capacity",
-    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.2.3&path:/packages/kanban",
+    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.2.4&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal"
   },
   "dsh": {
