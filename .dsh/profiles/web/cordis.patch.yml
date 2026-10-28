@@ -468,6 +468,16 @@
     viewportHeight: 1080
     executablePath: !!js process.env.PLAYWRIGHT_CHROME_PATH
 
+# Per-session browser contexts on the shared Browserless service. Installed
+# alongside dsh-playwright-browser: it reroutes that plugin's own tools, so
+# the tool suite is unchanged. A row's config replaces the whole object, so
+# fallbackExecutablePath (the NixOS Chromium used when Browserless is
+# unreachable) must be listed here.
+- id: browser
+  config:
+    connectUrl: ws://127.0.0.1:3100/chromium/playwright
+    fallbackExecutablePath: !!js process.env.PLAYWRIGHT_CHROME_PATH
+
 # Plugins released from chrisjohnson/dsh-plugins. Each one's bundle inserts its
 # own row (installed by exact git tag in package.json, listed in the profile's
 # `bundles`), so the rows below are config-only overrides by id. A row's
