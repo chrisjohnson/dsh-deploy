@@ -27,6 +27,10 @@ const ORDER = [
   'loop-watchdog',
   'worktree',
   'continue-kicker',
+  // kanban-recovery drives both dsh-kanban and dsh-continue-kicker and restarts
+  // the lab with its own lab-only 48-token route, so it runs after the plain
+  // continue-kicker module has proven the interactive path.
+  'kanban-recovery',
   // Last: a successful switch becomes the lab's default model for new sessions.
   'model-switch'
 ]

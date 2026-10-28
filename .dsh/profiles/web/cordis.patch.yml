@@ -495,6 +495,12 @@
 # its reason; logToStderr sends those lines to the journal:
 # `journalctl -u dsh | grep continue-kicker`. The package default for
 # maxConsecutiveKicks is 5; this deployment stops at 3.
+#
+# From 0.3.0 it also provides a `continueKicker` service (kick(sessionId,
+# {bypassCooldown})) that dsh-kanban 0.4.0 calls to recover a halted workflow
+# turn inside the engine instead of leaving the session asleep until someone
+# opens it. Same policy, same guard, no extra configuration: this row needs no
+# new keys for it, and kanban degrades to parking when the service is absent.
 - id: continue-kicker
   name: dsh-continue-kicker
   config:

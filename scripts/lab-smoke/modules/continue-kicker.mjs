@@ -47,8 +47,14 @@ export async function run(ctx) {
     try {
       await s.goto()
       await ctx.check('reopening the session sends exactly one kick, and no more', async () => {
-        const row = s.page.getByText(new RegExp(`^${titleStart}`)).filter({ visible: true })
-        if ((await row.count()) === 0) await s.page.getByText('lab-scratch', { exact: true }).filter({ visible: true }).first().click()
+        // The sidebar row shows the generated title once there is one
+        // ("Write integers 1 to 4000") and the prompt's first words until then,
+        // so match the shape both spellings share rather than the prompt text.
+        const row = s.page.getByText(/^Write (the )?integers/).filter({ visible: true })
+        if ((await row.count()) === 0) {
+          await s.page.getByText('lab-scratch', { exact: true }).filter({ visible: true }).first().click()
+          await waitFor(async () => (await row.count()) > 0, { timeout: 20_000, what: 'the killed session in the lab-scratch list' })
+        }
         await row.first().click()
         await waitFor(async () => (await kicks(s.page)) >= 1, { timeout: 90_000, what: 'the continue-kicker message' })
         await s.shot('continue-kicker-kicked')
