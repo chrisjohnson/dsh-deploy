@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "@deepseek-ai/dsh-experimental-schedule-bundle": "0.2.0-rc.2",
-    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.2&path:/packages/better-git-worktree",
+    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.3&path:/packages/better-git-worktree",
     "dsh-better-sidebar": "0.25.0",
     "dsh-context": "0.69.1",
     "dsh-continue-kicker": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-continue-kicker-v0.2.0&path:/packages/continue-kicker",
@@ -15,7 +15,7 @@
     "dsh-web-search-searxng": "0.5.1",
     "dsh-session-cost": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost",
     "dsh-model-capacity": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.2.0&path:/packages/model-capacity",
-    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.3.1&path:/packages/kanban",
+    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.3.2&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal"
   },
   "dsh": {
