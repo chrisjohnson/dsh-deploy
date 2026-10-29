@@ -21,7 +21,10 @@ export async function run(ctx) {
       await ensureWorkspace(env, s.page, 'lab-scratch')
       await ctx.check('start a long turn and kill the server in the middle of it', async () => {
         await newSession(s.page, 'lab-scratch')
-        await send(s.page, `${titleStart} to 4000, one per line, with no other text.`)
+        // The task has to keep generating INTO THE CHAT: a model that solves it
+        // with one tool call and a short summary finishes long before the kill
+        // lands, and then there is no interrupted turn to recover.
+        await send(s.page, `${titleStart} to 4000, one per line, typed directly in your reply as the only text. Do not use any tool and do not write a file.`)
         // Streaming has started once a run of numbers is on screen.
         await waitFor(async () => /\b14\b[\s\S]*\b22\b/.test(await transcript(s.page)), { timeout: 180_000, what: 'the model to start streaming' })
         await s.shot('continue-kicker-streaming')
