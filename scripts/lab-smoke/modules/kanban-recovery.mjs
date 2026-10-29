@@ -42,6 +42,11 @@ function profilePath(env) {
 function patchProfile(env) {
   const path = profilePath(env)
   let text = readFileSync(path, 'utf8')
+  // The boot-line checks below need the plugin log on stderr; the lab row may
+  // or may not carry the switch depending on what the last session left.
+  if (/^- id: continue-kicker\n  config:\n/m.test(text) && !text.includes('logToStderr: true')) {
+    text = text.replace(/^(- id: continue-kicker\n  config:\n)/m, '$1    logToStderr: true\n')
+  }
   if (!text.includes(`${PROVIDER_ID}:`)) {
     const anchor = text.match(/^(- id: llm-pi-ai\n(?:.*\n)*?    providers:\n)/m)
     if (!anchor) throw new Error(`no 'providers:' block under the llm-pi-ai row in ${path}`)
@@ -154,7 +159,7 @@ async function driveTicket(env, rpc, workspaceCwd) {
     workspaceCwd,
     planTiming: 'now',
     planQuestions: 'autonomous',
-    column: 'now',
+    column: 'working',
   })
   const ticketId = created.ticket.id
   const samples = []
@@ -163,8 +168,8 @@ async function driveTicket(env, rpc, workspaceCwd) {
   for (;;) {
     detail = await rpc('ticket', { id: ticketId })
     const events = await rpc('events', { id: ticketId, limit: 500 })
-    samples.push({ at: new Date().toISOString(), column: detail.ticket.column, phase: detail.ticket.phase, autoRecovered: events.filter((e) => e.kind === 'auto_recovered').length })
-    if (detail.ticket.column === 'needs_attention' || detail.ticket.column === 'done') break
+    samples.push({ at: new Date().toISOString(), column: detail.ticket.column, status: detail.status, phase: detail.ticket.phase, autoRecovered: events.filter((e) => e.kind === 'auto_recovered').length })
+    if (detail.ticket.needsAttentionReason || detail.ticket.column === 'done' || detail.ticket.column === 'discarded') break
     if (Date.now() > deadline) throw new Error(`ticket ${detail.ticket.key} never parked (last: ${detail.ticket.column}/${detail.ticket.phase})`)
     await sleep(1000)
   }  const events = await rpc('events', { id: ticketId, limit: 500 })
@@ -214,15 +219,17 @@ export async function run(ctx) {
           const kicks = autoRecovered(runA.events)
           if (kicks.length === 0) throw new Error(`no auto_recovered events; parked as: ${runA.ticket.needsAttentionReason}`)
           // The poll ran every second through the whole recovery: the ticket may
-          // only leave In flight on the sample that parks it, and by then every
-          // kick must already be on the timeline.
-          const inflight = runA.samples.filter((sample) => sample.column === 'now').length
-          if (inflight < 2) throw new Error(`only ${inflight} In-flight samples; the ticket parked before recovery ran`)
+          // only leave active on the sample that parks it, and by then every
+          // kick must already be on the timeline. Since 0.5.0 the columns are
+          // intended state: the ticket sits in Working and its card pulses.
+          const inflight = runA.samples.filter((sample) => sample.status === 'active').length
+          if (inflight < 2) throw new Error(`only ${inflight} active samples; the ticket parked before recovery ran`)
+          if (!runA.samples.every((sample) => sample.column === 'working')) throw new Error('the engine moved the ticket out of Working')
           const park = runA.samples[runA.samples.length - 1]
           if (park.autoRecovered !== kicks.length) {
             throw new Error(`parked after ${park.autoRecovered} of ${kicks.length} kicks: ${JSON.stringify(runA.samples.slice(-3))}`)
           }
-          return `${kicks.length} auto_recovered events (${kicks.map((k) => k.payload.flavor).join(', ')}) over ${inflight} In-flight samples, parked as '${runA.ticket.needsAttentionReason}'`
+          return `${kicks.length} auto_recovered events (${kicks.map((k) => k.payload.flavor).join(', ')}) over ${inflight} active samples, parked in Working as '${runA.ticket.needsAttentionReason}'`
         })
         await ctx.check('the session carries exactly maxConsecutiveKicks kicks and no duplicates', async () => {
           const build = runA.sessions.filter((row) => row.purpose === 'build')
@@ -238,7 +245,8 @@ export async function run(ctx) {
           return `${kicks.length} kicks, ${ends.length} turn ends (${halts} halts) in session ${sessionId}`
         })
         await ctx.check('the ticket parks with the original halt once the guard declines', async () => {
-          if (runA.ticket.column !== 'needs_attention') throw new Error(`ticket is in ${runA.ticket.column}`)
+          if (!runA.ticket.needsAttentionReason) throw new Error(`ticket is not parked (${runA.ticket.column}/${runA.ticket.phase})`)
+          if (runA.ticket.column !== 'working') throw new Error(`the park moved the ticket to ${runA.ticket.column}`)
           const reason = runA.ticket.needsAttentionReason ?? ''
           if (!reason.startsWith('turn failed in implement:')) throw new Error(`unexpected park reason: ${reason}`)
           if (!/max-tokens/.test(reason)) throw new Error(`expected a max-tokens halt, got: ${reason}`)
@@ -274,7 +282,8 @@ export async function run(ctx) {
           const runB = await driveTicket(env, rpc, workspaceCwd)
           const kicks = autoRecovered(runB.events)
           if (kicks.length !== 0) throw new Error(`${kicks.length} auto_recovered events without the service`)
-          if (runB.ticket.column !== 'needs_attention') throw new Error(`ticket is in ${runB.ticket.column}`)
+          if (!runB.ticket.needsAttentionReason) throw new Error(`ticket is not parked (${runB.ticket.column}/${runB.ticket.phase})`)
+          if (runB.ticket.column !== 'working') throw new Error(`the park moved the ticket to ${runB.ticket.column}`)
           if (!/^turn failed in implement:/.test(runB.ticket.needsAttentionReason ?? '')) {
             throw new Error(`unexpected park reason: ${runB.ticket.needsAttentionReason}`)
           }
