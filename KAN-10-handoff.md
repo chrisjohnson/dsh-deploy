@@ -5,11 +5,12 @@ Shipped in `dsh-plugins` (PR merged, tag cut on the merge commit):
 | package | tag | what it changes |
 | --- | --- | --- |
 | dsh-kanban | `dsh-kanban-v0.5.0` | the board columns become intended state — **Backlog \| Working \| Done / Discarded**, all grey — and "in flight" / "needs attention" become card-level visual statuses (blue pulsing dot + glow while a workflow turn runs; red glowing card while the engine has parked the ticket). The engine never moves tickets between columns any more. |
+| dsh-kanban | `dsh-kanban-v0.5.1` | a discarded ticket badges **Discarded** (grey) instead of keeping its stale phase badge — the badge stage is derived from the column, since a discard can land from any phase. The lifecycle dot strip is unchanged by design: Discarded is a badge stage, not a dot. |
 
 Pinned in this worktree (branch `dsh/golden-heron`, commit "pin dsh-kanban
-0.5.0"): both `package.json` and `.dsh/profiles/web/package.json` move from
-`dsh-kanban-v0.4.4` to `dsh-kanban-v0.5.0`, root `pnpm-lock.yaml` updated, and
-`.dsh/profiles/web/node_modules/dsh-kanban` verified to read 0.5.0.
+0.5.1"): both `package.json` and `.dsh/profiles/web/package.json` move from
+`dsh-kanban-v0.4.4` to `dsh-kanban-v0.5.1`, root `pnpm-lock.yaml` updated, and
+`.dsh/profiles/web/node_modules/dsh-kanban` verified to read 0.5.1.
 
 ## What changes on the board
 
@@ -54,13 +55,13 @@ cd /home/dsh/dsh-deploy
 git status --porcelain          # cordis.patch.yml drift is expected; commit or stash it first
 git pull --ff-only origin <branch-or-main>   # -> the pin commit above
 grep -n 'dsh-kanban' package.json .dsh/profiles/web/package.json
-# both lines must read dsh-kanban-v0.5.0
+# both lines must read dsh-kanban-v0.5.1
 
 pnpm install                                  # root tree
 cd .dsh/profiles/web && pnpm install && cd -  # the tree dsh actually loads from
 pnpm run check                                # check-no-links: ok
 
-# PRE-RESTART ASSERTION - do not restart until this reads 0.5.0:
+# PRE-RESTART ASSERTION - do not restart until this reads 0.5.1:
 grep -m1 '"version"' .dsh/profiles/web/node_modules/dsh-kanban/package.json
 ```
 
@@ -91,6 +92,9 @@ Then in the GUI (Kanban panel):
 - **KAN-10 sits in Working** (red until retried or dragged back).
 - Open a parked card: the detail hero shows the red accent and the Needs
   attention panel; **Retry clears the red without moving the card**.
+- Discarding a ticket (from any phase) puts it in the Done / Discarded column
+  with a grey **Discarded** badge on both the card and the detail hero (0.5.1);
+  the lifecycle dot strip shows no Discarded dot by design.
 - The sidebar Kanban icon's badges count active/attention cards, not columns.
 
 If the journal shows the boot line `applied: db=... routes=/api/kanban/...`
@@ -113,3 +117,11 @@ still on 0.4.4 while the DB already migrated — re-run the profile install
   KAN-10-smoke-results.md.
 - `npm run check` in dsh-plugins on a bare clone: verify 0 errors, hooks gate
   clean, all tests pass (incl. the new schema V4 migration test).
+- 0.5.1 (Discarded badge): hooks gate 0 findings, kanban tests 89/89, verify
+  0 errors, CI green on PR #51 and on the tagged merge commit; the badge-stage
+  derivation was exercised directly against the client source (discard-from-any
+  phase → `Discarded`/grey, done → `Done`/green, working/implement → `Build`).
+  A live lab click-through of the 0.5.1 client was blocked by the session
+  sandbox (no writes outside the workspace); to run it: rsync the 0.5.1
+  checkout into `~/dsh-lab/plugins/dsh-plugins-kanban10/packages/kanban`,
+  `scripts/lab.sh restart`, discard a plan-phase ticket and confirm the badge.

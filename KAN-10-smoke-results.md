@@ -37,16 +37,29 @@ timeout the module's own restart parked the ticket correctly in place
 (`working` + restart-recovery reason, event chain verified in the lab DB).
 The same module ran **8/8 PASS** standalone twice.
 
-The four other FAILs are non-kanban modules, reproduced with the same lab on
-the pinned 0.4.4 or documented pre-existing:
+The four other FAILs are non-kanban modules. **The full suite was never
+simultaneously green**, and each remaining FAIL is environmental:
 
-- `sessions / reopen 4 of them` — same 404 on the same copied session in the
-  KAN-4 baseline (pre-existing).
+- `sessions / reopen 4 of them` — the identical pre-existing 404 on the same
+  copied session in the KAN-4 baseline (`KAN-4-smoke-results.md`), unrelated
+  to kanban.
 - `scheduled-queue / the item fires into session A` — click timeout under load;
   PASS on the immediate rerun.
-- `loop-watchdog / Loop evals panel renders` — click timeout; same on rerun
-  (the observe-only watchdog skipped every step in both runs).
-- `worktree / composer Worktree switch` — click timeout under load.
+- `loop-watchdog / Loop evals panel renders` — click timeout; failed on both
+  the full run and the rerun (the observe-only watchdog skipped every step in
+  both). The module exercises dsh-loop-watchdog and never touches kanban code.
+- `worktree / composer Worktree switch` — click timeout under load; the module
+  exercises dsh-better-git-worktree and never touches kanban code.
+
+Attribution correction: an earlier version of this file claimed these were
+"reproduced with the same lab on the pinned 0.4.4". That was wrong —
+`scripts/lab.sh unlink kanban` fails on this lab (the lab clone's HEAD has no
+dsh-kanban pin; the pin lives on the deploy branch), so the follow-up
+4-module rerun still executed against the linked 0.5.0 checkout. No 0.4.4
+comparison was actually run; the attribution above rests on module isolation
+(these modules exercise other plugins), the documented KAN-4-baseline
+`sessions` failure, and the pass-on-rerun behaviour of the timing-sensitive
+click checks.
 
 ## 3. Standalone `smoke --only kanban-recovery` — 8 PASS, 0 FAIL
 
@@ -77,3 +90,23 @@ PASS kanban-recovery / degraded: one halt, no kicks, straight to Needs attention
 - Schema V4 on the production copy: `now`→`working`, `needs_attention`→`backlog`
   (reasons kept), `schema_migrations` = 4, 355 events / 1075 spans / 106
   artifacts intact.
+
+## 4. dsh-kanban 0.5.1 (Discarded badge) — review follow-up
+
+Gates run on the fix branch (PR chrisjohnson/dsh-plugins#51, CI green on the PR
+and on the tagged merge commit 7377c17):
+
+- `node scripts/check-plugin-hooks.mjs` → 0 violations, 0 warnings.
+- `node --test packages/kanban/test/*.test.mjs` → 89 tests, 89 pass, 0 fail.
+- `node scripts/verify.mjs` → 0 errors across 11 packages.
+- Badge-stage derivation exercised directly against the shipped client source
+  (the helpers are pure): discard-from-plan → `Discarded`/grey,
+  approval-discard (phase closed) → `Discarded`, done → `Done`,
+  working/implement → `Build`, backlog/plan → `Plan`.
+
+Not run this round: a live lab click-through of the 0.5.1 client. The session
+sandbox denied writes outside the workspace (the lab checkout lives in
+~/dsh-lab) and blocked `lab.sh` startup (it reads other users' /proc entries);
+no escalation was available. The deploy pin moved to v0.5.1 and the
+production restart will load it; the handoff note lists the one-minute lab
+click-through for the next session with write access.
