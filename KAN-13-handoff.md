@@ -169,6 +169,30 @@ checkout, then the lab stopped.
 - `smoke --only kanban-recovery`: **8 PASS, 0 FAIL, 0 SKIP** — real role turns on
   the routed lab model, 3 engine kicks, parked on the original halt, and the
   degraded (no continue-kicker) path parking directly.
+- Full `smoke`: **38 PASS, 10 FAIL, 0 SKIP**, and every failure is the harness
+  session's environment rather than this change. `ui` and `kanban-recovery` are
+  clean; `completion`, `webp`, `continue-kicker`, `model-switch` and the rest of
+  `worktree` pass. The ten:
+  - `boot / lab process is isolated from production`, `web-search` (both checks)
+    and `image-search / SearXNG answers an image query` — all four fail on
+    `EACCES: permission denied, open '/proc/<pid>/environ'`. The agent session
+    that ran the suite is under a file sandbox that cannot read another process's
+    environment; the same reason `lab.sh` needed `LAB_FORCE_UNIT_FALLBACK=1`
+    throughout. They read production's `/proc` to find the lab-isolation proof and
+    the SearXNG URL. From a normal shell they pass.
+  - `boot / linked packages … pack cleanly` — `npm pack --dry-run` failed on
+    root-owned files under `~/.npm/_cacache`. Re-running with
+    `npm_config_cache=/tmp/npmcache` turned it green:
+    `dsh-kanban -> /tmp/kan13/dsh-plugins/packages/kanban`.
+  - `sessions / reopen 4 of them` — one copied production session logged a
+    resource-load error on reopen. The same class is recorded as pre-existing in
+    `KAN-11-smoke-results.md`; it exercises dsh's session-format conversion, not
+    kanban.
+  - `scheduled-queue / the item fires into session A`, `loop-watchdog` (two
+    checks) and `worktree / worktree_convert …` — browser click timeouts and a
+    180 s check timeout while the box was running five kanban workflow turns plus
+    the agent session itself on the same two GPUs.
+
 - **Real ticket runs on the lab's routed models** (planner/implementer/reviewer on
   `medium-dense`, approver on `big-moe`), driven through the GUI:
   - *plan → implement → review pass → approval* on a probe ticket produced all
@@ -189,7 +213,11 @@ checkout, then the lab stopped.
     `boxShadow: none`, a red border and tint, and a red status dot with no ring,
     while a card with a turn in flight still computes `animationName:
     kb-glow-blue`;
-  - clicking cards and watching the board poll never opened a session.
+  - clicking four cards in turn (returning to the board between each) opened the
+    ticket detail every time and a session view never once; the main frame
+    recorded no navigation beyond the initial page load, and two further board
+    poll cycles opened nothing either.
+
 - **`kanban_plan` live**: a real planner session called it and the span recorded
   `planner | kanban_plan | ok`; a reviewer session called it and reported the
   plan's condition ids back.
