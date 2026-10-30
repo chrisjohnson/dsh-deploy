@@ -330,8 +330,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal
       dsh-model-capacity:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.2.0&path:/packages/model-capacity
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/55ab311d0821ef981e455c1725b0b934c47d020e#path:/packages/model-capacity(@deepseek-ai/cordis@4.0.4)
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.3.0&path:/packages/model-capacity
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f62206bbf8f00d34304a9d1cd9e7ef9156bfdb9b#path:/packages/model-capacity(@deepseek-ai/cordis@4.0.4)
       dsh-model-switch:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
@@ -4168,9 +4168,9 @@ packages:
     version: 0.1.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
-  dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/55ab311d0821ef981e455c1725b0b934c47d020e#path:/packages/model-capacity:
-    resolution: {gitHosted: true, integrity: sha512-hifXahQiqMVCFIQnflQgvKCf0URSO+xubiNMRXVKSGarFFpxryiX0xGA4B+vgEiaoZnnQDcMKoBCVBGlCqWh4w==, path: /packages/model-capacity, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/55ab311d0821ef981e455c1725b0b934c47d020e}
-    version: 0.2.0
+  dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f62206bbf8f00d34304a9d1cd9e7ef9156bfdb9b#path:/packages/model-capacity:
+    resolution: {gitHosted: true, integrity: sha512-uwiRFR3g759Zcggvt1wEQMRNehzI6HS0D6+GDyjKUUAnQPtQXxm52q0G3bjKOMQIGu/fpTYJz8N9+4Rk68XNRw==, path: /packages/model-capacity, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f62206bbf8f00d34304a9d1cd9e7ef9156bfdb9b}
+    version: 0.3.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=22.5.0'}
     peerDependencies:
       '@deepseek-ai/cordis': 4.0.4
@@ -9909,7 +9909,7 @@ snapshots:
 
   dsh-math-literal@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal: {}
 
-  dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/55ab311d0821ef981e455c1725b0b934c47d020e#path:/packages/model-capacity(@deepseek-ai/cordis@4.0.4):
+  dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f62206bbf8f00d34304a9d1cd9e7ef9156bfdb9b#path:/packages/model-capacity(@deepseek-ai/cordis@4.0.4):
     dependencies:
       '@deepseek-ai/cordis': 4.0.4(@deepseek-ai/cordis-plugin-include@1.0.9)(@deepseek-ai/cordis-plugin-loader@1.0.5)
 
