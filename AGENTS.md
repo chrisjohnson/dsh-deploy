@@ -148,9 +148,27 @@ scripts/lab.sh smoke                     # everything, before you release
 #   PR to dsh-plugins, merge, release tag <pkg>-v<ver> (that repo's docs/releasing.md)
 scripts/lab.sh unlink model-switch       # back to the released pin
 scripts/lab.sh down
-#   dsh-deploy PR: new tag spec in BOTH package.json files, `pnpm install`, then
+#   dsh-deploy PR: new tag spec in BOTH package.json files, `pnpm install` in the
+#   root AND in `.dsh/profiles/web`, then
 pnpm run check                           # fails if a link:/file: pin or local path is present
 ```
+
+**Install the pin in both trees, or the browser keeps the old plugin.**
+`.dsh/profiles/web/` is its own pnpm install (own `node_modules` and
+`pnpm-lock.yaml`, written by `dsh plugin`, not by the root install), and the
+profile-local copy is what the web app serves as a plugin's client half. A
+root-only `pnpm install` updates the host side and silently leaves the browser side
+on the previous tag: no error, no log line, the panel just behaves like the old
+version. So after `git pull`: `pnpm install` at the root, then
+`cd .dsh/profiles/web && pnpm install`, and prove it with
+`grep -c '<string only the new code has>' .dsh/profiles/web/node_modules/<pkg>/src/client.mjs`.
+From a browser tab,
+`!!document.getElementById('<the plugin style tag id>')?.textContent.includes('<that string>')`
+says whether the loaded page has the new script; a hard reload picks up a
+refreshed file, and if it still does not, the client half was snapshotted at boot
+and needs the restart. (Hit for real on the `dsh-model-capacity` 0.3.0 pin,
+2026-10-30: root copy 0.3.0, profile copy still the 0.2.0 tarball from three days
+earlier.)
 
 `scripts/lab.sh link <pkg> <path>` takes any checkout; `status` shows linked vs pinned
 packages and the tracked-file drift. Never restart or signal the production `dsh` service
