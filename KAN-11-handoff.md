@@ -38,6 +38,8 @@ half from).
   `turn failed in approval: …` like any other phase, and auto-recovery (the
   continue-kicker kick) applies to it too. If the agent closes or re-plans the
   ticket from inside that turn, the engine notices and does not park over it.
+  One exception: a turn that fails because the session is *still busy* does not
+  park at all — see "Known gap not fixed in 0.7.0" at the end of this document.
 - **With no `approver` route configured** the engine skips the approval turn and
   parks the ticket exactly the way 0.6.0 did — so a deployment that never set one
   loses the hand-over prompt and nothing else. This deployment *does* set one
@@ -148,25 +150,55 @@ saved before and compared after.
   local files.
 - CI on PR #55: contract pass, tests pass on Node 20.9 / 22 / 24, compose pass.
 
-## Follow-up not shipped in 0.7.0
+## Known gap not fixed in 0.7.0
 
-One hardening was written after the tag was cut, so it is **not** in
-`dsh-kanban-v0.7.0` (a released tag is permanent). It is a robustness nicety, not
-a correctness hole, which is why it was left out of this release rather than
-forcing a 0.7.1 + re-pin + re-verify cycle.
+A hardening was written after the tag was cut, so it is **not** in
+`dsh-kanban-v0.7.0` (a released tag is permanent). It closes a narrow race with a
+silent stall at the end of it. **Recommendation: ship it as 0.7.1 and re-pin** —
+see "Decisions needed" below.
 
-`enterApproval` waits up to 3 s for the ticket's sessions to go quiet before
-sending the approval turn (a manual review submission concludes the human's own
-turn and asks for approval in the same beat). If they never go quiet, 0.7.0 lets
-`sendTurn` reject as busy and parks `turn failed in approval: session … already
-has a turn in flight` — an actionable reason a human can retry from. The
-follow-up would instead park the plain `Awaiting human approval` and skip the
-turn:
+`enterApproval` waits up to 3 s (`awaitQuiet`) for the ticket's sessions to go
+quiet before sending the approval turn, because a manual review submission
+concludes the human's own turn and asks for approval in the same beat. If they
+never go quiet, 0.7.0 does **not** park the ticket. The chain, against the shipped
+code:
+
+1. `roleTurn` → `driver.sendTurn` rejects with `session … already has a turn in
+   flight` (the driver's busy guard).
+2. `roleTurn` catches it and returns `{ kind: 'failed' }`.
+3. `autoRecover` asks continue-kicker for a kick; the kick is declined, because
+   the session is genuinely *running*, not halted — so there is nothing to recover.
+4. `failedTurn` → `needsAttention`, whose own busy guard (`engine.mjs:921-924`)
+   logs `failure ignored: another session is still active` and returns
+   `{ kind: 'busy' }` **without setting a reason**.
+5. The ticket is left in `verify`, un-parked, with no approval turn. `advance()`
+   has no `verify` branch, so no later tick re-drives it either.
+
+Measured, not inferred — driving the tagged `enterApproval` with a session that is
+still busy when approval starts:
+
+| engine | result |
+| --- | --- |
+| shipped `dsh-kanban-v0.7.0` | `phase: verify`, `needsAttentionReason: null`, approval turn attempted and lost |
+| with the four-line fix below | `phase: verify`, `needsAttentionReason: 'Awaiting human approval'`, no approval turn sent |
+
+What that looks like on the board: a Working card sitting at the Approval stage
+with **no red attention card and no approval panel** — the panel renders only
+when a park exists. Nothing is lost and it is recoverable by hand (the session's
+phase role is already `approver`, so opening it from the Sessions tab and using
+`kanban_approve` / `kanban_discard` / `kanban_submit_plan` works normally), but
+the board gives no signal that this happened.
+
+How narrow: it needs a session of the ticket busy for a continuous 3 s at the
+moment review passes. The engine-driven path cannot hit it (the engine awaited
+its own review turn, so the session is idle). The manual path normally clears
+within a beat of `concludeTurn`. So this is a race, not a routine failure — but
+its consequence is a stall rather than the retryable park previously claimed here.
+
+The fix, four lines in `enterApproval` immediately before
+`const runId = this.ensureRun(current)`:
 
 ```diff
---- a/packages/kanban/src/engine.mjs
-+++ b/packages/kanban/src/engine.mjs
-@@ enterApproval, just before `const runId = this.ensureRun(current)`
 -    await this.awaitQuiet(current);
 +    if (!(await this.awaitQuiet(current))) {
 +      this.log.warn('ticket %s still has a turn in flight at approval; parking without an approval turn', current.key);
@@ -175,6 +207,29 @@ turn:
 +    }
 ```
 
-plus a test that a ticket whose driver reports busy parks `Awaiting human
-approval` with `driver.turns.length === 0`. Both are in the release checkout's
-history if picked up.
+With it, the lost race degrades to exactly the pre-0.7.0 behaviour: the ticket
+parks **Awaiting human approval**, the approval panel appears, and the human
+approves or discards from the card (the second row of the table above is this
+patch, applied and measured). It needs one test alongside it — a driver that
+reports busy throughout must end with `phase === 'verify'`,
+`needsAttentionReason === 'Awaiting human approval'` and no approval turn sent.
+The patch and that test were written and passing before the tag was cut; the tag
+was already permanent by then, so they live here instead.
+
+## Decisions needed (from the implementer's questions)
+
+1. **Merge the dsh-deploy pin (`dsh/rapid-juniper`, `6eabc00`) to `main` now, or
+   hold it for the restart window?** Recommend: **hold**. The pin only takes
+   effect after `pnpm install` in both trees plus a restart, so merging early
+   buys nothing, and keeping it on a branch means an unplanned `git pull` on the
+   box cannot half-activate 0.7.0 between now and the window. Merge it as part of
+   step 1 below, in the same window as the restart.
+2. **Ship the 0.7.1 hardening above?** Recommend: **yes**, before or alongside
+   the restart. It is four lines plus one test, it only changes a path that today
+   ends in a silent stall, and folding it in before the restart avoids a second
+   planned window for the same plugin. If it is taken, the pin moves to
+   `dsh-kanban-v0.7.1` in both manifests and everything in sections 1–3 above
+   applies unchanged (re-run the two `grep -c` client-half proofs, which are
+   version-independent). This ticket's plan and its `deploy-pinned` condition
+   both name 0.7.0 explicitly, so the bump is deliberately left as a human call
+   rather than taken unilaterally.
