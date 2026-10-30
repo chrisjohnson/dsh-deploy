@@ -23,7 +23,7 @@
     "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.1.3&path:/packages/better-git-worktree",
     "dsh-session-cost": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost",
     "dsh-model-capacity": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.3.0&path:/packages/model-capacity",
-    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.8.1&path:/packages/kanban",
+    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.9.0&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal"
   }
 }
