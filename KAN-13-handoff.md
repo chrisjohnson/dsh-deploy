@@ -5,12 +5,13 @@ Shipped in `dsh-plugins`:
 | package | tag | merge commit | what it changes |
 | --- | --- | --- | --- |
 | dsh-kanban | `dsh-kanban-v0.9.0` | `b677375` ([PR #58](https://github.com/chrisjohnson/dsh-plugins/pull/58)) | The attention card stops pulsing; nothing opens a session on its own; a phase-change banner appears at the turn tail; the review/rework/approval prompts stop repasting the plan; `kanban_plan` is a read-only tool in every session; a `done_when` id the plan never declared is rejected at the tool boundary. |
-| dsh-kanban | **`dsh-kanban-v0.9.1`** | `59f2c6f` ([PR #59](https://github.com/chrisjohnson/dsh-plugins/pull/59)) | **A banner describes its own turn.** Found in review of 0.9.0: the review banner read the ticket's *current* phase, so a session with one rework round printed **Review passed** on the turn whose review had failed. The call's own verdict now decides which transition to look for, a pass is only claimed when the ticket's latest review is that call's, each rejected round quotes its own instruction instead of the newest one, and the banner cache is bounded. **This is the version to deploy.** |
+| dsh-kanban | `dsh-kanban-v0.9.1` | `59f2c6f` ([PR #59](https://github.com/chrisjohnson/dsh-plugins/pull/59)) | A banner describes its own turn. Found in review of 0.9.0: the review banner read the ticket's *current* phase, so a session with one rework round printed **Review passed** on the turn whose review had failed. The call's own verdict now decides which transition to look for, a pass is only claimed when the ticket's latest review is that call's, each rejected round quotes its own instruction instead of the newest one, and the banner cache is bounded. |
+| dsh-kanban | **`dsh-kanban-v0.9.2`** | `d678ac7` ([PR #60](https://github.com/chrisjohnson/dsh-plugins/pull/60)) | **A pass that landed is never called "not finished".** 0.9.1 left one instance of the same class: a ticket returns to `implement` by a second route — asking for a follow-up plan during approval — so a clean pass followed by a later round read **Review status: not finished**, quoting an older round's feedback. The host now returns `reviewRejected`, derived from artifact ordering (the engine writes the `review` row before the `review_feedback` that rejects it, and ids are AUTOINCREMENT), and only an explicit rejection may call a pass unfinished. **This is the version to deploy.** |
 
 Pinned in this worktree (branch `dsh/quiet-finch`): both `package.json` and
 `.dsh/profiles/web/package.json` move from `dsh-kanban-v0.8.1` to
-**`dsh-kanban-v0.9.1`**, root `pnpm-lock.yaml` updated (it resolves the tag to
-`59f2c6f`), and **both installed trees verified at 0.9.1** — the root
+**`dsh-kanban-v0.9.2`**, root `pnpm-lock.yaml` updated (it resolves the tag to
+`d678ac7`), and **both installed trees verified at 0.9.2** — the root
 `node_modules/dsh-kanban` and the profile tree dsh actually serves the browser
 half from. The branch was first fast-forwarded onto `main` (`6d97b7e`, the KAN-12
 0.8.1 pin) so this pin builds on the current released state rather than the 0.5.1
@@ -80,12 +81,13 @@ list, no prompt override. The schema stays at V4, so there is no migration and
 no data step.
 
 **Rollback** is pinning `dsh-kanban-v0.8.1` in both manifests, reinstalling both
-trees, and restarting in a planned window. Nothing in 0.9.0/0.9.1 writes state that
+trees, and restarting in a planned window. Nothing in 0.9.0/0.9.1/0.9.2 writes state that
 0.8.1 cannot read: the banner and `sessionInfo` are read-only, the new tool is
 additive, and the prompts are files the older package ships itself. Rolling back
-to `dsh-kanban-v0.9.0` instead would keep the whole feature set but reintroduce
-the banner misattribution 0.9.1 fixes: a reworked ticket would print **Review
-passed** on the turn whose review failed.
+to `dsh-kanban-v0.9.0` or `v0.9.1` instead would keep the whole feature set but
+reintroduce a banner misattribution: 0.9.0 prints **Review passed** on the turn
+whose review failed, and 0.9.1 prints **Review status: not finished** on a clean
+pass that a later approval follow-up plan returned to implement.
 
 ## 1. Update the live checkout (needs write access to `/home/dsh/dsh-deploy`)
 
@@ -98,20 +100,21 @@ cd /home/dsh/dsh-deploy
 git status --porcelain          # cordis.patch.yml drift is expected; commit or stash it first
 git pull --ff-only origin dsh/quiet-finch   # the pin commit (or merge it to main first)
 grep -n 'dsh-kanban' package.json .dsh/profiles/web/package.json
-# both lines must read dsh-kanban-v0.9.1
+# both lines must read dsh-kanban-v0.9.2
 
 pnpm install                                  # root tree
 cd .dsh/profiles/web && pnpm install && cd -  # the tree dsh actually loads from
 pnpm run check                                # check-no-links: ok
 
-# PRE-RESTART ASSERTIONS - do not restart until all seven hold:
-grep -m1 '"version"' node_modules/dsh-kanban/package.json                     # 0.9.1
-grep -m1 '"version"' .dsh/profiles/web/node_modules/dsh-kanban/package.json   # 0.9.1
+# PRE-RESTART ASSERTIONS - do not restart until all eight hold:
+grep -m1 '"version"' node_modules/dsh-kanban/package.json                     # 0.9.2
+grep -m1 '"version"' .dsh/profiles/web/node_modules/dsh-kanban/package.json   # 0.9.2
 grep -c 'kanban-phase-banner' .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs   # 1
 grep -c 'kb-glow-red'          .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs   # 0
 grep -c 'sessionInfo'          .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs     # >= 2
 grep -c 'kanban_plan'          .dsh/profiles/web/node_modules/dsh-kanban/src/actions.mjs  # >= 2
 grep -c 'sameReview'           .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs   # 2 (0.9.1: the turn-local review check)
+grep -c 'reviewRejected'       .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs     # 1 (0.9.2: the pass/return discriminator)
 ```
 
 ## 2. Production restart — Chris, planned window only
@@ -149,9 +152,13 @@ Then in the GUI (:3081, Kanban panel):
   a round and confirm the implementation / review banners appear the same way.
 - **A reworked ticket does not lie.** Open the chat of any session that went
   review-fail → rework → review-pass: the failed round must not read **Review
-  passed**. If it does, the browser is still running the 0.9.0 client half —
-  `grep -c sameReview .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs`
-  must be 2, and the tab needs a hard reload after the restart.
+  passed**, and a passed round that a later follow-up plan returned to implement
+  must not read **Review status: not finished**. If either happens, the browser is
+  still running an old client half — `grep -c sameReview
+  .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs` must be 2 and
+  `grep -c reviewRejected
+  .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs` must be 1 — and the tab
+  needs a hard reload after the restart.
 - **The prompts are slim.** On the next review turn, the ticket's timeline →
   events should show a `reviewer_prompt_review` artifact of a couple of KB, not
   the old plan-plus-diff dump.
@@ -170,9 +177,9 @@ checkout, then the lab stopped.
 - `lab.sh up` / `restart`: boot log clean, no admission rejects, `--dump-config`
   exit 0 with 56 layer annotations.
 - `npm run check` in dsh-plugins on a bare clone: verify gate clean, hooks gate
-  **0 violations / 0 warnings**, `node --test` **662 tests, 0 failures** (64
+  **0 violations / 0 warnings**, `node --test` **664 tests, 0 failures** (64
   skipped: the tiers that need a configured host). With the harness peers
-  installed the kanban suite alone runs **157 tests, 0 failures** — including the
+  installed the kanban suite alone runs **159 tests, 0 failures** — including the
   new `actions.test.mjs` (the id gate and `kanban_plan`), `prompts.test.mjs`
   (the real prompt files rendered by the real engine) and `banner.test.mjs`
   (the banner decision, evaluated out of the shipped browser half).
@@ -180,7 +187,17 @@ checkout, then the lab stopped.
   `npm pack --dry-run`: 30 files, every prompt and source included.
 - CI on PR #58 and PR #59: `contract`, `tests` on Node 20.9 / 22 / 24, and
   `compose` — all pass. Tags `dsh-kanban-v0.9.0` (`b677375`) and
-  `dsh-kanban-v0.9.1` (`59f2c6f`) cut on their merge commits.
+  `dsh-kanban-v0.9.1` (`59f2c6f`) and `dsh-kanban-v0.9.2` (`d678ac7`) cut on
+  their merge commits.
+- **0.9.2, re-checked live with no regression.** Relinked to the 0.9.2 checkout
+  and restarted, the same lab sessions render the same correct banners: the
+  planner session its **Plan submitted** line, the build session exactly **one**
+  **Review status: not finished** line quoting the engine's own code-verification
+  gaps (that round really was bounced, so `reviewRejected` is true and the banner
+  is right). `smoke --only ui` on the linked 0.9.2 lab: 6 PASS / 0 FAIL, console
+  clean. The follow-up-plan case the fix targets is pinned by unit tests against
+  the shipped source rather than driven end to end, because reaching it needs a
+  full plan→implement→review→approval→follow-up sequence on real models.
 - **0.9.1, proven live on the same data the defect came from.** The lab's KAN-2
   session holds three review rounds that each claimed a complete pass and were
   each sent back by the code check. On 0.9.0 that session rendered three
