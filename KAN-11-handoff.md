@@ -39,7 +39,7 @@ half from).
   continue-kicker kick) applies to it too. If the agent closes or re-plans the
   ticket from inside that turn, the engine notices and does not park over it.
   One exception: a turn that fails because the session is *still busy* does not
-  park at all — see "Known gap not fixed in 0.7.0" at the end of this document.
+  park at all — see the "Known gap not fixed in 0.7.0" section below.
 - **With no `approver` route configured** the engine skips the approval turn and
   parks the ticket exactly the way 0.6.0 did — so a deployment that never set one
   loses the hand-over prompt and nothing else. This deployment *does* set one
@@ -223,7 +223,7 @@ was already permanent by then, so they live here instead.
    effect after `pnpm install` in both trees plus a restart, so merging early
    buys nothing, and keeping it on a branch means an unplanned `git pull` on the
    box cannot half-activate 0.7.0 between now and the window. Merge it as part of
-   step 1 below, in the same window as the restart.
+   section 1 above, in the same window as the restart.
 2. **Ship the 0.7.1 hardening above?** Recommend: **yes**, before or alongside
    the restart. It is four lines plus one test, it only changes a path that today
    ends in a silent stall, and folding it in before the restart avoids a second
