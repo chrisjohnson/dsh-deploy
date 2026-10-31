@@ -321,8 +321,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-search-searxng-v0.2.0&path:/packages/image-search-searxng
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b4149afcf0380f0fdffa2bd98ec4d8ad659f39e7#path:/packages/image-search-searxng(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-kanban:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.9.3&path:/packages/kanban
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/541090dd4f1f7302a68fd3287de0ab039b86e95e#path:/packages/kanban(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-sandbox-policy@0.2.0-rc.2(7345bc8a170f7b239da92d7a0e490765))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.10.0&path:/packages/kanban
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/2d00999a3d3295a51e74f86732eae34af18d7a62#path:/packages/kanban(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-sandbox-policy@0.2.0-rc.2(7345bc8a170f7b239da92d7a0e490765))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-loop-watchdog:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))
@@ -3475,6 +3475,7 @@ packages:
   '@smithy/core@3.33.3':
     resolution: {integrity: sha512-CsOeKq/9kA3y6VJHt+/+VTCtBaxJ4OTFpgrjIUhPpDIKxBci1k2bJaQASF2h/ELWrulGp+t97DZ0mevfAD8idg==}
     engines: {node: '>=18.0.0'}
+    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
 
   '@smithy/credential-provider-imds@4.5.2':
     resolution: {integrity: sha512-A9uSdn72ozbRUSit0eib0TW7nXuNPlaeM0zcGkJ+nE6tFcSDbnmtwoxbTCFBukVQcszDAyvsd7+rTduPTXpygg==}
@@ -4146,9 +4147,9 @@ packages:
     peerDependencies:
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2
 
-  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/541090dd4f1f7302a68fd3287de0ab039b86e95e#path:/packages/kanban:
-    resolution: {gitHosted: true, integrity: sha512-7DSvr34hnuZP3emydjRGsSS40fW7Kg8/+p8KWy1zcASC+jEeQ6hq2p1EnyLBxsAyid7j3tIHgFfakcCKLDDPaw==, path: /packages/kanban, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/541090dd4f1f7302a68fd3287de0ab039b86e95e}
-    version: 0.9.3
+  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/2d00999a3d3295a51e74f86732eae34af18d7a62#path:/packages/kanban:
+    resolution: {gitHosted: true, integrity: sha512-RydW78wClh1UNvO7mU3F8IWPgvWxIliKyVSfIrjz9R8c8ePYu0wHj4bzbzMYd0C7EOH294XPUiBQ5ErWfTLEUQ==, path: /packages/kanban, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/2d00999a3d3295a51e74f86732eae34af18d7a62}
+    version: 0.10.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=22.5.0'}
     peerDependencies:
       '@deepseek-ai/cordis': 4.0.4
@@ -9896,7 +9897,7 @@ snapshots:
     dependencies:
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)
 
-  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/541090dd4f1f7302a68fd3287de0ab039b86e95e#path:/packages/kanban(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-sandbox-policy@0.2.0-rc.2(7345bc8a170f7b239da92d7a0e490765))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
+  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/2d00999a3d3295a51e74f86732eae34af18d7a62#path:/packages/kanban(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-sandbox-policy@0.2.0-rc.2(7345bc8a170f7b239da92d7a0e490765))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)):
     dependencies:
       '@deepseek-ai/cordis': 4.0.4(@deepseek-ai/cordis-plugin-include@1.0.9)(@deepseek-ai/cordis-plugin-loader@1.0.5)
       '@deepseek-ai/dsh-llm': 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
