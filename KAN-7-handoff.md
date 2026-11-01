@@ -4,13 +4,16 @@ Shipped in `dsh-plugins`:
 
 | package | tag | merge commit | what it changes |
 | --- | --- | --- | --- |
-| dsh-kanban | **`dsh-kanban-v0.11.0`** | `487b037` ([PR #63](https://github.com/chrisjohnson/dsh-plugins/pull/63)) | Ticket bodies can carry images: paste / drop / **Add image** in both the New-ticket dialog and the ticket editor, thumbnail tiles with a working X, a read-only **Body** markdown panel in the detail, and an **Attached images** host-path section in the plan session's prompt. Image bytes live in DSH core's content-addressed attachment store — **no new table, no schema migration, no new config keys**. **This is the version to deploy.** |
+| dsh-kanban | **`dsh-kanban-v0.11.1`** | `86badc9` ([PR #64](https://github.com/chrisjohnson/dsh-plugins/pull/64)) | Patch on top of 0.11.0: `ensureStyles()` now refreshes a stale `#kanban-styles` tag (a tab that re-applied the client without a full reload styled the new tiles with old CSS — huge natural-size previews, × below the image), and the tile × became a native-composer-style badge: dark circle with a light ring overhanging the thumbnail's top-right corner, revealed on hover or keyboard focus. **This is the version to deploy.** |
+| dsh-kanban | `dsh-kanban-v0.11.0` | `487b037` ([PR #63](https://github.com/chrisjohnson/dsh-plugins/pull/63)) | Ticket bodies can carry images: paste / drop / **Add image** in both the New-ticket dialog and the ticket editor, thumbnail tiles with a working X, a read-only **Body** markdown panel in the detail, and an **Attached images** host-path section in the plan session's prompt. Image bytes live in DSH core's content-addressed attachment store — **no new table, no schema migration, no config keys**. |
 
 Pinned in this worktree (branch `dsh/kan4-deploy`, fast-forwarded onto `main`
 `f1de936` first so the pin builds on the released 0.10.0): both `package.json`
 and `.dsh/profiles/web/package.json` move from `dsh-kanban-v0.10.0` to
-**`dsh-kanban-v0.11.0`**, root `pnpm-lock.yaml` updated (it resolves the tag to
-`487b037`), and **both installed trees verified at 0.11.0** — the root
+**`dsh-kanban-v0.11.1`** (0.11.0 shipped first and was restarted into
+production; 0.11.1 is the tile-CSS patch), root `pnpm-lock.yaml` updated (it
+resolves the tag to
+`86badc9`), and **both installed trees verified at 0.11.1** — the root
 `node_modules/dsh-kanban` and the profile tree dsh actually serves the browser
 half from (`.dsh/profiles/web/pnpm-lock.yaml` is gitignored by design; it is
 written by the install, not committed).
@@ -56,28 +59,29 @@ anything about it.
 ## 1. Update the live checkout (needs write access to `/home/dsh/dsh-deploy`)
 
 **Both trees must be installed** — a root-only install updates the host side and
-silently leaves the browser half on 0.10.0 (this repo's `AGENTS.md`):
+silently leaves the browser half on the previous tag (this repo's `AGENTS.md`):
 
 ```sh
 cd /home/dsh/dsh-deploy
 git status --porcelain          # cordis.patch.yml drift is expected; commit or stash it first
 git pull --ff-only              # main carries the pin commit
 grep -n 'dsh-kanban' package.json .dsh/profiles/web/package.json
-# both lines must read dsh-kanban-v0.11.0
+# both lines must read dsh-kanban-v0.11.1
 
 pnpm install                                  # root tree
 cd .dsh/profiles/web && pnpm install && cd -  # the tree dsh actually loads from
 pnpm run check                                # check-no-links: ok
 
-# PRE-RESTART ASSERTIONS - do not restart until all eight hold:
-grep -m1 '"version"' node_modules/dsh-kanban/package.json                        # 0.11.0
-grep -m1 '"version"' .dsh/profiles/web/node_modules/dsh-kanban/package.json      # 0.11.0
+# PRE-RESTART ASSERTIONS - do not restart until all nine hold:
+grep -m1 '"version"' node_modules/dsh-kanban/package.json                        # 0.11.1
+grep -m1 '"version"' .dsh/profiles/web/node_modules/dsh-kanban/package.json      # 0.11.1
 test -f .dsh/profiles/web/node_modules/dsh-kanban/src/images.mjs && echo ok      # ok (new module)
 grep -c 'readImage'     .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs   # >= 3 (endpoint + case)
 grep -c 'prepareBodyImages' .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs  # 3 (import + create + update)
 grep -c 'Add image'     .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs # 1
 grep -c 'renderMarkdown' .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs # 2
 grep -c 'Attached images' .dsh/profiles/web/node_modules/dsh-kanban/src/engine.mjs # 1
+grep -c 'focus-within'  .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs # 1 (0.11.1 hover X)
 ```
 
 If the profile-tree lines do not hold, the profile tree is still the old
