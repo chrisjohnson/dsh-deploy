@@ -144,7 +144,9 @@ browser console:
 ## Lab evidence (before release)
 
 The full browser suite ran against the lab (`scripts/lab.sh`, kanban linked to
-the feature checkout) — **24/24 checks passed**, screenshots in `kan7-shots/`:
+the feature checkout) — **24/24 checks passed** (the Playwright driver script
+and screenshots were kept during verification and cleaned from the tree after;
+what each check proved):
 
 - picker/paste/drop each insert a pending ref + tile in CreateForm; text-only
   paste and non-image files are untouched; × removes tile and ref.
