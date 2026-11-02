@@ -1061,7 +1061,14 @@ cmd_link() {
   fi
   local real_target
   real_target="$(real_path "$target")"
-  under_or_equal "$real_target" "$(real_path "$PROD_DIR")" && die "refusing to link a path inside the production checkout ($real_target)"
+  # Same exception as assert_lab_dir_safe: a ticket's worktree under
+  # <prod>/.dsh-worktrees is its own checkout, not production's working tree,
+  # so linking from it is exactly the worktree-build flow.
+  local prod_real
+  prod_real="$(real_path "$PROD_DIR")"
+  if under_or_equal "$real_target" "$prod_real" && ! under_or_equal "$real_target" "$prod_real/.dsh-worktrees"; then
+    die "refusing to link a path inside the production checkout ($real_target)"
+  fi
   under_or_equal "$real_target" "$(real_path "$LAB_DIR")" && die "link a checkout outside the lab clone; $real_target is inside it"
   info "link $pkg -> $real_target"
   if ((DRY)); then
