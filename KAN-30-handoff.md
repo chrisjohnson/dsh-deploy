@@ -81,19 +81,26 @@ planned window — and know that 0.16.1 and 0.16.2 each carry a denylist hole th
 
 ## Verification trail
 
-- Clone `/home/dsh/dsh-deploy/.dsh-worktrees/kan30-plugins` at `7bc810f`:
-  `npm run check` → verify 0 errors, hook gate clean, **836/836 tests, 0 fail**;
+- Clone `/home/dsh/dsh-deploy/.dsh-worktrees/kan30-plugins`: `npm run check` →
+  verify 0 errors, hook gate clean, **836/836 tests, 0 fail**;
   `node scripts/compose-smoke.mjs` → 11/11; `npm pack --dry-run` lists
   `src/grants.mjs` (20.7 kB, 34 files) at 0.16.3.
-- Lab evidence (rounds 0.16.0/0.16.1, under
-  `.dsh-worktrees/kan30-deploy/.lab/kan30-evidence/`): smoke `ui,completion`
-  8 PASS / 0 FAIL; the grants e2e 8 PASS — a granted out-of-workspace write was
-  answered `allowed-once` with a `grant_applied` event and no human, an
-  ungranted one was not auto-approved and never wrote its file. Note the plan's
-  literal "no `approval/asked` event" wording is unsatisfiable plugin-only:
-  `dsh-user-approval` appends that event before the waterfall runs. Not re-run
-  for 0.16.2/0.16.3: each change only narrows what the approver answers, and the
-  shipped module was probed directly instead.
+- **Live-lab proof of the released 0.16.3** (`.dsh-worktrees/kan30-deploy/.lab/kan30-evidence-0163/`):
+  lab `kan30c` pinned to the tag `dsh-kanban-v0.16.3` — nothing linked, so it ran
+  exactly what a consumer installs. Smoke `ui,completion`: **8 PASS / 0 FAIL /
+  0 SKIP**. Grants e2e: **16 PASS / E2E PASSED** — plan parked `Plan ready: 1
+  sandbox grant(s)` with no build session, `approvePlan` lifted it, the granted
+  write's escalation ask was answered `allowed-once` with no human and a
+  `grant_applied` event, the file landed (mtime equal to the event's second), and
+  the ungranted write asked, was not auto-approved and never wrote. Its
+  `README.md` also records why the first attempt was thrown out: the script reuses
+  its root, so the granted file was stale from the 0.16.0 run and the write had
+  actually failed on `FS_NOT_OBSERVED`; the root was cleared and the e2e re-run.
+- Earlier rounds' evidence (0.16.0/0.16.1) is in
+  `.dsh-worktrees/kan30-deploy/.lab/kan30-evidence/`. The plan's literal "no
+  `approval/asked` event" wording stays unsatisfiable plugin-only:
+  `dsh-user-approval` appends that event before the waterfall runs; the honest
+  observable is the one proved above.
 - Live checkout: `pnpm run check` → `check-no-links: ok`, exit 0; both trees
   report 0.16.3 with `Approve plan`, `Sandbox grants`, `approvePlan` and
   `makeGrantApprover` present.
