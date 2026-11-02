@@ -1,17 +1,18 @@
-# KAN-16 — Start planning: released and pinned; the production deploy + restart is what remains
+# KAN-16 — Start planning: released, pinned, and pre-staged in production; only the restart remains
 
-**Status: released and pinned on `main`. NOT yet deployed to production.**
-PR #67 merged, `dsh-kanban-v0.13.0` is tagged, and this repo's pin moved to it.
-**The only thing left is section 2: pulling and installing in the live checkout
-and restarting the service — a human step in a planned window.**
+**Status: released, pinned on `main`, and pre-staged on the box.** The live
+checkout on disk now holds 0.13.0 and every pre-restart assertion passed there.
+**The one remaining step is the service restart in section 3 — a human step in a
+planned window.** Until it happens, production is *running* 0.12.1 in memory
+while 0.13.0 sits on disk.
 
 | thing | where | state |
 | --- | --- | --- |
 | dsh-kanban change | [PR #67](https://github.com/chrisjohnson/dsh-plugins/pull/67), commit `11c1d29`, merge commit `05b370e` | **merged into `main`** |
-| release tag | `dsh-kanban-v0.13.0` → `05b370e23a11146e6650cdeeb48017fab5f3445a` | **pushed** (`gh api .../refs/tags/dsh-kanban-v0.13.0` confirms) |
+| release tag | `dsh-kanban-v0.13.0` → `05b370e23a11146e6650cdeeb48017fab5f3445a` | **pushed** (refs API confirms tag sha == main sha) |
 | this repo's pin | `package.json` + `.dsh/profiles/web/package.json` | **both read `dsh-kanban-v0.13.0`**, root `pnpm-lock.yaml` resolved to `05b370e` |
-| install proof | the KAN-16 worktree, both trees installed | root and `.dsh/profiles/web` both report **0.13.0**; every pre-restart assertion below passed here |
-| production | `/home/dsh/dsh-deploy`, service `dsh` | **untouched** — still 0.12.1 on disk and in memory. Sections 1 and 2 have not been run there. |
+| **production checkout** | `/home/dsh/dsh-deploy` | **pre-staged at `9c868d2`**: pulled, both trees installed, all six assertions passed (section 2) |
+| **production service** | `dsh`, pid `3288487`, started `04:00:23 UTC` | **not restarted** — still running 0.12.1 in memory. Section 3 is the only step left. |
 
 
 ## What the change is
@@ -129,43 +130,63 @@ planning.mjs present: yes
 pnpm run check: check-no-links: ok (4 files checked)
 ```
 
-**This is not the production deploy.** `/home/dsh/dsh-deploy` was not pulled, not
-installed into, and not restarted; it is still on 0.12.1 both on disk and in
-memory. Section 2 is what actually moves production.
+That worktree install was the dry run that proved the pin resolves and that the
+six assertion values below are correct rather than guessed. Section 2 is the same
+sequence carried out in the live checkout.
 
 ### 1d. Committed and pushed to `main`
 
 The pin, the lockfile and this handoff are committed and pushed to `main` in this
 repo (direct pushes are authorized here by `AGENTS.md`).
 
-## 2. Production deploy — Chris, planned window only
+## 2. Production pre-stage — DONE (2026-11-02 05:42 UTC, KAN-16 session)
 
-Run this in the live checkout. **Both trees must be installed** or the browser
-keeps the old plugin while the host looks updated:
+Carried out in the live checkout `/home/dsh/dsh-deploy`. **Both** trees were
+installed, because a root-only install updates the host side and silently leaves
+the browser half on the old tag — the miss `AGENTS.md` records:
 
 ```sh
 cd /home/dsh/dsh-deploy
-git status --porcelain          # cordis.patch.yml drift is expected; commit or stash it first
-git pull --ff-only origin main  # the pin commit from 1d
-grep -n 'dsh-kanban' package.json .dsh/profiles/web/package.json   # both must read v0.13.0
-
+git pull --ff-only origin main  # fc267e1 -> 9c868d2, the pin commit
 pnpm install                                   # root tree
-cd .dsh/profiles/web && pnpm install && cd /home/dsh/dsh-deploy
-pnpm run check                                 # check-no-links: ok
-
-# PRE-RESTART ASSERTIONS — do not restart until all of these hold:
-grep -m1 '"version"' node_modules/dsh-kanban/package.json                      # 0.13.0
-grep -m1 '"version"' .dsh/profiles/web/node_modules/dsh-kanban/package.json    # 0.13.0
-grep -c 'startPlanning'  .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs   # 6 (rule, card, hero, Column plumbing, handler, act call)
-grep -c 'kb-planbtn'     .dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs   # 3 (two css rules + the class use)
-grep -c 'startPlanning'  .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs     # 3 (import, action branch, the call)
-test -f .dsh/profiles/web/node_modules/dsh-kanban/src/planning.mjs && echo planning.mjs present
+cd .dsh/profiles/web && pnpm install          # the tree dsh serves the client half from
+pnpm run check
 ```
 
-All six of those assertions are the ones that passed in 1c, so their expected
-values are verified, not guessed. If the version greps do not read 0.13.0, the
-profile tree is still the old tarball: re-run `pnpm install` inside
-`.dsh/profiles/web` before touching the service.
+Recorded output:
+
+```text
+HEAD now: 9c868d2
+package.json + .dsh/profiles/web/package.json both read #dsh-kanban-v0.13.0
+root install:    Done in 3.4s using pnpm v11.22.0
+profile install: + dsh-kanban 0.13.0   Done in 2.4s using pnpm v12.9.0
+pnpm run check:  check-no-links: ok (4 files checked)
+
+PRE-RESTART ASSERTIONS — all six held:
+1 root version:         "version":"0.13.0"
+2 profile version:      "version":"0.13.0"
+3 client startPlanning: 6
+4 client kb-planbtn:    3
+5 host startPlanning:   3
+6 planning.mjs present: yes
+```
+
+The service was **not** touched by this step, and that was checked rather than
+assumed: `MainPID` is still `3288487` and `ActiveEnterTimestamp` is still
+`Mon 2026-11-02 04:00:23 UTC`, both identical to the fingerprint taken before the
+pull, and `:3081` still answers. So production is *running* 0.12.1 while 0.13.0
+sits on disk, which is exactly the pre-staged state — **section 3 is all that is
+left.**
+
+Two notes for whoever restarts:
+
+- `.dsh/profiles/web/cordis.patch.yml` carries unrelated live drift (kanban role
+  routes moved to `big-moe`, `maxAttempts: 5`, `reasoningEffort` keys). It was
+  deliberately left uncommitted and untouched — it is a settings-UI change, not
+  part of KAN-16, and the pin commit does not touch that file.
+- If a re-run of the version greps ever fails to read 0.13.0, the profile tree is
+  stale: re-run `pnpm install` inside `.dsh/profiles/web` before touching the
+  service.
 
 ## 3. Production restart — Chris, planned window only
 
