@@ -63,6 +63,10 @@ pnpm-store/
 # not here). Dev-time clone only - this repo consumes the plugins as pinned npm/git
 # packages installed into .dsh/profiles/web. See AGENTS.md "Plugins live elsewhere".
 .plugin-dev/
+# Same rule for the path a ticket worktree clones it to when `scripts/lab.sh link`
+# needs a checkout outside the lab (`lab.sh link <pkg> plugins/dsh-plugins/packages/<dir>`):
+# a dev-time checkout of another repository, never content of this one.
+plugins/
 
 # Written by DSH at boot: its record of which plugins passed the peer-range
 # admission check. Derived state, regenerated every boot.

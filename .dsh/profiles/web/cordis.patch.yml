@@ -612,6 +612,9 @@
 # The cloud proxy is unlimited; APU and eGPU each own a FIFO queue. 2/2 is the
 # measured sweet spot for this box (2 simultaneous calls per GPU parallelize
 # better than serialized access); tune here without a code change.
+# Since plugin 0.4.0 there is one queue: a subagent child's calls wait in the
+# same per-provider FIFO as an interactive turn, and a dispatch is never refused
+# for capacity. The old `reservationTtlMs` / `subagentTools` keys are gone.
 - id: model-capacity
   config:
     enabled: true
@@ -624,8 +627,3 @@
       - provider: local-ai-machine-cloud
         unlimited: true
     queueLimitPerProvider: 1000
-    reservationTtlMs: 300000
-    subagentTools:
-      - subagent
-      - subagent_fork
-      - spawn_teammate
