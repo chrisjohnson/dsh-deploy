@@ -1,16 +1,18 @@
-# KAN-16 — Start planning: verification record, and the release / pin / restart steps still owed
+# KAN-16 — Start planning: released and pinned; the production deploy + restart is what remains
 
-**Status: code complete and lab-verified. NOT released, NOT pinned, NOT deployed.**
-The plugin change sits on an open pull request; the release tag does not exist
-yet, so this repo's pin is deliberately untouched. Everything in section 1 is a
-step for a human, in order.
+**Status: released and pinned on `main`. NOT yet deployed to production.**
+PR #67 merged, `dsh-kanban-v0.13.0` is tagged, and this repo's pin moved to it.
+**The only thing left is section 2: pulling and installing in the live checkout
+and restarting the service — a human step in a planned window.**
 
 | thing | where | state |
 | --- | --- | --- |
-| dsh-kanban change | [`feat/kanban-start-planning`](https://github.com/chrisjohnson/dsh-plugins/tree/feat/kanban-start-planning) @ `11c1d29`, [PR #67](https://github.com/chrisjohnson/dsh-plugins/pull/67) | open, CI + lab green |
-| release tag | `dsh-kanban-v0.13.0` | **does not exist yet** |
-| this repo's pin | `package.json` + `.dsh/profiles/web/package.json` | still `dsh-kanban-v0.12.1` (branch `dsh/ready-lupine` fast-forwarded onto `main` `fc267e1`, so it is on the current released base, not the stale 0.6.0 one) |
-| production | `/home/dsh/dsh-deploy`, service `dsh` | untouched — still 0.12.1, as intended |
+| dsh-kanban change | [PR #67](https://github.com/chrisjohnson/dsh-plugins/pull/67), commit `11c1d29`, merge commit `05b370e` | **merged into `main`** |
+| release tag | `dsh-kanban-v0.13.0` → `05b370e23a11146e6650cdeeb48017fab5f3445a` | **pushed** (`gh api .../refs/tags/dsh-kanban-v0.13.0` confirms) |
+| this repo's pin | `package.json` + `.dsh/profiles/web/package.json` | **both read `dsh-kanban-v0.13.0`**, root `pnpm-lock.yaml` resolved to `05b370e` |
+| install proof | the KAN-16 worktree, both trees installed | root and `.dsh/profiles/web` both report **0.13.0**; every pre-restart assertion below passed here |
+| production | `/home/dsh/dsh-deploy`, service `dsh` | **untouched** — still 0.12.1 on disk and in memory. Sections 1 and 2 have not been run there. |
+
 
 ## What the change is
 
@@ -48,7 +50,13 @@ tests:             751 tests, 681 pass, 0 fail, 70 skipped
 npm pack --dry-run: src/planning.mjs present in the tarball
 ```
 
-The 70 skips are the peer-package-gated suites, identical on `main`.
+The 70 skips are the peer-package-gated suites, identical on `main`. All five CI
+checks on PR #67 (compose, contract, tests on node 20.9.0 / 22 / 24) passed
+before the merge, and the reviewer independently mutation-tested the new
+assertions — deleting the column/phase guard, making the `planTiming` write a
+no-op, dropping the client rule's `planTiming` condition, and forcing the card
+button off each produced a test failure, so the suite genuinely constrains this
+behaviour.
 
 Lab: `scripts/lab.sh up --name kan16 --port 3099`, `dsh-kanban` **linked** to
 `/home/dsh/dsh-lab/plugins/dsh-plugins-kan16/packages/kanban`, so the board ran
@@ -83,48 +91,67 @@ Two caveats, stated plainly:
   session), not by the lab run — parking a real plan on demand would have meant
   a deliberately failing planner route.
 
-## 1. What is left, in order
+## 1. Already done — release and pin (2026-11-02, KAN-16 session)
 
-### 1a. Merge and tag (dsh-plugins)
+### 1a. Merged and tagged
 
-After reviewing PR #67, per that repo's `docs/releasing.md`: merge it, then cut
-the tag on the merge commit and push it.
+[PR #67](https://github.com/chrisjohnson/dsh-plugins/pull/67) merged into
+`dsh-plugins` `main` as merge commit `05b370e23a11146e6650cdeeb48017fab5f3445a`,
+and the lightweight tag was cut on that merge commit per `docs/releasing.md`:
 
-```sh
-git -C ~/dsh-lab/plugins/dsh-plugins-kan16 fetch origin
-git -C ~/dsh-lab/plugins/dsh-plugins-kan16 tag dsh-kanban-v0.13.0 origin/main
-git -C ~/dsh-lab/plugins/dsh-plugins-kan16 push origin dsh-kanban-v0.13.0
-git -C ~/dsh-lab/plugins/dsh-plugins-kan16 describe --tags   # dsh-kanban-v0.13.0
+```text
+refs/tags/dsh-kanban-v0.13.0 -> 05b370e23a11146e6650cdeeb48017fab5f3445a
 ```
 
-### 1b. Pin it here, in both manifests
+### 1b. Pin bumped in both manifests, lockfile resolved
+
+`package.json` and `.dsh/profiles/web/package.json` both moved
+`dsh-kanban-v0.12.1` → **`dsh-kanban-v0.13.0`** (a two-line, value-only diff),
+and `pnpm install --lockfile-only` rewrote the root `pnpm-lock.yaml`, which now
+resolves the tag to the merge commit:
+
+```text
+dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/05b370e23a11146e6650cdeeb48017fab5f3445a#path:/packages/kanban
+```
+
+### 1c. Both trees installed and asserted — in the KAN-16 worktree, not production
+
+To prove the pin actually installs and that the assertions below are correct,
+**both** trees were installed in this worktree (`.dsh-worktrees/ready-lupine`).
+A root-only install is the trap `AGENTS.md` records — it updates the host side
+and silently leaves the browser half on the old tag — so both were done:
+
+```text
+root version:    "version":"0.13.0"
+profile version: "version":"0.13.0"
+client startPlanning: 6   client kb-planbtn: 3   host startPlanning: 3
+planning.mjs present: yes
+pnpm run check: check-no-links: ok (4 files checked)
+```
+
+**This is not the production deploy.** `/home/dsh/dsh-deploy` was not pulled, not
+installed into, and not restarted; it is still on 0.12.1 both on disk and in
+memory. Section 2 is what actually moves production.
+
+### 1d. Committed and pushed to `main`
+
+The pin, the lockfile and this handoff are committed and pushed to `main` in this
+repo (direct pushes are authorized here by `AGENTS.md`).
+
+## 2. Production deploy — Chris, planned window only
+
+Run this in the live checkout. **Both trees must be installed** or the browser
+keeps the old plugin while the host looks updated:
 
 ```sh
 cd /home/dsh/dsh-deploy
 git status --porcelain          # cordis.patch.yml drift is expected; commit or stash it first
-git pull --ff-only origin main
-for f in package.json .dsh/profiles/web/package.json; do
-  node -e '
-    const fs = require("fs"); const f = process.argv[1];
-    const j = JSON.parse(fs.readFileSync(f, "utf8"));
-    j.dependencies["dsh-kanban"] = "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.13.0&path:/packages/kanban";
-    fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
-  ' "$f"
-done
+git pull --ff-only origin main  # the pin commit from 1d
 grep -n 'dsh-kanban' package.json .dsh/profiles/web/package.json   # both must read v0.13.0
-pnpm install --lockfile-only        # updates the root pnpm-lock.yaml
-```
 
-### 1c. Install BOTH trees, then check
-
-A root-only install updates the host side and silently leaves the browser half on
-0.12.1 — this repo's `AGENTS.md` calls that out as a real production miss.
-
-```sh
-cd /home/dsh/dsh-deploy
-pnpm install
+pnpm install                                   # root tree
 cd .dsh/profiles/web && pnpm install && cd /home/dsh/dsh-deploy
-pnpm run check                                    # check-no-links: ok
+pnpm run check                                 # check-no-links: ok
 
 # PRE-RESTART ASSERTIONS — do not restart until all of these hold:
 grep -m1 '"version"' node_modules/dsh-kanban/package.json                      # 0.13.0
@@ -135,20 +162,12 @@ grep -c 'startPlanning'  .dsh/profiles/web/node_modules/dsh-kanban/src/host.mjs 
 test -f .dsh/profiles/web/node_modules/dsh-kanban/src/planning.mjs && echo planning.mjs present
 ```
 
-If the version greps do not read 0.13.0, the profile tree is still the old
-tarball: re-run `pnpm install` inside `.dsh/profiles/web` before touching the
-service.
+All six of those assertions are the ones that passed in 1c, so their expected
+values are verified, not guessed. If the version greps do not read 0.13.0, the
+profile tree is still the old tarball: re-run `pnpm install` inside
+`.dsh/profiles/web` before touching the service.
 
-### 1d. Commit and push this repo
-
-```sh
-cd /home/dsh/dsh-deploy
-git add package.json .dsh/profiles/web/package.json pnpm-lock.yaml
-git commit -m "pin dsh-kanban 0.13.0: Start planning — plan a Backlog ticket without moving it"
-git push origin main
-```
-
-## 2. Production restart — Chris, planned window only
+## 3. Production restart — Chris, planned window only
 
 **A session running on the production service cannot restart it** — a restart
 ends every session in it, including the one doing the restart. This step is a
@@ -159,7 +178,7 @@ glowing card is a turn running; a static red one is parked and safe.
 sudo systemctl restart dsh
 ```
 
-## 3. Post-restart verification
+## 4. Post-restart verification
 
 ```sh
 systemctl status dsh --no-pager | head -5
