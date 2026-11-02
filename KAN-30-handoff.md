@@ -5,7 +5,10 @@
 `dsh-kanban` 0.16.0 → 0.16.1 (review round 1) → 0.16.2 (round 2) → **0.16.3**
 (round 3), tag `dsh-kanban-v0.16.3` at dsh-plugins `7bc810f` (merge of PR #77).
 Pinned in both manifests (`package.json`, `.dsh/profiles/web/package.json`),
-installed in both trees, live checkout at `c585e16`.
+installed in both trees. The live checkout carries the pin in `c585e16`; its HEAD
+has since moved on as other tickets' work merged in (KAN-21's image-tiler pin),
+which does not touch the kanban row or either installed tree — both still report
+0.16.3 with `src/grants.mjs` identical to the tag.
 
 The feature: a plan may declare `sandbox.grants` (absolute write paths outside
 the workspace root, token-prefix bash commands) plus `sandbox.checks` (the
