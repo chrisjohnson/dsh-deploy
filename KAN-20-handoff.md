@@ -1,22 +1,29 @@
-# KAN-20 — model activity subagents: dsh-model-capacity 0.4.0 released and pinned; the production pull + restart remain
+# KAN-20 — model activity subagents: dsh-model-capacity 0.4.0 released, pinned and installed in production; only the restart remains
 
-**Status: released, pinned and installed in this ticket's worktree.** The plugin
-change is merged and tagged in `dsh-plugins`, both manifests here pin the new
-tag, both install trees carry it, and every pre-restart assertion in section 2
-passed. **Nothing in production has been touched**: `/home/dsh/dsh-deploy` is
-still on the old pin on disk and still *runs* 0.3.0 in memory. Section 3 is the
-deploy, and its last step — the service restart — is a human one in a planned
-window.
+**Status: released, pinned, and installed in production.** The plugin change is
+merged and tagged in `dsh-plugins`, both manifests pin the new tag, and **both
+install trees in `/home/dsh/dsh-deploy` carry 0.4.0** (verified byte-identical to
+the tag, section 2b). **The one remaining step is the service restart in section
+3 — a human step in a planned window.** Until it happens production *runs* 0.3.0
+in memory while 0.4.0 sits on disk.
 
 | thing | where | state |
 | --- | --- | --- |
 | plugin change | [PR #73](https://github.com/chrisjohnson/dsh-plugins/pull/73) — `7920289` (change) + `54afa62` (release bump) | **merged**, merge commit `e7f762d4da11daaf6cc8be6fd535a2bdd66ce880` |
 | release tag | `dsh-model-capacity-v0.4.0` → `e7f762d4da11daaf6cc8be6fd535a2bdd66ce880` | **pushed** (`git ls-remote` prints that one sha; it is `origin/main` HEAD) |
-| this repo's pin | `package.json` + `.dsh/profiles/web/package.json` | both read `#dsh-model-capacity-v0.4.0`; root `pnpm-lock.yaml` regenerated |
+| this repo's pin | `package.json` + `.dsh/profiles/web/package.json` | both read `#dsh-model-capacity-v0.4.0`; root `pnpm-lock.yaml` regenerated (commit `4bd9281`) |
 | deployment config | `.dsh/profiles/web/cordis.patch.yml` | `model-capacity` row trimmed (section 2, A5) |
 | **this worktree** | `.dsh-worktrees/warm-birch` | both trees installed at 0.4.0, `pnpm run check` ok, assertions in section 2 |
-| **production checkout** | `/home/dsh/dsh-deploy` | **not pulled** — still 0.3.0 on disk (deliberate: outside this session's sandbox, and it belongs to the planned window) |
-| **production service** | `dsh` unit | **not restarted** — still running 0.3.0 in memory |
+| **production checkout** | `/home/dsh/dsh-deploy` | **pre-staged at `c29f95a`** (KAN-30's commit, which carries `4bd9281` as its parent): both trees installed at 0.4.0, `pnpm run check` ok, section 2b assertions passed |
+| **production service** | `dsh` unit, pid `2975411`, started `18:06:44 UTC` | **not restarted** — still running 0.3.0 in memory. Section 3 is all that is left. |
+
+One production note: `/home/dsh/dsh-deploy` carries an **uncommitted**
+`cordis.patch.yml` change that is not part of this ticket — a settings-UI edit to
+the `kanban` row (`maxAttempts: 5`, implementer/reviewer moved to
+`apu`/`big-moe`, `reasoningEffort` keys). It was preserved as uncommitted drift
+through the pull (`stash push -- <file>` → `merge --ff-only` → `stash pop`,
+rehearsed conflict-free on a scratch clone first). Do not discard it; it is live
+configuration someone chose in the GUI.
 
 ## What the change is
 
@@ -191,28 +198,56 @@ A5 config row:
      enabled: true   defaultMaxConcurrent: 1   limits: 3 entries   queueLimitPerProvider: 1000
 ```
 
-## 3. Production deploy — Chris, planned window
+## 2b. The same assertions in production — DONE (2026-11-02, KAN-20 session)
 
-A session running on the production service cannot restart it: a restart ends
-every session in it, including the one doing the restart. Everything below is
-one window; the pull and the installs are safe to run while sessions are live,
-the restart is not.
+Run in `/home/dsh/dsh-deploy` after the pull and both installs:
+
+```text
+HEAD: c29f95a (carries 4bd9281)
+A1 "version": "0.4.0",  in node_modules/dsh-model-capacity/package.json
+   "version": "0.4.0",  in .dsh/profiles/web/node_modules/dsh-model-capacity/package.json
+   diff -r <tag src> vs each installed src → no differences (both trees are the tag)
+A2 grep -c 'dismissReservation' .dsh/profiles/web/node_modules/dsh-model-capacity/src/client.mjs → 0
+   0.4.0-only KPI marker repeat(2,minmax(0,1fr))                                               → 1
+   grep -r -i -c 'reservation|subagentTools|guard' …/src/                                       → 0 in every file
+A3 sed -n '/- id: model-capacity/,/^[^ ]/p' .dsh/profiles/web/cordis.patch.yml
+     removed keys as config entries → 0     queueLimitPerProvider: 1000 → 1
+A4 pnpm run check → check-no-links: ok (4 files checked), exit 0
+service: still pid 2975411, ActiveEnterTimestamp Mon 2026-11-02 18:06:44 UTC — NOT restarted
+```
+
+## 3. Production restart — Chris, planned window
+
+Everything else is done: production's checkout and both install trees already
+carry 0.4.0 (section 2b). What is left is the restart, which a session running on
+the service cannot do — it ends every session in it, including the one doing it.
 
 ```sh
+# 1. confirm nothing drifted since the pre-stage (expect 0.4.0 twice, then 0, then 1)
 cd /home/dsh/dsh-deploy
-git pull --ff-only origin main     # the pin + config + handoff commit
-pnpm install                       # root tree (host half)
-cd .dsh/profiles/web && pnpm install   # the tree dsh serves the client half from
-cd /home/dsh/dsh-deploy && pnpm run check
-
-# re-run section 2's assertions here and expect the same output:
 grep -m1 '"version"' node_modules/dsh-model-capacity/package.json \
                        .dsh/profiles/web/node_modules/dsh-model-capacity/package.json
 grep -c 'dismissReservation' .dsh/profiles/web/node_modules/dsh-model-capacity/src/client.mjs
-sed -n '/- id: model-capacity/,/^[^ ]/p' .dsh/profiles/web/cordis.patch.yml
+sed -n '/- id: model-capacity/,/^[^ ]/p' .dsh/profiles/web/cordis.patch.yml | grep -c 'queueLimitPerProvider: 1000'
+pnpm run check
 
-# then, when the board is quiet (a blue, glowing card is a turn running):
+# 2. when the board is quiet (a blue, glowing card is a turn running):
 sudo systemctl restart dsh
+```
+
+If a fresh pin landed on `main` since, pull and reinstall **both** trees first —
+a 0.4.0 host with a 0.3.0 profile client crashes the Activity panel, because the
+0.3.0 client dereferences `p.reservations`, which the new snapshot no longer
+sends:
+
+```sh
+cd /home/dsh/dsh-deploy
+git stash push -- .dsh/profiles/web/cordis.patch.yml   # the uncommitted kanban drift
+git pull --ff-only origin main
+git stash pop
+pnpm install
+cd .dsh/profiles/web && pnpm install
+cd /home/dsh/dsh-deploy && pnpm run check
 ```
 
 ## 4. Post-restart verification
@@ -244,7 +279,7 @@ Pin the previous tag, reinstall both trees, restart in a planned window:
 
 ```sh
 cd /home/dsh/dsh-deploy
-git revert <pin commit>   # or edit both manifests back to dsh-model-capacity-v0.3.0
+git revert 4bd9281   # or edit both manifests back to dsh-model-capacity-v0.3.0
 pnpm install
 cd .dsh/profiles/web && pnpm install
 pnpm run check
@@ -256,16 +291,18 @@ still in git history next to this commit if a rollback wants the old row
 verbatim. Rolling back returns the preflight: subagent dispatch can fail with a
 capacity error again, and the Reservations surface reappears.
 
-## Two box notes for Chris
+## Two box notes — filed as issues
 
-1. **`kernel.yama.ptrace_scope = 1` breaks three lab-smoke checks.** Anything
-   that reads `/proc/<pid>/environ` of a process it did not spawn fails with
-   EACCES: `scripts/lab.sh`'s own production-launch read (worked around here
-   with `LAB_FORCE_UNIT_FALLBACK=1`, which the script supports) and the smoke's
-   boot-isolation and SearXNG checks. Every worktree lab today shows these
-   FAILs, so a green `lab.sh smoke` is currently unreachable without either
+1. **`kernel.yama.ptrace_scope = 1` breaks three lab-smoke checks** →
+   [dsh-deploy#16](https://github.com/chrisjohnson/dsh-deploy/issues/16).
+   Anything that reads `/proc/<pid>/environ` of a process it did not spawn fails
+   with EACCES: `scripts/lab.sh`'s own production-launch read (worked around
+   here with `LAB_FORCE_UNIT_FALLBACK=1`, which the script supports) and the
+   smoke's boot-isolation and SearXNG checks. Every worktree lab today shows
+   these FAILs, so a green `lab.sh smoke` is currently unreachable without either
    relaxing yama or teaching those checks a fallback.
 2. **`~/.npm/_cacache` contains root-owned files**, so `npm pack` (used by
-   `lab.sh link`'s pack check and by `npm pack --dry-run`) fails with EACCES.
+   `lab.sh link`'s pack check and by `npm pack --dry-run`) fails with EACCES →
+   [dsh-deploy#17](https://github.com/chrisjohnson/dsh-deploy/issues/17).
    `npm_config_cache=/tmp/npm-cache-dsh` sidesteps it; the permanent fix npm
    itself suggests is `sudo chown -R 1002:990 /home/dsh/.npm`.
