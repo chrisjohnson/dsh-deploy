@@ -139,9 +139,9 @@ The loop, all as the `dsh` user on the box, no sudo (the human path is
 any checkout of this repo; it never writes to production:
 
 ```sh
-scripts/lab.sh up                        # private instance on :3099, copy of prod data
-scripts/lab.sh link model-switch         # pin it to ~/dsh-lab/plugins/dsh-plugins (cloned if missing)
-#   edit ~/dsh-lab/plugins/dsh-plugins/packages/model-switch/..., then:
+scripts/lab.sh up                        # private instance on :3099 (or next free), copy of prod data
+scripts/lab.sh link model-switch         # pin it to <lab root>/plugins/dsh-plugins (cloned if missing)
+#   edit <lab root>/plugins/dsh-plugins/packages/model-switch/..., then:
 scripts/lab.sh restart                   # no live reload: restart to pick the edit up
 scripts/lab.sh smoke --only model-switch,sessions
 scripts/lab.sh smoke                     # everything, before you release
@@ -180,7 +180,10 @@ previous tag, reinstalling, and restarting in a planned window.
 
 ### The lab (`scripts/lab.sh`, `scripts/lab-smoke/`)
 
-A lab is a clone of this repo under `~/dsh-lab/<name>` with its own `node_modules` (shared
+A lab is a clone of this repo under `<lab root>/<name>` (the lab root is `<checkout>/.lab`
+when `lab.sh` runs from any checkout but production's, e.g. a ticket's worktree, so a session
+confined to its workspace can run one; `~/dsh-lab` from production's checkout; `LAB_ROOT`
+overrides) with its own `node_modules` (shared
 pnpm store), its own `DSH_HOME`, a throwaway `HOME`, and its own port (prefers 3099, falls back to the next free one up to 3199). It is started
 with the production unit's own node binary, flags (`--expose-internals`) and environment,
 read from the running service's `/proc` entries, so it boots the way production does. It
@@ -221,10 +224,18 @@ Safety rules:
 - The copy is a one-time snapshot, not a link, but the copied data holds absolute paths: the
   workspace registry and session caches name real working directories, and `session_projcache`
   records files read from production's own `DSH_HOME` (profile, settings, skills, the kanban
-  db path). `lab.sh check-paths` (also run after every copy) lists them: references into
-  production's state dir in config/state files exit 4, mentions in logs are notes, real
-  working directories are warnings. A copied session that is sent a message runs its tools in
-  that real directory, so look, don't send.
+  db path). After copying, `lab.sh` rewrites production's `DSH_HOME` in the copied json/yaml
+  config and state files to the lab's own (`--keep-prod-paths` skips this), then
+  `lab.sh check-paths` (also a command of its own) lists what is left: references into
+  production's state dir in other files exit 4, mentions in logs are notes, real working
+  directories are warnings. A copied session that is sent a message runs its tools in that
+  real directory, so look, don't send.
+- Token: every lab writes its login token to `<lab>/.lab/token` (and the full URL to
+  `<lab>/.lab/url`), mode 600, owned by the user that ran the lab. `lab.sh token` shows where
+  they are and the tunnel command; `--print` prints the URL. From your own machine:
+  `ssh local-ai-machine 'sudo -u dsh cat <lab>/.lab/token'`.
+- pnpm store: the shared store is used when it is writable; otherwise (a sandboxed session)
+  a store under the lab root, which downloads on first install. `LAB_PNPM_STORE` forces one.
 - Port: `--port N`/`LAB_PORT` must be free; otherwise the lab prefers 3099
   (`LAB_PORT_PREFERRED`), then its last port, then the next free one up to `LAB_PORT_MAX`.
   `lab.sh port` shows it, `lab.sh port N` moves the lab (restarts), `lab.sh port auto` goes
@@ -236,7 +247,7 @@ Safety rules:
 
 Lab recipes (all lab-only, never committed):
 
-- `LAB_ROOT` (default `~/dsh-lab`) holds labs as `$LAB_ROOT/<name>`; `--name`/`LAB_NAME` pick one, `--port`/`LAB_PORT` its port.
+- `LAB_ROOT` (see above for its default) holds labs as `$LAB_ROOT/<name>`; `--name`/`LAB_NAME` pick one, `--port`/`LAB_PORT` its port.
   The lab clone has its own `cordis.patch.yml`: edit it there (it is a plain tracked-file diff, shown by `status`).
 - Pin by hand the way `lab.sh link` does: set `"<pkg>": "link:<abs path>/packages/<dir>"` in the root and
   `.dsh/profiles/web/package.json`, `pnpm install` (not frozen), start node with `--preserve-symlinks`.

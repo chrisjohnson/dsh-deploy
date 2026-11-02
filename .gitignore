@@ -6,6 +6,8 @@ node_modules/
 pnpm-store/
 # pnpm's content-addressed store when pnpm puts it inside the checkout.
 .pnpm-store/
+# scripts/lab.sh's default home for labs when run from a worktree (clones, copied data, tokens).
+.lab/
 # dsh-playwright-browser's screenshots and page captures. Runtime output.
 .dsh-browser/
 

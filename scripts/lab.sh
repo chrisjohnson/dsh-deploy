@@ -21,7 +21,9 @@ HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 # ---------------------------------------------------------------------------
 # Configuration (environment, overridable by flags)
 # ---------------------------------------------------------------------------
-LAB_ROOT="${LAB_ROOT:-$HOME/dsh-lab}"
+# Empty means "decide in resolve_paths": inside the checkout lab.sh runs from (so a session
+# that can only write to its own worktree can still run a lab), else ~/dsh-lab.
+LAB_ROOT="${LAB_ROOT:-}"
 LAB_NAME="${LAB_NAME:-default}"
 # An explicit port (flag or environment) wins and must be free. Otherwise the lab
 # prefers LAB_PORT_PREFERRED (3099, the one worth exposing for first-hand testing),
@@ -33,7 +35,7 @@ LAB_PORT_MAX="${LAB_PORT_MAX:-3199}"
 LAB_PORT="${LAB_PORT:-$LAB_PORT_PREFERRED}"
 LAB_SOURCE="${LAB_SOURCE:-https://github.com/chrisjohnson/dsh-deploy.git}"
 LAB_REF="${LAB_REF:-main}"
-LAB_PLUGINS_DIR="${LAB_PLUGINS_DIR:-$LAB_ROOT/plugins}"
+LAB_PLUGINS_DIR="${LAB_PLUGINS_DIR:-}"
 LAB_PLUGINS_SOURCE="${LAB_PLUGINS_SOURCE:-https://github.com/chrisjohnson/dsh-plugins.git}"
 LAB_BOOT_TIMEOUT="${LAB_BOOT_TIMEOUT:-120}"
 PROD_UNIT="${PROD_UNIT:-dsh}"
@@ -41,6 +43,8 @@ PROD_DIR="${PROD_DIR:-/home/dsh/dsh-deploy}"
 PROD_PORT="${PROD_PORT:-3081}"
 
 DRY=0
+PRINT_TOKEN=0
+KEEP_PROD_PATHS=0
 EMPTY_DATA=0
 WITH_WORKTREES=0
 SESSIONS_LIMIT=""
@@ -71,7 +75,23 @@ act() {
 # ---------------------------------------------------------------------------
 # Paths and safety checks
 # ---------------------------------------------------------------------------
+# Where labs live when LAB_ROOT is not set: <this checkout>/.lab for any checkout other than
+# production's own (a ticket's worktree, say), so everything the lab writes stays inside the
+# workspace; ~/dsh-lab when run from production's checkout, which a lab may not live in.
+default_lab_root() {
+  local here prod
+  here="$(cd "$HARNESS_DIR" && pwd -P)"
+  prod="$(real_path "$PROD_DIR")"
+  if [[ "$here" != "$prod" ]] && git -C "$here" rev-parse --show-toplevel >/dev/null 2>&1; then
+    printf '%s\n' "$here/.lab"
+  else
+    printf '%s\n' "$HOME/dsh-lab"
+  fi
+}
+
 resolve_paths() {
+  [[ -n "$LAB_ROOT" ]] || LAB_ROOT="$(default_lab_root)"
+  [[ -n "$LAB_PLUGINS_DIR" ]] || LAB_PLUGINS_DIR="$LAB_ROOT/plugins"
   [[ "$LAB_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "LAB_NAME '$LAB_NAME' must be letters, digits, '.', '_' or '-'"
   [[ "$LAB_PORT" =~ ^[0-9]+$ ]] || die "port '$LAB_PORT' is not a number"
   LAB_DIR="$LAB_ROOT/$LAB_NAME"
@@ -81,6 +101,7 @@ resolve_paths() {
   LAB_LOG="$LAB_META/lab.log"
   LAB_PID_FILE="$LAB_META/pid"
   LAB_URL_FILE="$LAB_META/url"
+  LAB_TOKEN_FILE="$LAB_META/token"
   LAB_DATA_FILE="$LAB_META/data-mode"
 }
 
@@ -102,7 +123,11 @@ assert_lab_dir_safe() {
   local real prod_real
   real="$(real_path "$LAB_DIR")"
   prod_real="$(real_path "$PROD_DIR")"
-  under_or_equal "$real" "$prod_real" && die "lab dir $real is inside the production checkout $prod_real"
+  # A ticket's worktree lives under <prod>/.dsh-worktrees and is its own checkout; only
+  # production's checkout proper (and its DSH_HOME, below) is off limits.
+  if under_or_equal "$real" "$prod_real" && ! under_or_equal "$real" "$prod_real/.dsh-worktrees"; then
+    die "lab dir $real is inside the production checkout $prod_real"
+  fi
   under_or_equal "$prod_real" "$real" && die "lab dir $real contains the production checkout $prod_real"
   if [[ -n "${PROD_DSH_HOME:-}" ]]; then
     local prod_home_real
@@ -281,9 +306,28 @@ head_spec() { # pkg, rel path of manifest -> spec at the lab clone's HEAD
   '
 }
 
+# The shared pnpm store (fast: hardlinks) lives in HOME, outside a sandboxed session's
+# workspace. If it cannot be written, use a store inside the lab root instead (slower the
+# first time: it downloads). LAB_PNPM_STORE forces a location.
+pnpm_store_args() {
+  local store="${LAB_PNPM_STORE:-}"
+  if [[ -z "$store" ]]; then
+    local shared
+    shared="$(pnpm store path 2>/dev/null || true)"
+    if [[ -n "$shared" ]] && mkdir -p "$shared" 2>/dev/null && : >"$shared/.lab-write-test" 2>/dev/null; then
+      rm -f "$shared/.lab-write-test"
+      return 0
+    fi
+    store="$LAB_ROOT/.pnpm-store"
+    warn "shared pnpm store ${shared:-?} is not writable here; using $store (first install downloads)"
+  fi
+  printf '%s\n' "--store-dir=$store"
+}
+
 pnpm_install() {
-  local mode="$1" out rc=0
-  out="$(cd "$LAB_DIR" && CI=true pnpm install "$mode" --config.confirmModulesPurge=false 2>&1)" || rc=$?
+  local mode="$1" out rc=0 sa
+  sa="$(pnpm_store_args)"
+  out="$(cd "$LAB_DIR" && CI=true pnpm install "$mode" --config.confirmModulesPurge=false ${sa:+"$sa"} 2>&1)" || rc=$?
   printf '%s\n' "$out" | tail -n 6 | sed 's/^/  pnpm: /'
   return "$rc"
 }
@@ -392,7 +436,9 @@ start_server() {
   disown "$pid" 2>/dev/null || true
   local waited=0
   while ((waited < LAB_BOOT_TIMEOUT)); do
-    if [[ -z "$(lab_pid)" ]]; then
+    # kill -0, not lab_pid: until the child has exec'd node its command line is still bash's,
+    # which lab_pid (rightly, for signalling) refuses to recognise.
+    if ! kill -0 "$pid" 2>/dev/null; then
       tail -n 20 "$LAB_LOG" | redact >&2 || true
       die "lab server exited during boot (see $LAB_LOG)"
     fi
@@ -403,13 +449,16 @@ start_server() {
     waited=$((waited + 1))
   done
   [[ -n "$(port_listener "$LAB_PORT")" ]] || die "lab did not start listening on :$LAB_PORT within ${LAB_BOOT_TIMEOUT}s (see $LAB_LOG)"
-  # The access token lives only in this mode-600 file, never on stdout.
+  # The access token lives only in these mode-600 files, never on stdout: $LAB_META/token
+  # (the token alone) and $LAB_META/url (the full login URL). Same place in every lab.
   (
     umask 077
     grep -o -E 'http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9_-]+' "$LAB_LOG" | tail -1 >"$LAB_URL_FILE"
+    sed -n 's/.*[?&]token=//p' "$LAB_URL_FILE" >"$LAB_TOKEN_FILE"
   )
   [[ -s "$LAB_URL_FILE" ]] || warn "no access URL found in the boot log"
   info "lab '$LAB_NAME' listening on 127.0.0.1:$LAB_PORT (pid $(lab_pid))"
+  info "access token: $LAB_TOKEN_FILE (lab.sh token --name $LAB_NAME for the login steps)"
 }
 
 stop_server() { # TERM, wait, KILL; then sweep the lab's own children
@@ -597,10 +646,34 @@ seed_data() {
   local n
   n="$(find "$LAB_DSH_HOME/sessions" -mindepth 2 -maxdepth 2 -type d -name 'session-*' | wc -l)"
   info "data: copied $n session(s); $(du -sh "$LAB_DSH_HOME" | cut -f1) total"
+  rewrite_prod_paths
   scan_copied_paths
   if ((WITH_WORKTREES)); then
     warn "--with-worktrees: the lab now KNOWS production's registered working copies. They are REAL directories shared with production. NEVER Remove, convert or archive a registered copy from the lab. Use it to look, not to touch."
   fi
+}
+
+# The copied data names production's DSH_HOME in places a copied plugin or resumed session
+# would follow (session_projcache records files read from <prod>/.dsh/...). Point those at the
+# lab's own DSH_HOME so the lab can never read or write live production state through them.
+# Only structured text files are rewritten; logs and transcripts keep their history, and
+# anything else is left for check-paths to flag.
+rewrite_prod_paths() {
+  ((KEEP_PROD_PATHS)) && { info "data: --keep-prod-paths, copied paths left as they are"; return 0; }
+  local prod="${PROD_DSH_HOME%/}" lab="${LAB_DSH_HOME%/}" d n=0 f
+  [[ -n "$prod" && "$prod" != "$lab" ]] || return 0
+  local pe le
+  pe="$(printf '%s' "$prod" | sed 's/[][\\.*^$|/&]/\\&/g')"
+  le="$(printf '%s' "$lab" | sed 's/[\\&|/]/\\&/g')"
+  for d in sessions storages plugins; do
+    [[ -d "$LAB_DSH_HOME/$d" ]] || continue
+    while IFS= read -r -d '' f; do
+      # a boundary after the path so ".../.dsh-browser" is not mistaken for ".../.dsh"
+      sed -i -E "s/${pe}([^A-Za-z0-9._-]|$)/${le}\1/g" "$f"
+      n=$((n + 1))
+    done < <(grep -rlaF --exclude-dir=node_modules --include='*.json' --include='*.yaml' --include='*.yml' -e "$prod" "$LAB_DSH_HOME/$d" 2>/dev/null | tr '\n' '\0')
+  done
+  info "data: pointed $n copied config/state file(s) at the lab's own DSH_HOME instead of production's"
 }
 
 # Absolute paths inside the copied data that point outside the lab. A copied plugin or
@@ -786,6 +859,26 @@ cmd_restart() {
   info "restart: boot verification clean"
 }
 
+# lab.sh token          where the token is and how to reach the lab (never prints it)
+# lab.sh token --print  also print the login URL (it carries the token)
+cmd_token() {
+  assert_lab_dir_safe
+  is_lab || die "lab '$LAB_NAME' does not exist; run: lab.sh up"
+  local port
+  port="$(lab_port)"
+  say "lab '$LAB_NAME' ($([[ -n "$(lab_pid)" ]] && echo running || echo stopped)) on 127.0.0.1:$port"
+  say "token file: $LAB_TOKEN_FILE"
+  say "url file:   $LAB_URL_FILE"
+  say "both are mode 600 and owned by $(id -un); read them as that user, e.g.:"
+  say "  ssh local-ai-machine 'sudo -u $(id -un) cat $LAB_TOKEN_FILE'"
+  say "tunnel to it from your own machine, then open http://127.0.0.1:$port/?token=<token>:"
+  say "  ssh -N -L $port:127.0.0.1:$port local-ai-machine"
+  if ((PRINT_TOKEN)); then
+    [[ -s "$LAB_URL_FILE" ]] || die "no url file yet; start the lab first"
+    say "login URL: $(cat "$LAB_URL_FILE")"
+  fi
+}
+
 # lab.sh port            show the lab's port and what is preferred
 # lab.sh port N          move the lab to port N (restarts it)
 # lab.sh port auto       restart on the preferred port, or the next free one
@@ -877,7 +970,7 @@ cmd_status() {
   say "ref:      $(git -C "$LAB_DIR" rev-parse --short HEAD) ($(sed -n 's/^ref=//p' "$LAB_META/lab.conf"))"
   say "data:     $(cat "$LAB_DATA_FILE" 2>/dev/null || echo unseeded)"
   say "log:      $LAB_LOG"
-  say "url file: $LAB_URL_FILE (token inside; never printed)"
+  say "token:    $LAB_TOKEN_FILE (login URL in $LAB_URL_FILE; neither is printed)"
   say ""
   say "plugin dependencies:"
   node -e '
@@ -1151,6 +1244,7 @@ lab.sh - private dsh instance for verifying plugin / deploy changes before relea
 Usage: scripts/lab.sh <command> [options]
 
 Commands
+  token [--print]       where the lab's token file is and how to log in (--print shows the URL)
   port [N|auto]         show the lab's port; N moves it there (restarts); auto returns to 3099
                         or the next free port
   check-paths           report absolute paths in the copied data that point outside the lab
@@ -1189,10 +1283,13 @@ Options
   --sessions N          copy only the N most recent quiet sessions
   --with-worktrees      also copy the registered-worktree registry (copies are REAL and
                         shared with production; never Remove/convert them from the lab)
+  --keep-prod-paths     do not rewrite references to production's DSH_HOME in the copied data
+                        (default: copied config/state files are pointed at the lab's own DSH_HOME)
   --dry-run             print what would happen, change nothing
   --force               (reserved) skip confirmations where any exist
 
-Environment: LAB_ROOT (default ~/dsh-lab), LAB_PLUGINS_DIR, LAB_BOOT_TIMEOUT.
+Environment: LAB_ROOT (default <this checkout>/.lab, or ~/dsh-lab from production's checkout),
+LAB_PLUGINS_DIR, LAB_BOOT_TIMEOUT, LAB_PORT_PREFERRED, LAB_PORT_MAX, LAB_PNPM_STORE, LAB_PATHS_TOP.
 
 Safety: production is never signalled, restarted or written. The lab refuses port 3081
 and any directory inside the production checkout, copies production data read-only,
@@ -1214,6 +1311,8 @@ main() {
       --empty-data) EMPTY_DATA=1 ;;
       --with-worktrees) WITH_WORKTREES=1 ;;
       --force) FORCE=1 ;;
+      --print) PRINT_TOKEN=1 ;;
+      --keep-prod-paths) KEEP_PROD_PATHS=1 ;;
       --name) LAB_NAME="${2:?--name needs a value}"; shift ;;
       --port) LAB_PORT="${2:?--port needs a value}"; PORT_EXPLICIT=1; shift ;;
       --ref) LAB_REF="${2:?--ref needs a value}"; shift ;;
@@ -1245,6 +1344,7 @@ main() {
     down) cmd_down ;;
     restart) cmd_restart ;;
     port) cmd_port ;;
+    token) cmd_token ;;
     check-paths) cmd_check_paths ;;
     status) cmd_status ;;
     link) cmd_link ;;
