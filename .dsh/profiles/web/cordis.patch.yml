@@ -384,6 +384,25 @@
             compat:
               supportsReasoningEffort: true
 
+# dsh-image-tiler (KAN-21): the eGPU medium-dense llama.cpp build runs with
+# --image-max-pixels 393216, so a full-size screenshot pasted into a
+# medium-dense session is over that backend's vision cap (dsh's own pipeline
+# normalizes to 4M px and never catches this). The plugin tiles any attached
+# image above the per-route cap into the smallest overlapping grid whose
+# tiles all fit, before the step lands in the session log. The cap lives here,
+# keyed "provider/model", because pi-ai's strict model-route schema strips
+# unknown keys on the model entry. Routes with no caps entry are never touched
+# (big-moe accepts larger images, so it has none). overlapRatio /
+# maxTilesPerImage are the package defaults, spelled out for operators;
+# logToStderr makes every tile/fallback visible in the service log.
+- id: image-tiler
+  config:
+    caps:
+      "local-ai-machine (eGPU)/medium-dense": 393216
+    overlapRatio: 0.12
+    maxTilesPerImage: 32
+    logToStderr: true
+
 # Default model for newly composed Sessions: big-moe, the maximum-intelligence
 # role. Switched from medium-moe (the fast/light role) through the settings UI
 # on 2026-10-09 and confirmed as the intended default by Chris on 2026-10-13:
