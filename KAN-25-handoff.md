@@ -38,6 +38,20 @@ current released state.
   0.12.0 apart from this listener, the `goBoardRequest` callback it calls, and
   `"layout"` added to the client's `exports.inject`.
 
+## Status: pre-staged — only the restart is left
+
+Section 1 has **already been carried out** on `local-ai-machine` (2026-11-02
+03:47 UTC, by the KAN-25 session), so the live checkout is ready and **nothing in
+section 1 needs re-running**. `/home/dsh/dsh-deploy` is at `503c9ff`, both
+manifests pin `dsh-kanban-v0.12.1`, both trees were installed, `pnpm run check`
+passed, and all six pre-restart assertions held — including
+`.dsh/profiles/web/node_modules/dsh-kanban/src/client.mjs` sha1
+`2f1d3122e838d54bc5a1fceb66ac30911de81808`, byte-identical to the released tag's
+file. The `dsh` service was **not** touched: same `MainPID`, same
+`ActiveEnterTimestamp` as before, so production is still *running* 0.12.0 in
+memory and the fix lands on the restart in section 2. **The only remaining step
+is section 2, in a planned window.**
+
 ## 1. Update the live checkout (needs write access to `/home/dsh/dsh-deploy`)
 
 **Both trees must be installed** — a root-only install updates the host side and
