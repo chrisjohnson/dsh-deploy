@@ -16,18 +16,21 @@ set -euo pipefail
 # Everything the lab writes (logs, the access URL, copied sessions) is private.
 umask 077
 
-HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 
 # ---------------------------------------------------------------------------
 # Configuration (environment, overridable by flags)
 # ---------------------------------------------------------------------------
 LAB_ROOT="${LAB_ROOT:-$HOME/dsh-lab}"
 LAB_NAME="${LAB_NAME:-default}"
-# An explicit port (flag or environment) wins; otherwise an existing lab keeps the
-# port it was started on, and a new one gets 3099.
+# An explicit port (flag or environment) wins and must be free. Otherwise the lab
+# prefers LAB_PORT_PREFERRED (3099, the one worth exposing for first-hand testing),
+# then the port it last ran on, then the next free port up to LAB_PORT_MAX.
 PORT_EXPLICIT=0
 [[ -n "${LAB_PORT:-}" ]] && PORT_EXPLICIT=1
-LAB_PORT="${LAB_PORT:-3099}"
+LAB_PORT_PREFERRED="${LAB_PORT_PREFERRED:-3099}"
+LAB_PORT_MAX="${LAB_PORT_MAX:-3199}"
+LAB_PORT="${LAB_PORT:-$LAB_PORT_PREFERRED}"
 LAB_SOURCE="${LAB_SOURCE:-https://github.com/chrisjohnson/dsh-deploy.git}"
 LAB_REF="${LAB_REF:-main}"
 LAB_PLUGINS_DIR="${LAB_PLUGINS_DIR:-$LAB_ROOT/plugins}"
@@ -115,6 +118,28 @@ assert_port_ok() {
 }
 
 port_listener() { ss -ltnH "sport = :$1" 2>/dev/null | head -1; }
+
+# Choose LAB_PORT for a start. Explicit: it must be free. Otherwise: the preferred
+# port, then the port this lab last used, then the next free one.
+pick_port() {
+  local p saved=""
+  if ((PORT_EXPLICIT)); then
+    assert_port_ok
+    [[ -z "$(port_listener "$LAB_PORT")" ]] || die "port $LAB_PORT is already in use by another process; choose another --port, or omit it to auto-select"
+    return 0
+  fi
+  [[ -f "$LAB_META/port" ]] && saved="$(cat "$LAB_META/port")"
+  for p in "$LAB_PORT_PREFERRED" ${saved:+"$saved"} $(seq $((LAB_PORT_PREFERRED + 1)) "$LAB_PORT_MAX"); do
+    [[ "$p" =~ ^[0-9]+$ ]] || continue
+    ((p == PROD_PORT)) && continue
+    ((p >= 1024 && p <= 65535)) || continue
+    [[ -z "$(port_listener "$p")" ]] || continue
+    LAB_PORT="$p"
+    ((p == LAB_PORT_PREFERRED)) || info "preferred port $LAB_PORT_PREFERRED is busy; using :$p"
+    return 0
+  done
+  die "no free port between $LAB_PORT_PREFERRED and $LAB_PORT_MAX; free one or pass --port"
+}
 
 # ---------------------------------------------------------------------------
 # Production launch description (read-only)
@@ -572,9 +597,88 @@ seed_data() {
   local n
   n="$(find "$LAB_DSH_HOME/sessions" -mindepth 2 -maxdepth 2 -type d -name 'session-*' | wc -l)"
   info "data: copied $n session(s); $(du -sh "$LAB_DSH_HOME" | cut -f1) total"
+  scan_copied_paths
   if ((WITH_WORKTREES)); then
     warn "--with-worktrees: the lab now KNOWS production's registered working copies. They are REAL directories shared with production. NEVER Remove, convert or archive a registered copy from the lab. Use it to look, not to touch."
   fi
+}
+
+# Absolute paths inside the copied data that point outside the lab. A copied plugin or
+# session that resolves one of them acts on the real thing, not on the copy.
+#   production's own state dir ($PROD_DSH_HOME): a PROBLEM (exit 4); the lab could read
+#     or write live production state
+#   anything else under /home (real working dirs, other checkouts): a warning. Expected
+#     for session cwds and the workspace registry, but a copied session that is sent a
+#     message would run its tools in that real directory
+PATH_PROBLEMS=0
+scan_copied_paths() {
+  load_prod_launch
+  local d dirs=() prod="${PROD_DSH_HOME%/}" lab="${LAB_DIR%/}" out
+  for d in sessions attachments storages plugins; do [[ -d "$LAB_DSH_HOME/$d" ]] && dirs+=("$LAB_DSH_HOME/$d"); done
+  PATH_PROBLEMS=0
+  if ((${#dirs[@]} == 0)); then
+    info "check-paths: no copied data in $LAB_DSH_HOME"
+    return 0
+  fi
+  # -a: session files may be binary-ish. Dependency trees carry paths of their own; skipped.
+  out="$(grep -raoH --exclude-dir=node_modules -E '/home/[A-Za-z0-9._-]+/[A-Za-z0-9._/-]*' "${dirs[@]}" 2>/dev/null |
+    awk -F: -v prod="$prod" -v lab="$lab" -v root="$LAB_DSH_HOME/" '
+      {
+        file = $1; p = substr($0, length($1) + 2)
+        sub(/[\/.-]+$/, "", p)
+        if (p == lab || index(p, lab "/") == 1) next
+        area = file; sub(root, "", area); split(area, a, "/"); area = a[1] "/" a[2]
+        # Log and transcript text only records where something once ran; a config or
+        # state file holding the path is what a plugin would actually follow.
+        text = (file ~ /\.(log|jsonl|md|txt)$/)
+        inprod = (p == prod || index(p, prod "/") == 1)
+        kind = inprod ? (text ? "3TEXT" : "1STATE") : "2REAL"
+        if (inprod) {
+          split(substr(p, length(prod) + 2), r, "/"); key = "<prod DSH_HOME>/" r[1] (r[2] != "" ? "/" r[2] : "")
+        } else {
+          split(p, c, "/"); key = "/" c[2] "/" c[3] "/" c[4]
+          if (c[4] == ".dsh-worktrees") key = key "/" c[5]
+        }
+        cnt[kind SUBSEP area SUBSEP key]++
+      }
+      END { for (k in cnt) { split(k, q, SUBSEP); printf "%s\t%s\t%s\t%d\n", q[1], q[2], q[3], cnt[k] } }' |
+    sort -t$'\t' -k1,1 -k4,4nr || true)"
+  # LAB_PATHS_TOP caps how many groups print per kind (0 = all); totals always count everything.
+  local kind area key n real_total=0 text_total=0 top="${LAB_PATHS_TOP:-6}" shown_text=0 shown_real=0 hidden=0
+  while IFS=$'\t' read -r kind area key n; do
+    [[ -n "$kind" ]] || continue
+    if [[ "$kind" == 1STATE ]]; then
+      PATH_PROBLEMS=$((PATH_PROBLEMS + 1))
+      printf '  PROBLEM  %-28s %6d reference(s) into production state  %s\n' "$area" "$n" "$key" >&2
+    elif [[ "$kind" == 3TEXT ]]; then
+      text_total=$((text_total + n))
+      if ((top == 0 || shown_text < top)); then
+        shown_text=$((shown_text + 1))
+        printf '  note     %-28s %6d mention(s) of production state in logs/transcripts  %s\n' "$area" "$n" "$key"
+      else hidden=$((hidden + 1)); fi
+    else
+      real_total=$((real_total + n))
+      if ((top == 0 || shown_real < top)); then
+        shown_real=$((shown_real + 1))
+        printf '  warning  %-28s %6d reference(s) to a real directory    %s\n' "$area" "$n" "$key"
+      else hidden=$((hidden + 1)); fi
+    fi
+  done <<<"$out"
+  ((hidden == 0)) || say "  ... $hidden more group(s) hidden; LAB_PATHS_TOP=0 lab.sh check-paths shows all"
+  if ((PATH_PROBLEMS == 0 && real_total == 0)); then
+    info "check-paths: no absolute paths outside the lab in the copied data"
+  elif ((PATH_PROBLEMS == 0)); then
+    info "check-paths: nothing points into production's state dir ($prod); $real_total reference(s) to real working directories (above). Look, don't send: a message in a copied session runs tools in that real directory."
+  else
+    warn "check-paths: $PATH_PROBLEMS group(s) of references into production's state dir; a copied plugin may read or write live production state"
+  fi
+}
+
+cmd_check_paths() {
+  assert_lab_dir_safe
+  is_lab || die "lab '$LAB_NAME' does not exist; run: lab.sh up"
+  scan_copied_paths
+  ((PATH_PROBLEMS == 0)) || return 4
 }
 
 # Observe-only: the lab must never steer a session.
@@ -606,9 +710,7 @@ cmd_up() {
     info "lab '$LAB_NAME' is already running (pid $(lab_pid), :$LAB_PORT); nothing to do"
     return 0
   fi
-  local listener
-  listener="$(port_listener "$LAB_PORT")"
-  [[ -z "$listener" ]] || die "port $LAB_PORT is already in use by another process; choose --port"
+  pick_port
   local fresh=0
   is_lab || fresh=1
   ensure_lab
@@ -673,6 +775,7 @@ cmd_restart() {
     return 0
   }
   stop_server
+  pick_port
   warn_if_links
   start_server
   verify_boot
@@ -681,6 +784,28 @@ cmd_restart() {
     return 3
   }
   info "restart: boot verification clean"
+}
+
+# lab.sh port            show the lab's port and what is preferred
+# lab.sh port N          move the lab to port N (restarts it)
+# lab.sh port auto       restart on the preferred port, or the next free one
+cmd_port() {
+  assert_lab_dir_safe
+  is_lab || die "lab '$LAB_NAME' does not exist; run: lab.sh up"
+  local want="${POSITIONAL[0]:-}"
+  if [[ -z "$want" ]]; then
+    say "lab '$LAB_NAME': port $(lab_port) ($([[ -n "$(lab_pid)" ]] && echo running || echo stopped)); preferred $LAB_PORT_PREFERRED, auto range up to $LAB_PORT_MAX"
+    return 0
+  fi
+  if [[ "$want" == auto ]]; then
+    PORT_EXPLICIT=0
+    rm -f "$LAB_META/port"
+  else
+    [[ "$want" =~ ^[0-9]+$ ]] || die "port needs a number or 'auto'"
+    LAB_PORT="$want"
+    PORT_EXPLICIT=1
+  fi
+  cmd_restart
 }
 
 cmd_kill() { # crash simulation for the continue-kicker check
@@ -1026,6 +1151,10 @@ lab.sh - private dsh instance for verifying plugin / deploy changes before relea
 Usage: scripts/lab.sh <command> [options]
 
 Commands
+  port [N|auto]         show the lab's port; N moves it there (restarts); auto returns to 3099
+                        or the next free port
+  check-paths           report absolute paths in the copied data that point outside the lab
+                        (production's state dir: failure; real working dirs: warning)
   up                    create the lab if needed (clone + install + copy data), start it,
                         verify the boot. Idempotent.
   down                  stop the lab (only its own processes). Idempotent.
@@ -1051,7 +1180,9 @@ Commands
 
 Options
   --name NAME           lab name (default: default; env LAB_NAME) -> $LAB_ROOT/NAME
-  --port N              port (default 3099; env LAB_PORT); 3081 and busy ports are refused
+  --port N              port (env LAB_PORT); 3081 and busy ports are refused. Without it the lab
+                        prefers 3099 (env LAB_PORT_PREFERRED), then its last port, then the next
+                        free one up to 3199 (env LAB_PORT_MAX)
   --ref REF             dsh-deploy ref for a NEW lab (default main; env LAB_REF)
   --source URL|PATH     where to clone dsh-deploy from (env LAB_SOURCE)
   --empty-data          do not copy anything from production
@@ -1103,7 +1234,7 @@ main() {
   if ((!PORT_EXPLICIT)) && [[ -f "$LAB_META/port" ]]; then LAB_PORT="$(cat "$LAB_META/port")"; fi
   # One mutating command per lab at a time.
   case "$cmd" in
-    up | down | restart | reset | link | unlink | destroy | kill)
+    up | down | restart | reset | link | unlink | destroy | kill | port)
       mkdir -p "$LAB_ROOT"
       exec 9>"$LAB_ROOT/.$LAB_NAME.lock"
       flock -n 9 || die "another lab.sh command is running for lab '$LAB_NAME'"
@@ -1113,6 +1244,8 @@ main() {
     up) cmd_up ;;
     down) cmd_down ;;
     restart) cmd_restart ;;
+    port) cmd_port ;;
+    check-paths) cmd_check_paths ;;
     status) cmd_status ;;
     link) cmd_link ;;
     unlink) cmd_unlink ;;

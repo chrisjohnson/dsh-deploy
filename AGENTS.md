@@ -181,7 +181,7 @@ previous tag, reinstalling, and restarting in a planned window.
 ### The lab (`scripts/lab.sh`, `scripts/lab-smoke/`)
 
 A lab is a clone of this repo under `~/dsh-lab/<name>` with its own `node_modules` (shared
-pnpm store), its own `DSH_HOME`, a throwaway `HOME`, and its own port (3099). It is started
+pnpm store), its own `DSH_HOME`, a throwaway `HOME`, and its own port (prefers 3099, falls back to the next free one up to 3199). It is started
 with the production unit's own node binary, flags (`--expose-internals`) and environment,
 read from the running service's `/proc` entries, so it boots the way production does. It
 copies a snapshot of production's `sessions`, `attachments`, `storages` and `plugins` state
@@ -218,6 +218,17 @@ Safety rules:
   `down` signals only the lab's own processes. It never copies `.dsh/keys`, the scheduled
   queue or other schedule state, and drops the GitHub App identity from the environment.
   The loop watchdog runs observe-only.
+- The copy is a one-time snapshot, not a link, but the copied data holds absolute paths: the
+  workspace registry and session caches name real working directories, and `session_projcache`
+  records files read from production's own `DSH_HOME` (profile, settings, skills, the kanban
+  db path). `lab.sh check-paths` (also run after every copy) lists them: references into
+  production's state dir in config/state files exit 4, mentions in logs are notes, real
+  working directories are warnings. A copied session that is sent a message runs its tools in
+  that real directory, so look, don't send.
+- Port: `--port N`/`LAB_PORT` must be free; otherwise the lab prefers 3099
+  (`LAB_PORT_PREFERRED`), then its last port, then the next free one up to `LAB_PORT_MAX`.
+  `lab.sh port` shows it, `lab.sh port N` moves the lab (restarts), `lab.sh port auto` goes
+  back to the preferred port when it is free.
 - `lab.sh prod-check save` before and `compare` after fingerprints the unit start time,
   :3081, the checkout and every registered copy's HEAD, read-only.
 - `smoke --only sessions` opens only sessions whose last turn ended cleanly: reopening an
