@@ -180,6 +180,33 @@ async function draftFor(page, key) {
   }, key)
 }
 
+/**
+ * Make one session visible in the sidebar and click it.
+ *
+ * `openSession` cannot be reused here: its ready-check waits for the composer
+ * placeholder, and a session sitting on an unanswered question has the question
+ * card in that place instead. The discovery half (a collapsed workspace group,
+ * a list behind "Show N more") is what is worth keeping; the card itself is the
+ * thing to wait for.
+ */
+async function revealSession(page, info) {
+  const title = page.getByText(info.title, { exact: true }).filter({ visible: true })
+  const more = page.getByText(/^Show \d+ more sessions?$/).filter({ visible: true })
+  for (let attempt = 0; attempt < 4 && (await title.count()) === 0; attempt += 1) {
+    for (let i = 0; i < 12 && (await title.count()) === 0 && (await more.count()) > 0; i += 1) {
+      await more.first().click().catch(() => {})
+      await sleep(400)
+    }
+    if ((await title.count()) > 0) break
+    await page.getByText(info.workspace, { exact: true }).filter({ visible: true }).first().click().catch(() => {})
+    await sleep(700)
+  }
+  if ((await title.count()) === 0) return false
+  await title.first().scrollIntoViewIfNeeded()
+  await title.first().click()
+  return true
+}
+
 // ------------------------------------------------------------------ scenario 1 --
 
 async function autonomousRunsUnattended(ctx, env, rpc, workspace) {
@@ -298,18 +325,13 @@ async function interactiveQuestionSurvivesReload(ctx, env, s, rpc, workspace) {
     const info = sessionInfo(env, sessionId)
     if (info === null) throw new Skip(`session ${sessionId} is not in the lab's data; cannot open its question card`)
 
-    // Open the session by clicking it in the sidebar. `openSession`'s own
-    // ready-check waits for the composer placeholder, and a session sitting on
-    // an unanswered question has the question card in that place instead — so
-    // the card itself is the thing to wait for here.
-    const title = s.page.getByText(info.title, { exact: true }).filter({ visible: true })
+    let opened = false
     try {
-      await waitFor(async () => (await title.count()) > 0, { timeout: 30_000, what: `session '${info.title}' in the sidebar` })
-      await title.first().scrollIntoViewIfNeeded()
-      await title.first().click()
+      opened = await revealSession(s.page, info)
     } catch (error) {
-      throw new Skip(`session ${sessionId} ('${info.title}' in '${info.workspace}') is not reachable in the sidebar: ${String(error?.message ?? error).slice(0, 120)}`)
+      throw new Skip(`session ${sessionId} ('${info.title}' in '${info.workspace}') could not be opened: ${String(error?.message ?? error).slice(0, 120)}`)
     }
+    if (!opened) throw new Skip(`session ${sessionId} ('${info.title}' in '${info.workspace}') is not reachable in the sidebar; its question card cannot be reached`)
 
     const card = s.page.locator('[data-question-key]').first()
     try {
@@ -413,6 +435,11 @@ export async function run(ctx) {
       // other lab module does it.
       await ensureWorkspace(env, s.page, 'lab-question-flow-interactive')
       await interactiveQuestionSurvivesReload(ctx, env, s, makeRpc(s.page), second)
+    } catch (error) {
+      // A Skip raised between checks is still a SKIP, not a module crash: the
+      // scenario depends on a model choosing to ask, which is not ours to force.
+      if (error instanceof Skip) ctx.skip('scenario 2 (the interactive question card)', error.message)
+      else throw error
     } finally {
       await s.close()
     }
