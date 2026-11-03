@@ -154,6 +154,32 @@ function askedBatch(env, sessionId, needle) {
   return null
 }
 
+/**
+ * The persisted draft of one question card, wherever core keeps it.
+ *
+ * `defineStore` scopes its localStorage key (`<persist>.<scopeKey>`), so the
+ * name is matched by prefix rather than spelled out: what is being proved is
+ * that the entry is keyed by the call-keyed card id, not which scope folder it
+ * lives under.
+ */
+async function draftFor(page, key) {
+  return page.evaluate((k) => {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const name = localStorage.key(i)
+      if (name === null || !name.startsWith('dsh.user-questions.drafts')) continue
+      const raw = localStorage.getItem(name) ?? ''
+      if (!raw.includes(k)) continue
+      try {
+        const progress = JSON.parse(raw)?.progressByRequest?.[k]
+        if (progress !== undefined) return { store: name, progress }
+      } catch {
+        // not this one
+      }
+    }
+    return null
+  }, key)
+}
+
 // ------------------------------------------------------------------ scenario 1 --
 
 async function autonomousRunsUnattended(ctx, env, rpc, workspace) {
@@ -301,16 +327,14 @@ async function interactiveQuestionSurvivesReload(ctx, env, s, rpc, workspace) {
 
     await ctx.check('choosing an option persists a draft under the call-keyed store entry', async () => {
       await card.locator('[role="radio"]').first().click()
-      await waitFor(
+      const draft = await waitFor(
         async () => {
-          const raw = await s.page.evaluate(() => localStorage.getItem('dsh.user-questions.drafts.v1'))
-          if (raw === null) return null
-          const progress = JSON.parse(raw)?.progressByRequest?.[key]
-          return progress !== undefined && JSON.stringify(progress).includes('red') ? progress : null
+          const found = await draftFor(s.page, key)
+          return found !== null && JSON.stringify(found.progress).includes('red') ? found : null
         },
         { timeout: 15_000, what: 'the draft store to record the selection' }
       )
-      return `draft persisted under ${key}`
+      return `draft persisted in ${draft.store} under ${key}: ${JSON.stringify(draft.progress.drafts?.[0]?.selected)}`
     })
 
     await ctx.check('a page reload restores the half-answered question', async () => {
@@ -319,9 +343,9 @@ async function interactiveQuestionSurvivesReload(ctx, env, s, rpc, workspace) {
       await again.waitFor({ timeout: 30_000 })
       const checked = await again.locator('[role="radio"]').first().getAttribute('aria-checked')
       if (checked !== 'true') throw new Error(`after a reload the chosen option is not selected (aria-checked=${checked})`)
-      const raw = await s.page.evaluate(() => localStorage.getItem('dsh.user-questions.drafts.v1'))
-      if (raw === null || !raw.includes(key)) throw new Error('the draft store no longer names this question')
-      return `the selection came back on the card and in localStorage for ${key}`
+      const draft = await draftFor(s.page, key)
+      if (draft === null) throw new Error('the draft store no longer names this question')
+      return `the selection came back on the card and in ${draft.store} for ${key}`
     })
 
     await ctx.check('submitting the answer resumes the turn', async () => {
