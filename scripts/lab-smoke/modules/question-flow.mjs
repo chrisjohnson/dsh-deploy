@@ -20,10 +20,10 @@
 //
 // Both scenarios discard their tickets on the way out and write only into their
 // own lab workspace; nothing here touches a real project checkout.
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { openLab, openSession, readSessionEvents, sessionInfo, Skip, sleep, waitFor } from '../lib.mjs'
+import { ensureWorkspace, openLab, readSessionEvents, sessionInfo, Skip, sleep, waitFor } from '../lib.mjs'
 
 export const meta = { needs: ['dsh-kanban'], model: true, timeout: 1_500_000 }
 
@@ -157,6 +157,7 @@ function askedBatch(env, sessionId, needle) {
 // ------------------------------------------------------------------ scenario 1 --
 
 async function autonomousRunsUnattended(ctx, env, rpc, workspace) {
+  rmSync(join(workspace, 'color.txt'), { force: true })
   const created = await rpc('create', {
     title: 'KAN-32 probe: an autonomous ticket answers its own option question',
     body: buildAskBody(),
@@ -170,16 +171,20 @@ async function autonomousRunsUnattended(ctx, env, rpc, workspace) {
   try {
     const run = await driveUntilParked(rpc, ticketId, { timeoutMs: 900_000 })
 
-    await ctx.check('the autonomous ticket reached the approval park without ever waiting on a question', async () => {
+    await ctx.check('the autonomous ticket reached approval without the build ever waiting on a question', async () => {
       const reason = run.ticket.needsAttentionReason ?? ''
-      if (!/Awaiting human approval/.test(reason)) {
+      // Two parks both mean "the code round is done and a person has the wheel":
+      // the plain approval park, and the approver having asked its wrap-up
+      // question — which is a question that MUST stay with the human.
+      if (run.ticket.phase !== 'verify' || !/Awaiting human approval|Waiting on your answer/.test(reason)) {
         throw new Error(`parked as '${reason}' in ${run.ticket.column}/${run.ticket.phase}; expected the approval park`)
       }
       const waited = run.samples.filter((sample) => sample.awaitingQuestion)
-      if (waited.length > 0) {
-        throw new Error(`${waited.length} sample(s) showed the session waiting on a human question (first at ${waited[0].at}, phase ${waited[0].phase})`)
+      const buildWaits = waited.filter((sample) => sample.phase !== 'verify')
+      if (buildWaits.length > 0) {
+        throw new Error(`${buildWaits.length} sample(s) showed the ${buildWaits[0].phase} phase waiting on a human question (first at ${buildWaits[0].at})`)
       }
-      return `${run.key} parked '${reason}' over ${run.samples.length} samples, none waiting on a question`
+      return `${run.key} ran plan -> implement -> review -> approval over ${run.samples.length} samples with no build-phase question-wait; parked '${reason}'${waited.length > 0 ? ' after an approval-phase ask that correctly stayed with the human' : ''}`
     })
 
     await ctx.check('the engine answered the option batch with the first option and logged it', async () => {
@@ -214,6 +219,15 @@ async function autonomousRunsUnattended(ctx, env, rpc, workspace) {
       if (!text.includes('red')) throw new Error(`color.txt says '${text}', not the recommended red`)
       return `color.txt contains '${text}'`
     })
+
+    await ctx.check('nothing was ever auto-answered in the approval phase', async () => {
+      const verify = run.events.filter((e) => e.kind === 'question_answered_autonomously' && (e.phaseFrom === 'verify' || e.phaseTo === 'verify'))
+      if (verify.length > 0) throw new Error(`${verify.length} auto-answer(s) recorded against the approval phase: ${JSON.stringify(verify.map((e) => e.payload))}`)
+      const asked = run.samples.some((sample) => sample.awaitingQuestion && sample.phase === 'verify')
+      return asked
+        ? 'the approver wrapped up by asking the human directly — the one ask this module must never answer'
+        : 'no approval-phase ask was raised, and none was answered from'
+    })
   } finally {
     await rpc('move', { id: ticketId, column: 'discarded', reason: 'question-flow smoke cleanup' }).catch(() => {})
   }
@@ -222,6 +236,7 @@ async function autonomousRunsUnattended(ctx, env, rpc, workspace) {
 // ------------------------------------------------------------------ scenario 2 --
 
 async function interactiveQuestionSurvivesReload(ctx, env, s, rpc, workspace) {
+  rmSync(join(workspace, 'color.txt'), { force: true })
   const created = await rpc('create', {
     title: 'KAN-32 probe: an interactive ticket asks a human, and a draft survives a reload',
     body: buildAskBody(),
@@ -257,11 +272,25 @@ async function interactiveQuestionSurvivesReload(ctx, env, s, rpc, workspace) {
     const info = sessionInfo(env, sessionId)
     if (info === null) throw new Skip(`session ${sessionId} is not in the lab's data; cannot open its question card`)
 
-    const opened = await openSession(s.page, { title: info.title, workspace: info.workspace })
-    if (!opened) throw new Skip(`could not reopen session ${sessionId} ('${info.title}') from the sidebar`)
+    // Open the session by clicking it in the sidebar. `openSession`'s own
+    // ready-check waits for the composer placeholder, and a session sitting on
+    // an unanswered question has the question card in that place instead — so
+    // the card itself is the thing to wait for here.
+    const title = s.page.getByText(info.title, { exact: true }).filter({ visible: true })
+    try {
+      await waitFor(async () => (await title.count()) > 0, { timeout: 30_000, what: `session '${info.title}' in the sidebar` })
+      await title.first().scrollIntoViewIfNeeded()
+      await title.first().click()
+    } catch (error) {
+      throw new Skip(`session ${sessionId} ('${info.title}' in '${info.workspace}') is not reachable in the sidebar: ${String(error?.message ?? error).slice(0, 120)}`)
+    }
 
     const card = s.page.locator('[data-question-key]').first()
-    await card.waitFor({ timeout: 30_000 })
+    try {
+      await card.waitFor({ timeout: 30_000 })
+    } catch (error) {
+      throw new Skip(`the session is waiting on a question but no question card rendered: ${String(error?.message ?? error).slice(0, 120)}`)
+    }
     const key = await card.getAttribute('data-question-key')
     if (key === null || !key.startsWith(`question:${sessionId}:`)) {
       throw new Error(`the question card is keyed '${key}', not 'question:${sessionId}:<callId>' — the ask did not carry its call id`)
@@ -354,6 +383,11 @@ export async function run(ctx) {
     ctx.attach(s)
     try {
       await s.goto()
+      // The session a ticket runs in is reachable from the sidebar only when its
+      // workspace is registered, and scenario 2 has to open it to touch the
+      // question card — so the folder is made a workspace first, the way every
+      // other lab module does it.
+      await ensureWorkspace(env, s.page, 'lab-question-flow-interactive')
       await interactiveQuestionSurvivesReload(ctx, env, s, makeRpc(s.page), second)
     } finally {
       await s.close()
