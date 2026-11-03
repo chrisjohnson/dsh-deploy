@@ -172,8 +172,16 @@ earlier.)
 
 `scripts/lab.sh link <pkg> <path>` takes any checkout; `status` shows linked vs pinned
 packages and the tracked-file drift. Never restart or signal the production `dsh` service
-from a session running on it: that ends every session in it, including yours. Prepare the
-command and let Chris run it in a planned window.
+from a session running on it: that ends every session in it, including yours. If a restart
+is owed, say so in your final message (the exact command and what is staged) and let Chris
+run it in a planned window. Do not write that into a file.
+
+**Never commit a handoff, runbook, deploy-notes, smoke-results or summary document** (no
+`KAN-<n>-handoff.md`, `KAN-<n>-smoke-results.md` or similar, at the root or anywhere else).
+What you did, what is staged and what the human must do next goes in your final message.
+Run evidence (smoke output, screenshots, logs) stays under the gitignored lab directory
+(`<lab>/.lab/`). The `.fleet/` card template's "Handoff notes" section is for fleet board
+cards only; kanban build output does not go in fleet card notes either.
 
 **A `link:` or `file:` pin is never the committed state.** Rollback is pinning the
 previous tag, reinstalling, and restarting in a planned window.

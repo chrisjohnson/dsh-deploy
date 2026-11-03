@@ -85,3 +85,7 @@ plugins/
 
 # DSH config editor lock file, created next to cordis.patch.yml writes.
 .x.lock
+
+# Kanban sessions must not commit handoff or smoke-result documents at the root; say it in the final message, keep evidence under .lab/.
+/*-handoff.md
+/*-smoke-results.md
