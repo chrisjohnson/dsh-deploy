@@ -412,8 +412,8 @@
 # default.
 - id: agent-default-model
   config:
-    provider: local-ai-machine (apu)
-    model: big-moe
+    provider: local-ai-machine (eGPU)
+    model: medium-dense
 
 - id: locale
   config:
