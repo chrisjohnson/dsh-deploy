@@ -31,6 +31,9 @@ const ORDER = [
   // the lab with its own lab-only 48-token route, so it runs after the plain
   // continue-kicker module has proven the interactive path.
   'kanban-recovery',
+  // question-flow drives two whole kanban tickets end to end and wants a quiet
+  // board to itself, so it runs after the module that restarts the lab.
+  'question-flow',
   // Last: a successful switch becomes the lab's default model for new sessions.
   'model-switch'
 ]
