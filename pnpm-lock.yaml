@@ -321,8 +321,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-search-searxng-v0.2.0&path:/packages/image-search-searxng
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b4149afcf0380f0fdffa2bd98ec4d8ad659f39e7#path:/packages/image-search-searxng(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
       dsh-image-tiler:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.1.0&path:/packages/image-tiler
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4fb3febde3a5e002990af5199716f504fabaeef1#path:/packages/image-tiler(@types/node@26.4.1)
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fb69ab3cc0c7f1e2be3a4cd6db700522626a9c5c#path:/packages/image-tiler(@types/node@26.4.1)
       dsh-kanban:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.16.3&path:/packages/kanban
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/7bc810f1dc789e10786865e3c06f90d2bc5bcba9#path:/packages/kanban(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-sandbox-policy@0.2.0-rc.2(7345bc8a170f7b239da92d7a0e490765))(@deepseek-ai/dsh-tools@0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755))
@@ -4150,9 +4150,9 @@ packages:
     peerDependencies:
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2
 
-  dsh-image-tiler@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4fb3febde3a5e002990af5199716f504fabaeef1#path:/packages/image-tiler:
-    resolution: {gitHosted: true, path: /packages/image-tiler, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4fb3febde3a5e002990af5199716f504fabaeef1}
-    version: 0.1.0
+  dsh-image-tiler@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fb69ab3cc0c7f1e2be3a4cd6db700522626a9c5c#path:/packages/image-tiler:
+    resolution: {gitHosted: true, integrity: sha512-HFY/JU/aDZloaxmlOStq7Kt8EGcMszydvGkqQ7tSoThkCIQWpXIQj1xJ6gfqjLMc01KG68T3aQHcV09uAlc47A==, path: /packages/image-tiler, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fb69ab3cc0c7f1e2be3a4cd6db700522626a9c5c}
+    version: 0.2.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
   dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/7bc810f1dc789e10786865e3c06f90d2bc5bcba9#path:/packages/kanban:
@@ -9905,7 +9905,7 @@ snapshots:
     dependencies:
       '@deepseek-ai/dsh-tools': 0.2.0-rc.2(52b5a8ab481be2b3d891c22a71641755)
 
-  dsh-image-tiler@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4fb3febde3a5e002990af5199716f504fabaeef1#path:/packages/image-tiler(@types/node@26.4.1):
+  dsh-image-tiler@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fb69ab3cc0c7f1e2be3a4cd6db700522626a9c5c#path:/packages/image-tiler(@types/node@26.4.1):
     dependencies:
       sharp: 0.35.4(@types/node@26.4.1)
     transitivePeerDependencies:
