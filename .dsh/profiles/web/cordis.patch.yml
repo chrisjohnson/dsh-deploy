@@ -611,6 +611,13 @@
 - id: kanban
   config:
     maxAttempts: 5
+    # The live production checkout is configuration, never a path built into
+    # the plugin. Kanban build sessions may not modify it, except for the
+    # approval-phase pre-stage (git pull --ff-only, pnpm install at the root
+    # and in .dsh/profiles/web, pnpm run check). DSH_KANBAN_LIVE_CHECKOUTS
+    # can add more.
+    liveCheckouts:
+      - /home/dsh/dsh-deploy
     providers:
       - name: local-ai-machine (apu)
         tier: local
