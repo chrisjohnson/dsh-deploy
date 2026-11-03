@@ -2,8 +2,9 @@
 
 ## What shipped
 
-New plugin `dsh-image-tiler` **0.1.0** — dsh-plugins PR #79, tag
-`dsh-image-tiler-v0.1.0` at merge commit `4fb3feb`, pinned in both manifests
+New plugin `dsh-image-tiler` **0.2.0** — dsh-plugins PRs #79 (0.1.0, tag
+`dsh-image-tiler-v0.1.0` at `4fb3feb`) and #80 (0.2.0, tag
+`dsh-image-tiler-v0.2.0` at `fb69ab3`), pinned in both manifests
 (`package.json`, `.dsh/profiles/web/package.json`) and in the profile's
 `dsh.profile.bundles`, installed in both trees, live checkout at `558a1d7`.
 
@@ -26,6 +27,16 @@ unreadable bytes, animated rasters, storage errors, or any internal blow-up
 keeps the original block (plus a note when it was over cap) and never rejects
 the step.
 
+0.2.0 (after Chris's live test found the gaps): `policy: ask | tile |
+send-whole` (row sets `ask`) — an over-cap paste now poses the choice on the
+turn through the harness approval card (approve tiles into the planned grid,
+reject sends whole with a downscale hint); `askFallback` (default tile)
+resolves asks no human can answer. Route resolution reads the session's
+PENDING model selection first, fixing the live first-message gap (production
+session 3d1e0e0f: composer pick 23:25:53, untiled paste 23:26:59, tiled only
+after the header minted). Grid scoring penalizes slivers: 1536x1024 now
+tiles 3x2 (6 tiles), a 4K screenshot 5x6 near-square instead of 1x26.
+
 Also in this branch: `scripts/lab.sh link` now allows checkouts under
 `<prod>/.dsh-worktrees` (the same exception `assert_lab_dir_safe` already had)
 — without it no ticket worktree could ever link a plugin.
@@ -38,7 +49,11 @@ The build never touched the service. Production fingerprint at pre-staging:
 
 That 21:31:25 boot predates the KAN-30 0.16.3 pin too, so **one restart picks
 up both**: `dsh-kanban` 0.16.3 (denylist backslash fix) and
-`dsh-image-tiler` 0.1.0.
+`dsh-image-tiler` 0.1.0. **Update:** Chris restarted at 23:24:31 (new PID
+596092) which took up 0.1.0 + kanban 0.16.3; 0.2.0 then merged and the live
+checkout still needs `git pull` + `pnpm install` in BOTH trees + one more
+restart (the round-2 deploy was pre-staged only to origin/main `7a891cd` —
+the build session could no longer write to the live checkout).
 
 ```sh
 sudo systemctl restart dsh    # Chris, in a planned window — never grantable
