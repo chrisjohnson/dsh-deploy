@@ -12,6 +12,50 @@ subcommand (`exec`, `run`, `rm`, volume/network mutation, `system prune`,
 bare `stats` without `--no-stream`) isn't permitted and will just fail
 rather than prompt - ask the human instead of trying to work around it.
 
+## Sudo from a DSH session
+
+The `dsh` user's passwordless sudo rules are live and correct: they are declared
+in `/home/dsh/local-ai-machine/configuration.nix` under
+`security.sudo.extraRules` (the `docker`/`docker-compose` visibility commands,
+`modelctl *`, `nixos-rebuild switch --flake /etc/nixos#local-ai-machine`,
+`systemctl restart dsh`, and the git deploy steps run as `chris`). `sudo -n -l`
+lists them all.
+
+**They can only be triggered from a session running in Full access
+(`danger-full-access`).** DSH's file sandbox (the Landlock launcher in
+`@deepseek-ai/node-addon-system`) sets `no_new_privs` on every sandboxed child —
+mandatory for an unprivileged Landlock restrict, and it is what neutralises
+setuid escalation inside the sandbox. sudo 1.9.17 checks that flag before it ever
+consults sudoers and refuses outright, so in a `read-only` or `workspace-write`
+session the command is *unreachable*, not *unauthorised*:
+
+```
+$ sudo -n true
+sudo: The "no new privileges" flag is set, which prevents sudo from running as root.
+sudo: If sudo is running in a container, you may need to adjust the container configuration to disable the flag.
+$ echo $?   # 1 — and no prompt, no sudoers error, nothing to fix in sudoers
+```
+
+`/proc/self/status` → `NoNewPrivs` is the tell from a session that can read it
+(`0` in a Full-access session, where sudo works; the file is itself unreadable
+from inside a confined child, so there the sudo message above is the tell).
+
+Getting a build or a session to Full access:
+
+- **Kanban build sessions**: set the ticket's **write mode** to Full access.
+  Plan and verify sessions are always `read-only` and can never run sudo,
+  whatever the ticket says.
+- **Interactive sessions**: the session's permission preset, or a per-call
+  escalation a human approves. A sandboxed session cannot self-escalate, and the
+  kanban plan-grant denylist word-denies `sudo`, so it can never be pre-granted
+  into a build — a plan that needs sudo must ask for the write-mode change
+  instead.
+
+For your *own* containers, rootless Podman through its socket
+(`CONTAINER_HOST=unix:///run/user/1002/podman/podman.sock`) works from a
+sandboxed session and is the cheaper path; `sudo docker` for the box's containers
+is the Full-access-only one.
+
 ## Podman: the container runtime for your own projects
 
 You have a **rootless Podman instance owned by the `dsh` account**. That is the
