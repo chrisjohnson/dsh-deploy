@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "@deepseek-ai/dsh-experimental-schedule-bundle": "0.2.0-rc.2",
-    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.2.1&path:/packages/better-git-worktree",
+    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.3.0&path:/packages/better-git-worktree",
     "dsh-better-sidebar": "0.25.0",
     "dsh-context": "0.69.1",
     "dsh-continue-kicker": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-continue-kicker-v0.3.0&path:/packages/continue-kicker",
