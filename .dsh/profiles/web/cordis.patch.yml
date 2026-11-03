@@ -618,6 +618,16 @@
     # can add more.
     liveCheckouts:
       - /home/dsh/dsh-deploy
+    # Command prefixes that kanban build sessions may run from the live
+    # checkout because they only inspect. The lab script is this deployment's
+    # own testing tool, so its read-only subcommands are listed here, not in
+    # the plugin.
+    liveCheckoutReadOnlyCommands:
+      - "scripts/lab.sh status"
+      - "scripts/lab.sh logs"
+      - "scripts/lab.sh check-paths"
+      - "scripts/lab.sh prod-check show"
+      - "scripts/lab.sh help"
     # When a ticket is approved or marked done, kanban archives the ticket's
     # sessions and removes its worktree copy through better-git-worktree. A
     # copy with uncommitted, unpushed, stashed or unreadable work is refused
