@@ -618,6 +618,12 @@
     # can add more.
     liveCheckouts:
       - /home/dsh/dsh-deploy
+    # When a ticket is approved or marked done, kanban archives the ticket's
+    # sessions and removes its worktree copy through better-git-worktree. A
+    # copy with uncommitted, unpushed, stashed or unreadable work is refused
+    # and left in place, and the ticket still closes. Tickets without a
+    # worktree are untouched. Other values are off and done_and_discarded.
+    archiveWorkspaceOnClose: done
     providers:
       - name: local-ai-machine (apu)
         tier: local
