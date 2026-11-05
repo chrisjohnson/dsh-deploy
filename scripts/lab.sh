@@ -359,7 +359,12 @@ lab_family_pids() {
     pid="${pid%%/*}"
     [[ "$pid" == "$$" ]] && continue
     [[ -r "$f" ]] || continue
-    if tr '\0' '\n' <"$f" 2>/dev/null | grep -q -x -F "DSH_HOME=$LAB_DSH_HOME"; then
+    # `2>/dev/null` comes FIRST on purpose: bash applies redirections left to
+    # right, and a `<"$f"` that fails is reported by the shell itself before a
+    # later redirection could hide it. A non-dumpable process owned by this same
+    # user (systemd --user answers EACCES here) therefore used to abort `down`
+    # and `restart` with "Permission denied" instead of being skipped.
+    if tr '\0' '\n' 2>/dev/null <"$f" | grep -q -x -F "DSH_HOME=$LAB_DSH_HOME"; then
       printf '%s\n' "$pid"
     fi
   done

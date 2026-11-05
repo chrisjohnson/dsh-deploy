@@ -48,7 +48,18 @@ export async function run(ctx) {
       if (ranked.length === 0) throw new Skip('the lab holds no session that has ledger rows (was it started with --empty-data?)')
       let shown = null
       for (const info of ranked.slice(0, 12)) {
-        if (!(await openSession(page, info))) continue
+        // A copied session's workspace group is often not in the lab's sidebar at
+        // all (the registry names real working directories), and openSession
+        // walks the groups by name — so one unopenable session is a reason to try
+        // the next candidate, not a panel failure.
+        let opened = false
+        try {
+          opened = await openSession(page, info)
+        } catch {
+          await page.keyboard.press('Escape').catch(() => {})
+          continue
+        }
+        if (!opened) continue
         await openPanel()
         const text = await bodyText(page)
         const match = /session ([0-9a-f]{8}) · (\d+) evaluations/.exec(text)
