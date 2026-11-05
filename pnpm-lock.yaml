@@ -348,8 +348,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/bc95367b7d26129440a8d76364e0be217b4b17d0#path:/packages/session-cost
       dsh-slot-guard:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.0&path:/packages/slot-guard
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c5eb9e7f6273899a7040ee858abfb8aa0178026f#path:/packages/slot-guard
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.1&path:/packages/slot-guard
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard
       dsh-web-search-searxng:
         specifier: 0.5.1
         version: 0.5.1(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-settings@0.2.0-rc.2(5b6b4b03e544a8b7dfdd1405b2a5259a))(@deepseek-ai/dsh-typert-protocol@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-typert-registry@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-web@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)))
@@ -4214,9 +4214,9 @@ packages:
     version: 0.3.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
-  dsh-slot-guard@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c5eb9e7f6273899a7040ee858abfb8aa0178026f#path:/packages/slot-guard:
-    resolution: {gitHosted: true, path: /packages/slot-guard, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c5eb9e7f6273899a7040ee858abfb8aa0178026f}
-    version: 0.1.0
+  dsh-slot-guard@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard:
+    resolution: {gitHosted: true, integrity: sha512-+bLphXx5FwOcFMLlnl9kcytBg/lJIsw4O8QJhS7O/N2tu8b0Qx+zzcihjdsghV0JNEIXcM1gL7jVgpJBFdFY7Q==, path: /packages/slot-guard, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56}
+    version: 0.1.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
   dsh-web-search-searxng@0.5.1:
@@ -9955,7 +9955,7 @@ snapshots:
 
   dsh-session-cost@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/bc95367b7d26129440a8d76364e0be217b4b17d0#path:/packages/session-cost: {}
 
-  dsh-slot-guard@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c5eb9e7f6273899a7040ee858abfb8aa0178026f#path:/packages/slot-guard: {}
+  dsh-slot-guard@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard: {}
 
   dsh-web-search-searxng@0.5.1(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-settings@0.2.0-rc.2(5b6b4b03e544a8b7dfdd1405b2a5259a))(@deepseek-ai/dsh-typert-protocol@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-typert-registry@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))(@deepseek-ai/dsh-web@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)(@deepseek-ai/dsh-llm@0.2.0-rc.2(@deepseek-ai/cordis@4.0.4))):
     dependencies:

@@ -26,6 +26,6 @@
     "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.33.0&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal",
     "dsh-image-tiler": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler",
-    "dsh-slot-guard": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.0&path:/packages/slot-guard"
+    "dsh-slot-guard": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.1&path:/packages/slot-guard"
   }
 }
