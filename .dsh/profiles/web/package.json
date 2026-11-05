@@ -5,7 +5,7 @@
     "@deepseek-ai/dsh-experimental-schedule-bundle": "0.2.0-rc.2",
     "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.3.0&path:/packages/better-git-worktree",
     "dsh-better-sidebar": "0.25.0",
-    "dsh-context": "0.69.1",
+    "dsh-context": "0.81.0",
     "dsh-continue-kicker": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-continue-kicker-v0.3.0&path:/packages/continue-kicker",
     "dsh-image-search-searxng": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-search-searxng-v0.2.0&path:/packages/image-search-searxng",
     "dsh-loop-watchdog": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog",
@@ -18,7 +18,8 @@
     "dsh-model-capacity": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.6.0&path:/packages/model-capacity",
     "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.33.0&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal",
-    "dsh-image-tiler": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler"
+    "dsh-image-tiler": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler",
+    "dsh-slot-guard": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.0&path:/packages/slot-guard"
   },
   "dsh": {
     "profile": {
@@ -41,7 +42,8 @@
         "dsh-loop-watchdog",
         "dsh-math-literal",
         "dsh-model-capacity",
-        "dsh-image-tiler"
+        "dsh-image-tiler",
+        "dsh-slot-guard"
       ]
     }
   }
