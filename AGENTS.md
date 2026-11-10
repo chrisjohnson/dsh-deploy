@@ -68,7 +68,18 @@ way to audit each range by hand.
    (`node-pty`, `koffi`, etc.) if the package set changed; writes to
    `pnpm-workspace.yaml`'s `allowBuilds`. Skipping this silently leaves
    those modules unbuilt rather than failing loudly.
-5. Test locally before pushing: `pnpm install`, then boot the real
+5. Mirror the regenerated overrides into the **profile** install and
+   reinstall it: `.dsh/profiles/web/` is its own pnpm project and does not
+   inherit the root `pnpm-workspace.yaml`, so without a copy of the same
+   `overrides` block in `.dsh/profiles/web/pnpm-workspace.yaml` it keeps
+   resolving the previous dsh/cordis set for the plugins' peers. Hit for
+   real on the 0.2.2-rc.1 bump: the profile tree stayed on cordis 4.0.5 +
+   dsh 0.2.0-rc.2 while the host moved on, and `dsh-better-sidebar` then
+   failed to import at boot (`dsh-subagent@0.2.2-rc.1` importing
+   `principalOf`, which the older `dsh-typert-protocol` copy does not
+   export). Copy the `overrides:` block over, `cd .dsh/profiles/web &&
+   pnpm install`, and confirm with `pnpm peers check` there.
+6. Test locally before pushing: `pnpm install`, then boot the real
    profile against a throwaway `HOME` (`DSH_HOME="$(pwd)/.dsh" HOME=/tmp/x
    node node_modules/@deepseek-ai/dsh/lib/bin.js --profile web
    --dump-config` to check composition, then the same without
