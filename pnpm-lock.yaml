@@ -381,8 +381,8 @@ importers:
         specifier: 0.1.3
         version: 0.1.3(@deepseek-ai/cordis@4.1.0)
       dsh-scheduled-queue:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-scheduled-queue-v0.1.0&path:/packages/scheduled-queue
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca#path:/packages/scheduled-queue
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-scheduled-queue-v0.1.1&path:/packages/scheduled-queue
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/75c42e64e60576ac7897eb2ff9533f02ed8cce74#path:/packages/scheduled-queue
       dsh-session-cost:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/bc95367b7d26129440a8d76364e0be217b4b17d0#path:/packages/session-cost
@@ -4672,9 +4672,9 @@ packages:
       '@deepseek-ai/cordis':
         optional: true
 
-  dsh-scheduled-queue@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca#path:/packages/scheduled-queue:
-    resolution: {gitHosted: true, integrity: sha512-4vLV1+0X+VIx2injY4hoXXmyPlySAr8itW5kPyMF9ujFuERObmqSphkdw+z2T0VhJ+jhpwaXmdmghEwj5PAiCQ==, path: /packages/scheduled-queue, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca}
-    version: 0.1.0
+  dsh-scheduled-queue@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/75c42e64e60576ac7897eb2ff9533f02ed8cce74#path:/packages/scheduled-queue:
+    resolution: {gitHosted: true, integrity: sha512-zsv60ko6FNReUBpG0Q1OLGzgKk57EOgPrSOZMLxKSlu1yH2eHqgljEBfbLdTfq29qDEDnjmX3MwdOWXDbOR0tg==, path: /packages/scheduled-queue, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/75c42e64e60576ac7897eb2ff9533f02ed8cce74}
+    version: 0.1.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
   dsh-session-cost@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/bc95367b7d26129440a8d76364e0be217b4b17d0#path:/packages/session-cost:
@@ -11054,7 +11054,7 @@ snapshots:
     optionalDependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
 
-  dsh-scheduled-queue@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fde4c0190bcc6b2abb146fb06c72b5c23c0d2bca#path:/packages/scheduled-queue: {}
+  dsh-scheduled-queue@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/75c42e64e60576ac7897eb2ff9533f02ed8cce74#path:/packages/scheduled-queue: {}
 
   dsh-session-cost@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/bc95367b7d26129440a8d76364e0be217b4b17d0#path:/packages/session-cost: {}
 
