@@ -180,6 +180,7 @@
             # earlier than the hardware strictly requires. Raise to 1048576 if
             # the full window is wanted.
             contextWindow: 524288
+            maxTokens: 32768
             # maxTokens: still left unset, same as small-moe/small-dense above,
             # so pi-ai's 32768 route default is what actually goes out.
             # FLAGGED, not fixed (2026-10-15): the old justification here ("the
@@ -416,8 +417,8 @@
 # default.
 - id: agent-default-model
   config:
-    provider: local-ai-machine (eGPU)
-    model: medium-dense
+    provider: local-ai-machine (apu)
+    model: big-moe
 
 - id: locale
   config:
@@ -600,10 +601,13 @@
     summaryReserveTokens: 10000
     autoCompact: true
 
-# better-git-worktree (git worktree sessions), scheduled-queue (composer
-# scheduled-send) and the official schedule bundle
-# (@deepseek-ai/dsh-experimental-schedule-bundle) mount from `bundles` and
-# need no row here.
+# better-git-worktree (git worktree sessions) and scheduled-queue (composer
+# scheduled-send) mount from `bundles` and need no row here. The schedule
+# feature (rows `time-context`, `schedule`, `ui-schedule`) ships in the
+# @deepseek-ai/dsh-web-app composition as of dsh 0.2.2-rc.1, so the
+# @deepseek-ai/dsh-experimental-schedule-bundle - which was never released past
+# 0.2.0-rc.2 and would double-mount those rows against stale client halves - is
+# no longer installed or mounted.
 
 # dsh-kanban: ticket-centric workflow engine. SQLite state lives under
 # $DSH_HOME/kanban; role routes default to the deployment default except where
@@ -611,28 +615,14 @@
 - id: kanban
   config:
     maxAttempts: 5
-    # The live production checkout is configuration, never a path built into
-    # the plugin. Kanban build sessions may not modify it, except for the
-    # approval-phase pre-stage (git pull --ff-only, pnpm install at the root
-    # and in .dsh/profiles/web, pnpm run check). DSH_KANBAN_LIVE_CHECKOUTS
-    # can add more.
     liveCheckouts:
       - /home/dsh/dsh-deploy
-    # Command prefixes that kanban build sessions may run from the live
-    # checkout because they only inspect. The lab script is this deployment's
-    # own testing tool, so its read-only subcommands are listed here, not in
-    # the plugin.
     liveCheckoutReadOnlyCommands:
-      - "scripts/lab.sh status"
-      - "scripts/lab.sh logs"
-      - "scripts/lab.sh check-paths"
-      - "scripts/lab.sh prod-check show"
-      - "scripts/lab.sh help"
-    # When a ticket is approved or marked done, kanban archives the ticket's
-    # sessions and removes its worktree copy through better-git-worktree. A
-    # copy with uncommitted, unpushed, stashed or unreadable work is refused
-    # and left in place, and the ticket still closes. Tickets without a
-    # worktree are untouched. Other values are off and done_and_discarded.
+      - scripts/lab.sh status
+      - scripts/lab.sh logs
+      - scripts/lab.sh check-paths
+      - scripts/lab.sh prod-check show
+      - scripts/lab.sh help
     archiveWorkspaceOnClose: done
     providers:
       - name: local-ai-machine (apu)
@@ -658,13 +648,9 @@
         provider: local-ai-machine (apu)
         model: big-moe
         reasoningEffort: null
-      # KAN-60: the permanent orchestrator session's route. It reads the board
-      # and answers a human in seconds, so it runs on the eGPU's medium-dense
-      # model at its default effort; unset would fall back to the deployment
-      # default model instead.
       orchestrator:
-        provider: local-ai-machine (eGPU)
-        model: medium-dense
+        provider: local-ai-machine (apu)
+        model: big-moe
         reasoningEffort: null
 
 # dsh-model-capacity (Activity): process-wide per-provider model-call gate.
