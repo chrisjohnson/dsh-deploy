@@ -6,6 +6,10 @@ node_modules/
 pnpm-store/
 # pnpm's content-addressed store when pnpm puts it inside the checkout.
 .pnpm-store/
+# npm's cache, pointed here by `npm_config_cache=$PWD/.npm-cache` when
+# scripts/update-dsh-overrides.mjs runs (the default ~/.npm/_cacache holds
+# root-owned files on this box). Download cache, never content.
+.npm-cache/
 # scripts/lab.sh's default home for labs when run from a worktree (clones, copied data, tokens).
 .lab/
 # dsh-playwright-browser's screenshots and page captures. Runtime output.
