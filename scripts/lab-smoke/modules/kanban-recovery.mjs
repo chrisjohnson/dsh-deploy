@@ -50,6 +50,13 @@ function patchProfile(env) {
   if (!text.includes(`${PROVIDER_ID}:`)) {
     const anchor = text.match(/^(- id: llm-pi-ai\n(?:.*\n)*?    providers:\n)/m)
     if (!anchor) throw new Error(`no 'providers:' block under the llm-pi-ai row in ${path}`)
+    // The lab route has to offer the model the implementer role already names:
+    // dsh-kanban validates roles.implementer.model against the provider's model
+    // list at boot and refuses to mount when it is missing, so a hardcoded id
+    // only works while the deployment's implementer happens to run that model.
+    const implementer = text.match(/^      implementer:\n        provider: .*\n        model: (.*)$/m)
+    if (!implementer) throw new Error(`the kanban row has no roles.implementer model to mirror in ${path}`)
+    const implementerModel = implementer[1].trim()
     const insert = [
       `      ${PROVIDER_ID}:`,
       `        displayName: KAN-4 lab route (real backend, 48-token output budget)`,
@@ -57,7 +64,7 @@ function patchProfile(env) {
       `        api: openai-completions`,
       `        baseURL: http://127.0.0.1:4000/v1`,
       `        models:`,
-      `          - id: medium-dense`,
+      `          - id: ${implementerModel}`,
       `            contextWindow: 262144`,
       // maxTokens is the output budget sent with every request: 48 makes any
       // real generation halt `max-tokens` within a second or two.

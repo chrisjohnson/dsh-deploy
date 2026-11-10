@@ -41,8 +41,16 @@ export async function run(ctx) {
       await s.shot('web-search')
       if (!/web_search|Web search|Searched/i.test(text)) throw new Error('no web_search tool call is visible in the transcript')
       if (/INVALID_TOOL_OUTPUT|tool (call )?failed|tool error/i.test(text)) throw new Error('the transcript shows a tool error')
-      if (!/https?:\/\//.test(text)) throw new Error('the reply lists no URL')
-      return 'tool call visible, reply lists URLs'
+      // The markdown renderer prints a link's host+path and drops the scheme, so
+      // the visible transcript text carries no "http://" to match on; read the
+      // anchors themselves and keep only the off-host ones, which are the results.
+      const links = await page.evaluate(() =>
+        [...document.querySelectorAll('#root a[href]')]
+          .map((a) => a.href)
+          .filter((h) => /^https?:\/\//.test(h) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/)/.test(h))
+      )
+      if (links.length === 0) throw new Error('the reply carries no link to a search result')
+      return `tool call visible, reply links to ${links.length} result URL(s), e.g. ${links[0].slice(0, 60)}`
     })
   } finally {
     await s.close()

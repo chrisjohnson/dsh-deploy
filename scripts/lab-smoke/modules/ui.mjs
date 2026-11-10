@@ -17,7 +17,10 @@ import { Skip, bodyText, ensureWorkspace, newSession, openLab, openSession, read
 
 export const meta = { timeout: 240_000 }
 
-const SIDEBAR = ['New Session', 'Plugins', 'Automation tasks', 'Context Insights', 'Workspaces', 'Settings']
+// What the left rail must show. dsh 0.2.2's shipped sidebar has no Settings row
+// any more (it moved to the account menu, checked separately below), and it
+// folds the extra pages behind a `More` button.
+const SIDEBAR = ['New Session', 'Plugins', 'Automation tasks', 'Context Insights', 'Workspaces']
 
 // Pages reachable from the sidebar and a string that only that page renders.
 const PAGES = [
@@ -31,7 +34,10 @@ const PAGES = [
 const TOOLS = [
   { tab: 'Files', needs: 'dsh-better-sidebar' },
   { tab: 'Context', needs: 'dsh-context' },
-  { tab: 'Changes', needs: 'dsh-better-sidebar' },
+  // dsh-better-sidebar 0.30 renamed the 'Changes' card to 'Git'; it is the same
+  // git-changes panel (the card list is now Files, Context, Git, New terminal,
+  // Tasks, Side Chat, Worktree branch, Loop evals, More tools).
+  { tab: 'Git', needs: 'dsh-better-sidebar' },
   { tab: 'Tasks', needs: 'dsh-better-sidebar' },
   { tab: 'Worktree branch', needs: 'dsh-better-git-worktree' },
   { tab: 'Loop evals', needs: 'dsh-loop-watchdog' }
@@ -104,18 +110,31 @@ export async function run(ctx) {
       const text = await bodyText(page)
       const missing = SIDEBAR.filter((t) => !text.includes(t))
       if (missing.length > 0) throw new Error(`sidebar is missing: ${missing.join(', ')}`)
+      // Settings is not a rail row in this sidebar build; it lives in the account
+      // menu at the top of the page. Open it and prove the entry is reachable.
+      await page.getByRole('button', { name: 'Account menu' }).click()
+      await waitFor(async () => (await page.getByRole('menuitem', { name: 'Settings' }).count()) > 0, { timeout: 10_000, what: 'the Settings entry in the account menu' })
+      await page.keyboard.press('Escape')
       await s.shot('ui-home')
-      return 'sidebar entries present'
+      return 'sidebar entries present; Settings reachable from the account menu'
     })
 
     await ctx.check('Plugins page lists every installed bundle', async () => {
       await page.getByText('Plugins', { exact: true }).first().click()
       // The two base bundles are not "installed plugins"; the rest are.
       const expected = ctx.bundles.filter((b) => b !== '@deepseek-ai/dsh-base' && b !== '@deepseek-ai/dsh-web-app').length
-      await waitFor(async () => /Installed\s*\n?\s*\d+/.test(await bodyText(page)), { timeout: 20_000, what: 'the Installed list' })
-      const shown = Number(/Installed\s*\n?\s*(\d+)/.exec(await bodyText(page))[1])
+      // dsh 0.2.2's Plugins page has no "Installed N" counter: the section is
+      // headed "Installed plugins" and carries one enable switch per bundle, so
+      // count the switches that follow that heading instead of reading a number.
+      const installedCount = () =>
+        page.evaluate(() => {
+          const heading = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && (e.innerText || '').trim() === 'Installed plugins')
+          if (!heading) return -1
+          return [...document.querySelectorAll('[role=switch]')].filter((sw) => heading.compareDocumentPosition(sw) & Node.DOCUMENT_POSITION_FOLLOWING).length
+        })
+      const shown = await waitFor(async () => (await installedCount()) === expected && expected, { timeout: 20_000, what: 'the Installed list' }).catch(async () => installedCount())
       await s.shot('ui-plugins')
-      if (shown !== expected) throw new Error(`page says ${shown} installed, the profile lists ${expected}`)
+      if (shown !== expected) throw new Error(`page lists ${shown} installed bundle(s), the profile lists ${expected}`)
       return `${shown} installed`
     })
 

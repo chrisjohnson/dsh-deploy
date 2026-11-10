@@ -76,9 +76,10 @@ export async function run(ctx) {
 
     await newSession(page, 'lab-scratch')
     let mine = []
+    let baseline = 0
     await ctx.check('a tool-using turn appends rows to the evaluation ledger', async () => {
       ctx.needModel()
-      const baseline = rows().length
+      baseline = rows().length
       const before = await completedTurns(page)
       await send(page, `Run this exact shell command with the bash tool and then tell me what it printed: echo ${marker}`)
       await waitTurn(page, before, { timeout: 300_000 })
@@ -94,6 +95,14 @@ export async function run(ctx) {
 
     await ctx.check('a row carries the real tool-result text', async () => {
       ctx.needModel()
+      // The watchdog writes a `no-signal` skip for the turn it catches at the
+      // start, then the evaluated row once the turn's tool calls have landed, so
+      // wait for a row that carries a window instead of judging the first row in.
+      await waitFor(() => rows().slice(baseline).some((r) => typeof r.window === 'string' && r.window.length > 0), {
+        timeout: 120_000,
+        what: 'an evaluated ledger row (one that carries a window)'
+      })
+      mine = rows().slice(baseline)
       const withWindow = mine.filter((r) => typeof r.window === 'string' && r.window.length > 0)
       if (withWindow.length === 0) throw new Error('no new row has a window (the watchdog skipped every step)')
       if (withWindow.some((r) => /\[object Object\]|\bundefined\b/.test(r.window))) throw new Error('a window holds an unrendered value')

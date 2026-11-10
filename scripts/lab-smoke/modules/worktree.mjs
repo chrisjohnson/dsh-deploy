@@ -4,7 +4,7 @@
 // or removes anything but the copies it makes itself, and refuses to act on a
 // path outside the lab.
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { bodyText, completedTurns, ensureWorkspace, newSession, openLab, send, sidebarWorkspaces, sleep, waitFor, waitTurn } from '../lib.mjs'
 
@@ -39,7 +39,17 @@ export async function run(ctx) {
   ctx.attach(s)
   const rpc = (endpoint, body) =>
     page.evaluate(
-      async ([e, b]) => (await fetch(`/betterGitWorktree/${e}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })).json(),
+      async ([e, b]) => {
+        // A bounded fetch: without it a call that never answers just eats the
+        // whole check timeout and the failure says nothing about which one.
+        const response = await fetch(`/betterGitWorktree/${e}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(b),
+          signal: AbortSignal.timeout(60_000)
+        })
+        return response.json()
+      },
       [endpoint, body]
     )
   const snapshot = async () => (await rpc('snapshot', {})).value.worktrees
@@ -130,11 +140,20 @@ export async function run(ctx) {
     await ctx.check('worktree_convert moves a session and its uncommitted work into a copy; Remove needs the confirmed plan', async () => {
       ctx.needModel()
       await page.keyboard.press('Escape') // a dialog left open by an earlier check must not eat the next one
+      const knownSessions = new Set(sessionDirs(env, repo))
       await newSession(page, 'lab-wt-repo')
+      // Read the turn count only once the fresh session is actually on screen: the
+      // previous session's transcript is still rendered for a moment, and counting
+      // its completed turn as the baseline makes the wait below unsatisfiable.
+      await waitFor(async () => (await bodyText(page)).includes('Into the Unknown'), { timeout: 20_000, what: 'the empty new session' })
       const before = await completedTurns(page)
       await send(page, 'Reply with exactly: convert-ok')
-      await waitTurn(page, before)
-      const source = newestSessionId(env, repo)
+      await waitTurn(page, before, { timeout: 150_000 })
+      // Identify the session by what the turn added, not by directory mtime: a
+      // copy converted by an earlier run keeps its directory hot, so an mtime
+      // sort can hand back an already-converted session.
+      const [source] = sessionDirs(env, repo).filter((d) => !knownSessions.has(d))
+      if (!source) throw new Error('no new session directory appeared for the scratch repo')
       writeFileSync(join(repo, 'moved.txt'), 'uncommitted work\n')
       const known = await snapshot()
       const converted = await rpc('convert', { sessionId: source })
@@ -170,12 +189,10 @@ export async function run(ctx) {
   }
 }
 
-/** Id of the newest session directory for the scratch repo's workspace. */
-function newestSessionId(env, repo) {
+/** The session directories the lab holds for the scratch repo's workspace. */
+function sessionDirs(env, repo) {
   const root = join(env.dshHome, 'sessions')
   const slug = readdirSync(root).find((d) => d === `--${repo.replace(/^\//, '').replace(/\//g, '-')}--`)
   if (!slug) throw new Error(`no session directory for ${repo}`)
-  const dirs = readdirSync(join(root, slug)).filter((n) => n.startsWith('session-'))
-  if (dirs.length === 0) throw new Error('no session was created in the scratch repo')
-  return dirs.sort((a, b) => statSync(join(root, slug, b)).mtimeMs - statSync(join(root, slug, a)).mtimeMs)[0]
+  return readdirSync(join(root, slug)).filter((n) => n.startsWith('session-'))
 }

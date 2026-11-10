@@ -223,7 +223,11 @@ export async function waitTurn(page, before, { timeout = 240_000 } = {}) {
 /** Text of the whole conversation area, for content checks. */
 export async function transcript(page) {
   const text = await bodyText(page)
-  return text.slice(text.indexOf('Settings') + 8)
+  // The old rail carried a 'Settings' row that marked the end of the sidebar
+  // chrome; dsh 0.2.2's sidebar has none (Settings moved to the account menu),
+  // so fall back to the whole page text rather than slicing at a missing marker.
+  const at = text.indexOf('Settings')
+  return at >= 0 ? text.slice(at + 8) : text
 }
 
 export function counts(text, needle) {
