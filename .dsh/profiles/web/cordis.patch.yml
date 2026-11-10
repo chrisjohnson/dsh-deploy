@@ -181,8 +181,9 @@
             # the full window is wanted.
             contextWindow: 524288
             maxTokens: 32768
-            # maxTokens: still left unset, same as small-moe/small-dense above,
-            # so pi-ai's 32768 route default is what actually goes out.
+            # maxTokens: declared explicitly at 32768. That is the value pi-ai's
+            # route default was already sending while this key was absent, so the
+            # declaration pins the behaviour rather than changing it.
             # FLAGGED, not fixed (2026-10-15): the old justification here ("the
             # build's own launch command has no -n output cap") no longer holds
             # for this backend - the halogen API layer advertises

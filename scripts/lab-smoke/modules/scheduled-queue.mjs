@@ -20,12 +20,6 @@ export async function run(ctx) {
       async (id) => (await fetch('/api/scheduledQueue/list', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: id }) })).json(),
       sessionId
     )
-  /**
-   * The rail shows a session's generated title, which lands asynchronously after
-   * the first turn, so a row cannot be found by the prompt that started it. Read
-   * the title back from the session's own log and open it the way the other
-   * modules do.
-   */
   let sessionA = null
   try {
     await s.goto()
