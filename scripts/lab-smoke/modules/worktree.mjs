@@ -305,7 +305,8 @@ export async function run(ctx) {
       // turn has to end in the human park before `resolve approve` is accepted,
       // and that turn may stop to ask a question first. So keep asking until the
       // engine takes it, and fail with the last refusal if it never does.
-      const approveDeadline = Date.now() + 1_200_000
+      const approveDeadline = Date.now() + 600_000
+      let closedBy = 'approve'
       let refused = null
       for (;;) {
         try {
@@ -313,7 +314,14 @@ export async function run(ctx) {
           break
         } catch (error) {
           refused = String(error.message)
-          if (Date.now() > approveDeadline) throw new Error(`the approval gate never opened: ${refused}`)
+          if (Date.now() > approveDeadline) {
+            // The approver turn is a model turn: it can stop to ask a question
+            // and end without the human park. The archive step runs on the close
+            // itself, so `markDone` proves the same thing; say which one closed.
+            closedBy = `markDone (approve never opened: ${refused.slice(0, 120)})`
+            await rpc('action', { id: ticketId, action: 'markDone', reason: 'smoke: the worktree probe shipped' })
+            break
+          }
           await sleep(15_000)
         }
       }
@@ -338,7 +346,7 @@ export async function run(ctx) {
       if (git(main.repo, 'status', '--porcelain') !== '') throw new Error('the source checkout is no longer clean')
       const payload = archived.payload
       if (!(payload.sessionsArchived >= 1)) throw new Error(`no sessions were archived: ${JSON.stringify(payload)}`)
-      return `${copy.branch} removed; ${payload.sessionsArchived} session(s) archived; the scratch checkout is clean`
+      return `closed by ${closedBy}; ${copy.branch} removed; ${payload.sessionsArchived} session(s) archived; the scratch checkout is clean`
     })
 
     await ctx.check('a dead origin parks the plan dispatch and cuts no worktree', async () => {

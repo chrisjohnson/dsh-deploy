@@ -124,8 +124,12 @@ export async function run(ctx) {
 
     await ctx.check('Plugins page lists every installed bundle', async () => {
       await page.getByText('Plugins', { exact: true }).first().click()
-      // The two base bundles are not "installed plugins"; the rest are.
-      const expected = ctx.bundles.filter((b) => b !== '@deepseek-ai/dsh-base' && b !== '@deepseek-ai/dsh-web-app').length
+      // The two base bundles are not "installed plugins"; the rest are. Bundles
+      // whose package name says `experimental` are listed under the page's
+      // "Experimental plugins" section instead of "Installed plugins", so they
+      // are counted by their own check below rather than by this switch count.
+      const experimental = ctx.bundles.filter((b) => b.startsWith('@deepseek-ai/dsh-experimental-'))
+      const expected = ctx.bundles.filter((b) => b !== '@deepseek-ai/dsh-base' && b !== '@deepseek-ai/dsh-web-app' && !experimental.includes(b)).length
       // dsh 0.2.2's Plugins page has no "Installed N" counter: the section is
       // headed "Installed plugins" and carries one enable switch per bundle, so
       // count the switches that follow that heading instead of reading a number.
@@ -139,6 +143,19 @@ export async function run(ctx) {
       await s.shot('ui-plugins')
       if (shown !== expected) throw new Error(`page lists ${shown} installed bundle(s), the profile lists ${expected}`)
       return `${shown} installed`
+    })
+
+    await ctx.check('the experimental bundle is mounted and enabled on the Plugins page', async () => {
+      // The forge bundle is what gives a ticket worktree its panel (KAN-82), and
+      // it renders in the page's own "Experimental plugins" section under its
+      // display name rather than in "Installed plugins".
+      await page.getByText('Plugins', { exact: true }).first().click()
+      const row = page.getByText('Change requests & worktrees', { exact: true }).first()
+      await waitFor(async () => (await row.count()) > 0, { timeout: 20_000, what: 'the Change requests & worktrees row' })
+      const on = await row.locator('xpath=ancestor::*[.//button[@role=switch] or .//*[@role=switch]][1]').locator('[role=switch]').first().getAttribute('aria-checked')
+      await s.shot('ui-plugins-experimental')
+      if (on !== 'true') throw new Error(`the forge bundle's switch reads aria-checked=${on}`)
+      return 'Change requests & worktrees listed and enabled'
     })
 
     for (const { link, marker } of PAGES) {
