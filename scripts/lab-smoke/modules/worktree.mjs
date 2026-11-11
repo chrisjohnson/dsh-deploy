@@ -301,22 +301,20 @@ export async function run(ctx) {
     })
 
     await ctx.check('done removes the worktree, archives the sessions, and leaves the checkout clean', async () => {
-      await watch(rpc, ticketId, {
-        until: (d) => d.awaitingApproval === true,
-        what: 'the ticket to wait for approval',
-        timeout: 1_500_000,
-        allowPark: (d) => d.ticket.phase === 'verify',
-      })
-      // The approval park is what makes `resolve` accept the approve, and the
-      // engine writes it a moment after the phase flips: retry until it takes.
-      const approveDeadline = Date.now() + 120_000
+      // Drive the gate by asking for it: the review has to pass and the approver
+      // turn has to end in the human park before `resolve approve` is accepted,
+      // and that turn may stop to ask a question first. So keep asking until the
+      // engine takes it, and fail with the last refusal if it never does.
+      const approveDeadline = Date.now() + 1_200_000
+      let refused = null
       for (;;) {
         try {
           await rpc('resolve', { id: ticketId, action: 'approve', message: 'smoke: the worktree probe shipped' })
           break
         } catch (error) {
-          if (!/not parked for attention/.test(String(error.message)) || Date.now() > approveDeadline) throw error
-          await sleep(2000)
+          refused = String(error.message)
+          if (Date.now() > approveDeadline) throw new Error(`the approval gate never opened: ${refused}`)
+          await sleep(15_000)
         }
       }
       const archived = await waitFor(
