@@ -24,7 +24,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ensureWorkspace, openLab, openSession, readSessionEvents, sleep, waitFor } from '../lib.mjs'
+import { ensureWorkspace, openLab, openSession, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
 
 export const meta = { needs: ['dsh-kanban'], model: true, timeout: 1_500_000 }
 
@@ -151,6 +151,8 @@ export async function run(ctx) {
   ctx.attach(s)
   const rpc = makeRpc(page)
   let ticketId = null
+  /** every ticket this run filed, so the finally can close them all */
+  const extraTickets = []
   let copy = null // { path, branch, name } of the lab-made worktree
 
   try {
@@ -241,19 +243,30 @@ export async function run(ctx) {
     })
 
     await ctx.check('the native Change requests tab shows the ticket worktree', async () => {
-      const title = `${(await rpc('ticket', { id: ticketId })).ticket.key} · plan · ${TASK.title}`
-      const opened = (await openSession(page, { workspace: copy.name, title }))
-        || (await openSession(page, { workspace: TASK.title, title }))
-      if (!opened) throw new Error(`could not reopen the plan session '${title}' from the sidebar`)
+      const key = (await rpc('ticket', { id: ticketId })).ticket.key
+      const title = `${key} · plan · ${TASK.title}`
+      // kanban registers the copy as a workspace under the ticket's title, so
+      // that — not the pet name — is the sidebar group the session sits in.
+      const labels = await sidebarWorkspaces(page)
+      const group = labels.find((w) => w === TASK.title) ?? labels.find((w) => w.includes(copy.name)) ?? copy.name
+      const opened = (await openSession(page, { workspace: group, title }))
+        || (await openSession(page, { workspace: copy.name, title }))
+      if (!opened) throw new Error(`could not reopen the plan session '${title}' from the sidebar (groups: ${labels.slice(0, 6).join(' | ')})`)
       const toggle = page.getByRole('button', { name: 'Open right sidebar' })
       await waitFor(async () => (await toggle.count()) > 0, { timeout: 20_000, what: 'the right-sidebar toggle' })
       await toggle.click()
+      // The sidebar opens on its "Start" page of tool cards, exactly as the ui
+      // module drives it; the panel is only reachable from there.
+      await waitFor(async () => (await page.getByText('Start', { exact: true }).count()) > 0, { timeout: 20_000, what: 'the right sidebar' })
       const card = page.getByText('Change requests', { exact: true }).filter({ visible: true }).first()
       await waitFor(async () => (await card.count()) > 0, { timeout: 20_000, what: "the 'Change requests' tool card" })
       await card.click()
       await waitFor(
-        async () => (await page.locator('body').innerText()).includes(copy.path),
-        { timeout: 30_000, what: 'the worktree path in the Change requests panel' },
+        async () => {
+          const text = await page.locator('body').innerText()
+          return text.includes(copy.path) || text.includes(copy.branch)
+        },
+        { timeout: 30_000, what: 'the ticket worktree in the Change requests panel' },
       )
       if ((await page.locator('[data-slot-error]').count()) > 0) throw new Error('the Change requests panel rendered a slot error')
       await s.shot('worktree-forge-tab')
@@ -284,12 +297,23 @@ export async function run(ctx) {
 
     await ctx.check('done removes the worktree, archives the sessions, and leaves the checkout clean', async () => {
       await watch(rpc, ticketId, {
-        until: (d) => d.ticket.phase === 'verify' && Boolean(d.ticket.needsAttentionReason),
-        what: 'the ticket to reach the approval gate',
+        until: (d) => d.awaitingApproval === true,
+        what: 'the ticket to wait for approval',
         timeout: 900_000,
         allowPark: (d) => d.ticket.phase === 'verify',
       })
-      await rpc('resolve', { id: ticketId, action: 'approve', message: 'smoke: the worktree probe shipped' })
+      // The approval park is what makes `resolve` accept the approve, and the
+      // engine writes it a moment after the phase flips: retry until it takes.
+      const approveDeadline = Date.now() + 120_000
+      for (;;) {
+        try {
+          await rpc('resolve', { id: ticketId, action: 'approve', message: 'smoke: the worktree probe shipped' })
+          break
+        } catch (error) {
+          if (!/not parked for attention/.test(String(error.message)) || Date.now() > approveDeadline) throw error
+          await sleep(2000)
+        }
+      }
       const archived = await waitFor(
         async () => {
           const events = await rpc('events', { id: ticketId, limit: 500 })
@@ -328,6 +352,7 @@ export async function run(ctx) {
         column: 'working',
       })
       const probeId = created.ticket.id
+      extraTickets.push(probeId)
       const deadline = Date.now() + 240_000
       let parked = null
       for (;;) {
@@ -338,7 +363,12 @@ export async function run(ctx) {
       }
       const reason = parked.needsAttentionReason
       if (!/fetch/i.test(reason)) throw new Error(`the ticket parked as '${reason}', not on a fetch failure`)
-      if (parked.workspaceCwd) throw new Error(`a worktree was created anyway: ${parked.workspaceCwd}`)
+      // The ticket was filed with this checkout as its workspace; the point is
+      // that no copy was cut, so it still names the plain checkout and not a
+      // pool path under it.
+      if (parked.workspaceCwd && parked.workspaceCwd.includes('/.agents/worktrees/')) {
+        throw new Error(`a worktree was created anyway: ${parked.workspaceCwd}`)
+      }
       if (worktreePaths(dead.repo).length !== before) throw new Error('git lists a worktree that should never have been made')
       if (existsSync(join(dead.repo, '.agents', 'worktrees'))) {
         throw new Error('the pool directory was created for a ticket that never got a copy')
@@ -351,6 +381,19 @@ export async function run(ctx) {
       if (s.problems.length > 0) throw new Error(s.problems.slice(0, 3).join(' // '))
     })
   } finally {
+    // Close the board's own leftovers first: a ticket still in Working would
+    // eat the WIP cap for the next run and hold a scratch copy about to go.
+    for (const id of [...extraTickets, ...(ticketId ? [ticketId] : [])]) {
+      try {
+        await rpc('resolve', { id, action: 'discard', reason: 'smoke: probe over' })
+      } catch {
+        try {
+          await rpc('move', { id, column: 'discarded', reason: 'smoke: probe over' })
+        } catch {
+          /* already closed, or not parkable: nothing to clean */
+        }
+      }
+    }
     // Only ever our own lab paths: a copy left by a failed check must not linger
     // in the scratch repo, and the scratch repos themselves are lab HOME.
     try {
