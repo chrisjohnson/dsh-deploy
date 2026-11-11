@@ -36,12 +36,13 @@ const TOOLS = [
   { tab: 'Context', needs: 'dsh-context' },
   // dsh-better-sidebar 0.30 renamed the 'Changes' card to 'Git'; it is the same
   // git-changes panel (the card list is now Files, Context, Git, New terminal,
-  // Tasks, Side Chat, Change requests, Loop evals, More tools).
+  // Tasks, Side Chat, Code review and changes, Loop evals, More tools).
   { tab: 'Git', needs: 'dsh-better-sidebar' },
   { tab: 'Tasks', needs: 'dsh-better-sidebar' },
-  // The native Forge panel: change requests plus the worktree card kanban feeds
-  // with its own records (dsh-kanban 0.41.0, KAN-82).
-  { tab: 'Change requests', needs: '@deepseek-ai/dsh-experimental-forge-bundle' },
+  // The native Forge panel: its card is 'Code review and changes' and the tab it
+  // opens is titled 'Change requests'; it also carries the worktree card that
+  // dsh-kanban feeds with its own records (KAN-82).
+  { tab: 'Code review and changes', needs: '@deepseek-ai/dsh-experimental-forge-bundle' },
   { tab: 'Loop evals', needs: 'dsh-loop-watchdog' }
 ]
 

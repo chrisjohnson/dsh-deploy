@@ -26,7 +26,10 @@ import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync
 import { join } from 'node:path'
 import { ensureWorkspace, openLab, openSession, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
 
-export const meta = { needs: ['dsh-kanban'], model: true, timeout: 1_500_000 }
+// A full ticket round — plan, implement (with its own questions), review and the
+// approval gate — runs on the deployment's local models, so the budget is the
+// whole lifecycle plus the archive step, not one turn.
+export const meta = { needs: ['dsh-kanban'], model: true, timeout: 2_400_000 }
 
 const RECORD = 'plugin:client-ui-forge/worktree'
 const TASK = {
@@ -258,8 +261,10 @@ export async function run(ctx) {
       // The sidebar opens on its "Start" page of tool cards, exactly as the ui
       // module drives it; the panel is only reachable from there.
       await waitFor(async () => (await page.getByText('Start', { exact: true }).count()) > 0, { timeout: 20_000, what: 'the right sidebar' })
-      const card = page.getByText('Change requests', { exact: true }).filter({ visible: true }).first()
-      await waitFor(async () => (await card.count()) > 0, { timeout: 20_000, what: "the 'Change requests' tool card" })
+      // The sidebar card is 'Code review and changes'; the tab it opens is
+      // titled 'Change requests'.
+      const card = page.getByText('Code review and changes', { exact: true }).filter({ visible: true }).first()
+      await waitFor(async () => (await card.count()) > 0, { timeout: 20_000, what: "the 'Code review and changes' tool card" })
       await card.click()
       await waitFor(
         async () => {
@@ -299,7 +304,7 @@ export async function run(ctx) {
       await watch(rpc, ticketId, {
         until: (d) => d.awaitingApproval === true,
         what: 'the ticket to wait for approval',
-        timeout: 900_000,
+        timeout: 1_500_000,
         allowPark: (d) => d.ticket.phase === 'verify',
       })
       // The approval park is what makes `resolve` accept the approve, and the
