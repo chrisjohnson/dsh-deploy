@@ -40,6 +40,22 @@ const TASK = {
 
 const git = (cwd, ...args) => execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).trim()
 const worktreePaths = (repo) => git(repo, 'worktree', 'list').split('\n').filter(Boolean).map((line) => line.split(' ')[0])
+const refTip = (repo, ref) => {
+  try {
+    return git(repo, 'rev-parse', '--verify', '--quiet', `${ref}^{commit}`)
+  } catch {
+    return ''
+  }
+}
+/** Whether `commit` is already contained in `ref` — i.e. the branch is safe to delete. */
+const isAncestor = (repo, commit, ref) => {
+  try {
+    execFileSync('git', ['-C', repo, 'merge-base', '--is-ancestor', commit, ref], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
 
 /** POST one /api/kanban endpoint from inside the authenticated page. */
 function makeRpc(page) {
@@ -342,11 +358,19 @@ export async function run(ctx) {
       if (left.length !== 1 || realpathSync(left[0]) !== realpathSync(main.repo)) {
         throw new Error(`git still lists ${left.length} worktree(s) for the scratch repo: ${left.join(', ')}`)
       }
-      if (git(main.repo, 'rev-parse', '--verify', '--quiet', copy.branch) !== '') throw new Error(`the branch ${copy.branch} outlived its copy`)
-      if (git(main.repo, 'status', '--porcelain') !== '') throw new Error('the source checkout is no longer clean')
       const payload = archived.payload
       if (!(payload.sessionsArchived >= 1)) throw new Error(`no sessions were archived: ${JSON.stringify(payload)}`)
-      return `closed by ${closedBy}; ${copy.branch} removed; ${payload.sessionsArchived} session(s) archived; the scratch checkout is clean`
+      if (git(main.repo, 'status', '--porcelain') !== '') throw new Error('the source checkout is no longer clean')
+      // The branch goes with the copy only when it is merged: `git branch -d`
+      // refuses an unmerged one on purpose, so work that never landed outlives
+      // the checkout it was written in. Either outcome is correct; the wrong one
+      // is a merged branch left behind, or unmerged work deleted.
+      const tip = refTip(main.repo, copy.branch)
+      if (tip !== '' && isAncestor(main.repo, tip, 'origin/main')) {
+        throw new Error(`${copy.branch} was merged into origin/main and still exists — the removal should have deleted it`)
+      }
+      const branchNote = tip === '' ? `${copy.branch} deleted with the copy` : `${copy.branch} kept: its work is not on origin/main`
+      return `closed by ${closedBy}; the copy is gone; ${branchNote}; ${payload.sessionsArchived} session(s) archived; the scratch checkout is clean`
     })
 
     await ctx.check('a dead origin parks the plan dispatch and cuts no worktree', async () => {
