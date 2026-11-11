@@ -93,3 +93,8 @@ plugins/
 # Kanban sessions must not commit handoff or smoke-result documents at the root; say it in the final message, keep evidence under .lab/.
 /*-handoff.md
 /*-smoke-results.md
+
+# Kanban's runtime state: the board's SQLite db, its WAL sidecars and the
+# artifacts it writes. Written by the running service next to its own config, so
+# it is state, never content — and a `git add -A` footgun in this checkout.
+.dsh/kanban/

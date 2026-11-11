@@ -602,8 +602,13 @@
     summaryReserveTokens: 10000
     autoCompact: true
 
-# better-git-worktree (git worktree sessions) and scheduled-queue (composer
-# scheduled-send) mount from `bundles` and need no row here. The schedule
+# The native "Change requests & worktrees" bundle
+# (@deepseek-ai/dsh-experimental-forge-bundle) and scheduled-queue (composer
+# scheduled-send) mount from `bundles` and need no row here. Ticket worktrees are
+# cut by dsh-kanban itself since 0.41.0 (KAN-82): it makes linked worktrees under
+# each repository's own `.agents/worktrees` pool — the same pool the forge panel
+# uses — so `dsh-better-git-worktree` is retired and has no row and no bundle
+# entry. The schedule
 # feature (rows `time-context`, `schedule`, `ui-schedule`) ships in the
 # @deepseek-ai/dsh-web-app composition as of dsh 0.2.2-rc.1, so the
 # @deepseek-ai/dsh-experimental-schedule-bundle - which was never released past

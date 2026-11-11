@@ -2,7 +2,6 @@
   "name": "dsh-profile-web",
   "private": true,
   "dependencies": {
-    "dsh-better-git-worktree": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-better-git-worktree-v0.3.1&path:/packages/better-git-worktree",
     "dsh-better-sidebar": "0.30.1",
     "dsh-context": "0.83.1",
     "dsh-continue-kicker": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-continue-kicker-v0.3.0&path:/packages/continue-kicker",
@@ -15,7 +14,7 @@
     "dsh-web-search-searxng": "0.5.1",
     "dsh-session-cost": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost",
     "dsh-model-capacity": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.6.0&path:/packages/model-capacity",
-    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.40.0&path:/packages/kanban",
+    "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.41.0&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal",
     "dsh-image-tiler": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler",
     "dsh-slot-guard": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.1&path:/packages/slot-guard"
@@ -34,14 +33,14 @@
         "dsh-model-switch",
         "dsh-scheduled-queue",
         "dsh-session-cost",
-        "dsh-better-git-worktree",
         "dsh-continue-kicker",
         "dsh-kanban",
         "dsh-loop-watchdog",
         "dsh-math-literal",
         "dsh-model-capacity",
         "dsh-image-tiler",
-        "dsh-slot-guard"
+        "dsh-slot-guard",
+        "@deepseek-ai/dsh-experimental-forge-bundle"
       ]
     }
   }

@@ -29,17 +29,19 @@ const PAGES = [
 ]
 
 // Right-sidebar tools this deployment ships (dsh-better-sidebar, dsh-context,
-// dsh-loop-watchdog, dsh-better-git-worktree). A tool whose plugin is not
-// mounted is skipped, not failed.
+// dsh-loop-watchdog, and the native @deepseek-ai/dsh-experimental-forge-bundle).
+// A tool whose plugin is not mounted is skipped, not failed.
 const TOOLS = [
   { tab: 'Files', needs: 'dsh-better-sidebar' },
   { tab: 'Context', needs: 'dsh-context' },
   // dsh-better-sidebar 0.30 renamed the 'Changes' card to 'Git'; it is the same
   // git-changes panel (the card list is now Files, Context, Git, New terminal,
-  // Tasks, Side Chat, Worktree branch, Loop evals, More tools).
+  // Tasks, Side Chat, Change requests, Loop evals, More tools).
   { tab: 'Git', needs: 'dsh-better-sidebar' },
   { tab: 'Tasks', needs: 'dsh-better-sidebar' },
-  { tab: 'Worktree branch', needs: 'dsh-better-git-worktree' },
+  // The native Forge panel: change requests plus the worktree card kanban feeds
+  // with its own records (dsh-kanban 0.41.0, KAN-82).
+  { tab: 'Change requests', needs: '@deepseek-ai/dsh-experimental-forge-bundle' },
   { tab: 'Loop evals', needs: 'dsh-loop-watchdog' }
 ]
 

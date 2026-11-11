@@ -123,9 +123,10 @@ assert_lab_dir_safe() {
   local real prod_real
   real="$(real_path "$LAB_DIR")"
   prod_real="$(real_path "$PROD_DIR")"
-  # A ticket's worktree lives under <prod>/.dsh-worktrees and is its own checkout; only
-  # production's checkout proper (and its DSH_HOME, below) is off limits.
-  if under_or_equal "$real" "$prod_real" && ! under_or_equal "$real" "$prod_real/.dsh-worktrees"; then
+  # A ticket's worktree lives under <prod>/.agents/worktrees (the native pool
+  # dsh-kanban cuts into since KAN-82) and is its own checkout; only production's
+  # checkout proper (and its DSH_HOME, below) is off limits.
+  if under_or_equal "$real" "$prod_real" && ! under_or_equal "$real" "$prod_real/.agents/worktrees"; then
     die "lab dir $real is inside the production checkout $prod_real"
   fi
   under_or_equal "$prod_real" "$real" && die "lab dir $real contains the production checkout $prod_real"
@@ -643,6 +644,9 @@ seed_data() {
   if ((WITH_WORKTREES)); then
     "${rs[@]}" "$PROD_DSH_HOME/plugins/" "$LAB_DSH_HOME/plugins/"
   else
+    # `worktrees.json` is the retired dsh-better-git-worktree registry: nothing
+    # reads it now (kanban keeps its copies' state in git itself), and it is not
+    # copied so a lab can never act on a production working copy.
     "${rs[@]}" --exclude='worktrees.json' "$PROD_DSH_HOME/plugins/" "$LAB_DSH_HOME/plugins/"
   fi
   chmod -R u+rwX "$LAB_DSH_HOME"/{sessions,attachments,storages,plugins}
@@ -715,7 +719,7 @@ scan_copied_paths() {
           split(substr(p, length(prod) + 2), r, "/"); key = "<prod DSH_HOME>/" r[1] (r[2] != "" ? "/" r[2] : "")
         } else {
           split(p, c, "/"); key = "/" c[2] "/" c[3] "/" c[4]
-          if (c[4] == ".dsh-worktrees") key = key "/" c[5]
+          if (c[4] == ".agents" && c[5] == "worktrees") key = key "/" c[5] "/" c[6]
         }
         cnt[kind SUBSEP area SUBSEP key]++
       }
@@ -1067,11 +1071,11 @@ cmd_link() {
   local real_target
   real_target="$(real_path "$target")"
   # Same exception as assert_lab_dir_safe: a ticket's worktree under
-  # <prod>/.dsh-worktrees is its own checkout, not production's working tree,
+  # <prod>/.agents/worktrees is its own checkout, not production's working tree,
   # so linking from it is exactly the worktree-build flow.
   local prod_real
   prod_real="$(real_path "$PROD_DIR")"
-  if under_or_equal "$real_target" "$prod_real" && ! under_or_equal "$real_target" "$prod_real/.dsh-worktrees"; then
+  if under_or_equal "$real_target" "$prod_real" && ! under_or_equal "$real_target" "$prod_real/.agents/worktrees"; then
     die "refusing to link a path inside the production checkout ($real_target)"
   fi
   under_or_equal "$real_target" "$(real_path "$LAB_DIR")" && die "link a checkout outside the lab clone; $real_target is inside it"
@@ -1193,6 +1197,9 @@ prod_fingerprint() {
   printf 'prod_port_http=%s\n' "$(curl -s -o /dev/null -m 10 -w '%{http_code}' "http://127.0.0.1:$PROD_PORT/" || true)"
   printf 'prod_checkout_head=%s\n' "$(git -C "$PROD_DIR" rev-parse HEAD 2>/dev/null)"
   printf 'prod_checkout_status_sha=%s\n' "$(git -C "$PROD_DIR" status --porcelain 2>/dev/null | sha256sum | cut -c1-16)"
+  # The legacy registry of the retired dsh-better-git-worktree plugin. Kanban
+  # owns worktrees now (KAN-82) and keeps no registry, so this only fingerprints
+  # the old file and the copies it still names, to prove the lab left them be.
   local registry="$PROD_DSH_HOME/plugins/dsh-better-git-worktree/worktrees.json"
   if [[ -f "$registry" ]]; then
     printf 'worktrees_json_sha=%s\n' "$(sha256sum "$registry" | cut -c1-16)"
@@ -1293,8 +1300,9 @@ Options
   --source URL|PATH     where to clone dsh-deploy from (env LAB_SOURCE)
   --empty-data          do not copy anything from production
   --sessions N          copy only the N most recent quiet sessions
-  --with-worktrees      also copy the registered-worktree registry (copies are REAL and
-                        shared with production; never Remove/convert them from the lab)
+  --with-worktrees      also copy the retired plugin's registered-worktree registry
+                        (it names REAL copies shared with production; the lab must
+                        never Remove/convert/archive anything it lists)
   --keep-prod-paths     do not rewrite references to production's DSH_HOME in the copied data
                         (default: copied config/state files are pointed at the lab's own DSH_HOME)
   --dry-run             print what would happen, change nothing
