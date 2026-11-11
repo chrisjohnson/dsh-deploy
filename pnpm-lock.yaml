@@ -360,8 +360,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/fb69ab3cc0c7f1e2be3a4cd6db700522626a9c5c#path:/packages/image-tiler(@types/node@26.4.1)
       dsh-kanban:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.42.0&path:/packages/kanban
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/943f6f9aae07ef2339fae5c509e908fd8ae3e866#path:/packages/kanban(74ff79d08e0569bc02416fce41b6ec39)
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.42.1&path:/packages/kanban
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/720a84657d414b379cec686203646e50ba9848c7#path:/packages/kanban(74ff79d08e0569bc02416fce41b6ec39)
       dsh-loop-watchdog:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-loop-watchdog-v0.1.0&path:/packages/loop-watchdog
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/f35aa63851bf9b89b28aa1251821bc26aecf99d3#path:/packages/loop-watchdog(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))
@@ -4616,9 +4616,9 @@ packages:
     version: 0.2.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
-  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/943f6f9aae07ef2339fae5c509e908fd8ae3e866#path:/packages/kanban:
-    resolution: {gitHosted: true, integrity: sha512-VHe1IWHaMPRTSMqHuAqcrswwPiSPYkrpikW6Chm0Cfswjn/td+XoC+abV74JMxXKc/2VQLbMeBP30nJK+diENg==, path: /packages/kanban, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/943f6f9aae07ef2339fae5c509e908fd8ae3e866}
-    version: 0.42.0
+  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/720a84657d414b379cec686203646e50ba9848c7#path:/packages/kanban:
+    resolution: {gitHosted: true, integrity: sha512-tgIX6fZ1cmfGKv7gtk5y6kPt2ZrSQv8Ap/4myaaEwIsZWNPYHsNXN16jL3qBS6fmufksLBbWPbZXS6FmhBY2gw==, path: /packages/kanban, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/720a84657d414b379cec686203646e50ba9848c7}
+    version: 0.42.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=22.5.0'}
     peerDependencies:
       '@deepseek-ai/cordis': 4.1.0
@@ -11012,7 +11012,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/943f6f9aae07ef2339fae5c509e908fd8ae3e866#path:/packages/kanban(74ff79d08e0569bc02416fce41b6ec39):
+  dsh-kanban@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/720a84657d414b379cec686203646e50ba9848c7#path:/packages/kanban(74ff79d08e0569bc02416fce41b6ec39):
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
       '@deepseek-ai/dsh-llm': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
