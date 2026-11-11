@@ -360,7 +360,13 @@ export async function run(ctx) {
       }
       const payload = archived.payload
       if (!(payload.sessionsArchived >= 1)) throw new Error(`no sessions were archived: ${JSON.stringify(payload)}`)
-      if (git(main.repo, 'status', '--porcelain') !== '') throw new Error('the source checkout is no longer clean')
+      // What the plugin owns: it must not dirty the checkout it cut from. A model
+      // that drops an untracked file in the parent directory is the model's
+      // doing, so tracked changes fail the check and untracked leftovers are only
+      // reported — the copy itself is gone either way.
+      const tracked = git(main.repo, 'status', '--porcelain', '--untracked-files=no')
+      if (tracked !== '') throw new Error(`the source checkout has modified tracked files: ${tracked.split('\n').slice(0, 3).join(' | ')}`)
+      const strays = git(main.repo, 'status', '--porcelain').split('\n').filter((line) => line !== '')
       // The branch goes with the copy only when it is merged: `git branch -d`
       // refuses an unmerged one on purpose, so work that never landed outlives
       // the checkout it was written in. Either outcome is correct; the wrong one
@@ -370,7 +376,7 @@ export async function run(ctx) {
         throw new Error(`${copy.branch} was merged into origin/main and still exists — the removal should have deleted it`)
       }
       const branchNote = tip === '' ? `${copy.branch} deleted with the copy` : `${copy.branch} kept: its work is not on origin/main`
-      return `closed by ${closedBy}; the copy is gone; ${branchNote}; ${payload.sessionsArchived} session(s) archived; the scratch checkout is clean`
+      return `closed by ${closedBy}; the copy is gone; ${branchNote}; ${payload.sessionsArchived} session(s) archived; the scratch checkout's tracked files are untouched${strays.length ? ` (${strays.length} untracked path(s) a model left in it)` : ''}`
     })
 
     await ctx.check('a dead origin parks the plan dispatch and cuts no worktree', async () => {

@@ -150,22 +150,17 @@ export async function run(ctx) {
       // it renders in the page's own "Experimental plugins" section under its
       // display name rather than in "Installed plugins".
       await page.getByText('Plugins', { exact: true }).first().click()
+      // Same document-order trick the installed count uses: the switch that
+      // belongs to a row is the first one that follows its label in the page.
       const switchState = () =>
         page.evaluate(() => {
-          const leaf = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && (e.innerText || '').trim() === 'Change requests & worktrees')
-          if (!leaf) return { found: false, checked: null }
-          let node = leaf
-          for (let up = 0; up < 6 && node; up += 1) {
-            const sw = node.parentElement ? node.parentElement.querySelector('[role=switch]') : null
-            if (sw) return { found: true, checked: sw.getAttribute('aria-checked') }
-            node = node.parentElement
-          }
-          return { found: true, checked: null }
+          const wanted = 'Change requests & worktrees'
+          const label = [...document.querySelectorAll('*')].filter((e) => (e.innerText || '').trim() === wanted).pop()
+          if (!label) return null
+          const sw = [...document.querySelectorAll('[role=switch]')].find((x) => label.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING)
+          return sw ? { checked: sw.getAttribute('aria-checked') } : null
         })
-      const state = await waitFor(async () => {
-        const s = switchState()
-        return s.found && s.checked !== null ? s : null
-      }, { timeout: 20_000, what: 'the Change requests & worktrees row and its switch' })
+      const state = await waitFor(async () => switchState(), { timeout: 20_000, what: 'the Change requests & worktrees row and its switch' })
       await s.shot('ui-plugins-experimental')
       if (state.checked !== 'true') throw new Error(`the forge bundle's switch reads aria-checked=${state.checked}`)
       return 'Change requests & worktrees listed and enabled'
