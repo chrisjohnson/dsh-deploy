@@ -1,3 +1,9 @@
+# pnpm 10+ refuses git-protocol dependencies in SUB-dependencies by default
+# (blockExoticSubdeps). dsh-take-a-number carries exactly one: the take-a-number
+# daemon client (a git tag pin, reviewed per release). Every other pin in this
+# tree is a git-tag TOP-LEVEL dependency, which pnpm allows; this line covers
+# the one transitive case.
+blockExoticSubdeps: false
 allowBuilds:
   '@deepseek-ai/dsh-subprocess-local': true
   '@google/genai': true

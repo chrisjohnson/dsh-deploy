@@ -659,22 +659,18 @@
         model: big-moe
         reasoningEffort: null
 
-# dsh-model-capacity (Activity): process-wide per-provider model-call gate.
-# The cloud proxy is unlimited; APU and eGPU each own a FIFO queue. 2/2 is the
-# measured sweet spot for this box (2 simultaneous calls per GPU parallelize
-# better than serialized access); tune here without a code change.
-# Since plugin 0.4.0 there is one queue: a subagent child's calls wait in the
-# same per-provider FIFO as an interactive turn, and a dispatch is never refused
-# for capacity. The old `reservationTtlMs` / `subagentTools` keys are gone.
-- id: model-capacity
+# dsh-take-a-number (Activity): machine-wide model-call queue. Every
+# mapped-provider call takes a number in its GPU's FIFO queue on the
+# take-a-number daemon — box-wide (every dsh instance, every harness), not
+# process-wide — and the Activity panel shows the whole machine. Queue
+# limits and the model→queue mapping live in the daemon's own config
+# (/etc/take-a-number/config.json), not here. Replaces dsh-model-capacity
+# (2026-11-15): same measured limits (APU 3, eGPU 1), global FIFO.
+- id: take-a-number
   config:
     enabled: true
-    defaultMaxConcurrent: 1
-    limits:
+    queues:
       - provider: local-ai-machine (apu)
-        maxConcurrent: 3
+        queue: strix-apu
       - provider: local-ai-machine (eGPU)
-        maxConcurrent: 1
-      - provider: local-ai-machine-cloud
-        unlimited: true
-    queueLimitPerProvider: 1000
+        queue: r9700-egpu

@@ -368,9 +368,6 @@ importers:
       dsh-math-literal:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal
-      dsh-model-capacity:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-capacity-v0.6.0&path:/packages/model-capacity
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c92da6468d274baf5d69a9003c964874a88a6045#path:/packages/model-capacity(@deepseek-ai/cordis@4.1.0)
       dsh-model-switch:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-tools@0.2.2-rc.1(71e9b8099add9aaf7bb42662f07c41a3))
@@ -386,6 +383,9 @@ importers:
       dsh-slot-guard:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.1&path:/packages/slot-guard
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard
+      dsh-take-a-number:
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-take-a-number-v0.1.0&path:/packages/take-a-number
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/31774afa2c655c231082c5c189ebd851963a2074#path:/packages/take-a-number(@deepseek-ai/cordis@4.1.0)
       dsh-web-search-searxng:
         specifier: 0.5.1
         version: 0.5.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-settings@0.2.2-rc.1(6959b12892ad4eb9ce9d85b86d9729db))(@deepseek-ai/dsh-typert-protocol@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-typert-registry@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-web@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)))
@@ -4639,13 +4639,6 @@ packages:
     version: 0.1.0
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
-  dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c92da6468d274baf5d69a9003c964874a88a6045#path:/packages/model-capacity:
-    resolution: {gitHosted: true, integrity: sha512-HBSbcaE5/QjspUp++ZKCULeFlsPEEmdxjEKnOJBclAHwc6+DblUDJG4p9k8NUdXWA6d2PQ9t5X0or7DzCPEUCw==, path: /packages/model-capacity, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c92da6468d274baf5d69a9003c964874a88a6045}
-    version: 0.6.0
-    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=22.5.0'}
-    peerDependencies:
-      '@deepseek-ai/cordis': 4.1.0
-
   dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch:
     resolution: {gitHosted: true, integrity: sha512-xlvsX44Vl3ZPl2VA6Iqzx4Cf44chf2HZphQdQj//9zGl5DRuSCYKOh2WUvsZ9zzkQsGheeCZeaoOHm8+qez8JA==, path: /packages/model-switch, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2}
     version: 0.2.1
@@ -4677,6 +4670,13 @@ packages:
     resolution: {gitHosted: true, integrity: sha512-+bLphXx5FwOcFMLlnl9kcytBg/lJIsw4O8QJhS7O/N2tu8b0Qx+zzcihjdsghV0JNEIXcM1gL7jVgpJBFdFY7Q==, path: /packages/slot-guard, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56}
     version: 0.1.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
+
+  dsh-take-a-number@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/31774afa2c655c231082c5c189ebd851963a2074#path:/packages/take-a-number:
+    resolution: {gitHosted: true, path: /packages/take-a-number, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/31774afa2c655c231082c5c189ebd851963a2074}
+    version: 0.1.0
+    engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=22.5.0'}
+    peerDependencies:
+      '@deepseek-ai/cordis': 4.1.0
 
   dsh-web-search-searxng@0.5.1:
     resolution: {integrity: sha512-WPFM6FmMq1ksj3fq5l8/M4nCmpUFeHffZ8MvCkEYVbOmfcwSsHQERn4Svoc9TVUAB+UDR0QmKEox5YhoIgrz4g==}
@@ -5518,6 +5518,12 @@ packages:
 
   stylis@4.4.0:
     resolution: {integrity: sha512-5Z9ZpRzfuH6l/UAvCPAPUo3665Nk2wLaZU3x+TLHKVzIz33+sbJqbtrYoC3KD4/uVOr2Zp+L0LySezP9OHV9yA==}
+
+  take-a-number@https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/f936d64a8819078ca625f1f2944c34bec2e8f10a:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/f936d64a8819078ca625f1f2944c34bec2e8f10a}
+    version: 0.1.0
+    engines: {node: '>=20'}
+    hasBin: true
 
   tiny-inflate@1.0.3:
     resolution: {integrity: sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==}
@@ -11026,10 +11032,6 @@ snapshots:
 
   dsh-math-literal@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c1198ebd74c332f594a44c3df14091ae79f61c5e#path:/packages/math-literal: {}
 
-  dsh-model-capacity@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/c92da6468d274baf5d69a9003c964874a88a6045#path:/packages/model-capacity(@deepseek-ai/cordis@4.1.0):
-    dependencies:
-      '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
-
   dsh-model-switch@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/b337e1a08d42927e67b22522d03c157f4606f0a2#path:/packages/model-switch(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-tools@0.2.2-rc.1(71e9b8099add9aaf7bb42662f07c41a3)):
     dependencies:
       '@deepseek-ai/dsh-llm': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
@@ -11047,6 +11049,11 @@ snapshots:
   dsh-session-cost@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/bc95367b7d26129440a8d76364e0be217b4b17d0#path:/packages/session-cost: {}
 
   dsh-slot-guard@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard: {}
+
+  dsh-take-a-number@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/31774afa2c655c231082c5c189ebd851963a2074#path:/packages/take-a-number(@deepseek-ai/cordis@4.1.0):
+    dependencies:
+      '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
+      take-a-number: https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/f936d64a8819078ca625f1f2944c34bec2e8f10a
 
   dsh-web-search-searxng@0.5.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-settings@0.2.2-rc.1(6959b12892ad4eb9ce9d85b86d9729db))(@deepseek-ai/dsh-typert-protocol@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-typert-registry@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-web@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))):
     dependencies:
@@ -11997,6 +12004,8 @@ snapshots:
   style-mod@4.1.4: {}
 
   stylis@4.4.0: {}
+
+  take-a-number@https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/f936d64a8819078ca625f1f2944c34bec2e8f10a: {}
 
   tiny-inflate@1.0.3: {}
 
