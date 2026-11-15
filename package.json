@@ -20,7 +20,7 @@
     "dsh-model-switch": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-model-switch-v0.2.1&path:/packages/model-switch",
     "dsh-scheduled-queue": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-scheduled-queue-v0.1.1&path:/packages/scheduled-queue",
     "dsh-session-cost": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-session-cost-v0.3.0&path:/packages/session-cost",
-    "dsh-take-a-number": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-take-a-number-v0.1.0&path:/packages/take-a-number",
+    "dsh-take-a-number": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-take-a-number-v0.1.1&path:/packages/take-a-number",
     "dsh-kanban": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-kanban-v0.44.0&path:/packages/kanban",
     "dsh-math-literal": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-math-literal-v0.1.0&path:/packages/math-literal",
     "dsh-image-tiler": "git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-image-tiler-v0.2.0&path:/packages/image-tiler",
