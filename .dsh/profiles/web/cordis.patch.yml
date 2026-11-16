@@ -685,6 +685,9 @@
 - id: take-a-number
   config:
     enabled: true
+    # The Activity panel iframes the daemon's standard dashboard (served by
+    # Caddy on this subdomain, LAN-only) instead of re-rendering the queue.
+    dashboardUrl: https://take-a-number.local-ai-machine.johnsonlab.dev
     queues:
       - provider: local-ai-machine (apu)
         queue: strix-apu
