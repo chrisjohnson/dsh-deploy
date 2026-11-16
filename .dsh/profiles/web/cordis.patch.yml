@@ -77,21 +77,21 @@
         displayName: local-ai-machine (APU)
         apiKeyEnv: LOCAL_AI_MACHINE_API_KEY
         api: openai-completions
-        # Routed through the take-a-number ADMISSION PROXY (:4140), which fronts
-        # litellm (:4000). The proxy makes GPU queueing mandatory for this traffic
-        # and, seeing the x-tan-client header below (this instance's SELF-IDENTITY,
+        # Routed to the `models` Caddy hostname, which reverse-proxies to the
+        # take-a-number ADMISSION PROXY (:4140); the proxy fronts litellm
+        # (:4000). The proxy makes GPU queueing mandatory for this traffic and,
+        # seeing the x-tan-client header below (this instance's SELF-IDENTITY,
         # "web" — the same instance name the take-a-number plugin registers with
         # the daemon, NOT a secret), forwards each call on the lease this dsh
         # instance already reserved — the compliant path (no double-queue). The
-        # proxy is a pure pipe; litellm routing/keys are untouched.
-        # Reached via 127.0.0.1: dsh is network_mode: host, sharing the host's
-        # network namespace, so it reaches the proxy (also host-bound) directly.
+        # proxy is a pure pipe; litellm routing/keys are untouched. (Replaces the
+        # old direct 127.0.0.1:4140 route and the retired litellm.* hostname.)
         # streamIdleTimeoutMs: left at the pi-ai default (300 000 ms / 5 min).
         # The APU runs big-moe (halogen flash-next, 1M-context engine) which has
         # fast prefill; the default idle window is fine. The eGPU provider
         # (medium-moe / medium-dense on llama.cpp -np 1) carries 900 000 ms
         # because queued requests behind a long first generation need the headroom.
-        baseURL: http://127.0.0.1:4140/v1
+        baseURL: https://models.local-ai-machine.johnsonlab.dev/v1
         headers:
           x-tan-client: web
         # contextWindow/maxTokens (2026-08-21): pi-ai's own README is explicit
@@ -294,7 +294,7 @@
         # the take-a-number plugin's registered instance name (compliant path
         # through the proxy).
         streamIdleTimeoutMs: 900000
-        baseURL: http://127.0.0.1:4140/v1
+        baseURL: https://models.local-ai-machine.johnsonlab.dev/v1
         headers:
           x-tan-client: web
         models:
@@ -345,7 +345,7 @@
         # Cloud route (unmapped in the take-a-number config) — passes through the
         # proxy under an unlimited lease (never GPU-queued), so the proxy remains
         # the single entry point for all dsh model traffic.
-        baseURL: http://127.0.0.1:4140/v1
+        baseURL: https://models.local-ai-machine.johnsonlab.dev/v1
         headers:
           x-tan-client: web
         models:
