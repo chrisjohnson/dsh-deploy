@@ -384,8 +384,8 @@ importers:
         specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-slot-guard-v0.1.1&path:/packages/slot-guard
         version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard
       dsh-take-a-number:
-        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-take-a-number-v0.1.5&path:/packages/take-a-number
-        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/43cfab85b9f14be760bdd9d8103a4c3aea12da7d#path:/packages/take-a-number(@deepseek-ai/cordis@4.1.0)
+        specifier: git+https://github.com/chrisjohnson/dsh-plugins.git#dsh-take-a-number-v0.1.6&path:/packages/take-a-number
+        version: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/261e52efd2faf7f82d54836a26dd23c74ac730cc#path:/packages/take-a-number(@deepseek-ai/cordis@4.1.0)
       dsh-web-search-searxng:
         specifier: 0.5.1
         version: 0.5.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-settings@0.2.2-rc.1(6959b12892ad4eb9ce9d85b86d9729db))(@deepseek-ai/dsh-typert-protocol@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-typert-registry@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-web@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)))
@@ -4671,9 +4671,9 @@ packages:
     version: 0.1.1
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=20.9.0'}
 
-  dsh-take-a-number@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/43cfab85b9f14be760bdd9d8103a4c3aea12da7d#path:/packages/take-a-number:
-    resolution: {gitHosted: true, path: /packages/take-a-number, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/43cfab85b9f14be760bdd9d8103a4c3aea12da7d}
-    version: 0.1.5
+  dsh-take-a-number@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/261e52efd2faf7f82d54836a26dd23c74ac730cc#path:/packages/take-a-number:
+    resolution: {gitHosted: true, integrity: sha512-6bhgzLxPyIw3eCdKx0ZmzvAttNzduzh5gTOdu7N6W45qBnSa33jJDdcXbSzDSU4Vb88JhSo41dhP0jYKq0tXKw==, path: /packages/take-a-number, tarball: https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/261e52efd2faf7f82d54836a26dd23c74ac730cc}
+    version: 0.1.6
     engines: {dsh: '>=0.2.0-rc.2 <0.3.0-0 || >=0.3.0-0', node: '>=22.5.0'}
     peerDependencies:
       '@deepseek-ai/cordis': 4.1.0
@@ -5519,9 +5519,9 @@ packages:
   stylis@4.4.0:
     resolution: {integrity: sha512-5Z9ZpRzfuH6l/UAvCPAPUo3665Nk2wLaZU3x+TLHKVzIz33+sbJqbtrYoC3KD4/uVOr2Zp+L0LySezP9OHV9yA==}
 
-  take-a-number@https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/e6f26ad467bffbf0b05c1c3ae6787e4efe6f2308:
-    resolution: {gitHosted: true, integrity: sha512-lWlU4rkVop6+jEBZQiTHEBANM/+n44rCT5Hhcc7f3gac3nSBpQw0LmqTKJ5OlZJI2ex7Kpz5qPxfAAqLbSI8yQ==, tarball: https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/e6f26ad467bffbf0b05c1c3ae6787e4efe6f2308}
-    version: 0.4.0
+  take-a-number@https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/aeb555d815751ad544db28b8e785e50c63b48474:
+    resolution: {gitHosted: true, integrity: sha512-4KAD5FCkHy/4L1QNm5tRmo8DrvnDeluD9NNjdwGdPl2lD4G/dGX244ND124pVRiJ+DLf1xcJpWpAjKo10ypJBQ==, tarball: https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/aeb555d815751ad544db28b8e785e50c63b48474}
+    version: 0.4.1
     engines: {node: '>=20'}
     hasBin: true
 
@@ -11050,10 +11050,10 @@ snapshots:
 
   dsh-slot-guard@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/4036576bfa076353f0a659f608e834e41f159b56#path:/packages/slot-guard: {}
 
-  dsh-take-a-number@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/43cfab85b9f14be760bdd9d8103a4c3aea12da7d#path:/packages/take-a-number(@deepseek-ai/cordis@4.1.0):
+  dsh-take-a-number@https://codeload.github.com/chrisjohnson/dsh-plugins/tar.gz/261e52efd2faf7f82d54836a26dd23c74ac730cc#path:/packages/take-a-number(@deepseek-ai/cordis@4.1.0):
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
-      take-a-number: https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/e6f26ad467bffbf0b05c1c3ae6787e4efe6f2308
+      take-a-number: https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/aeb555d815751ad544db28b8e785e50c63b48474
 
   dsh-web-search-searxng@0.5.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-settings@0.2.2-rc.1(6959b12892ad4eb9ce9d85b86d9729db))(@deepseek-ai/dsh-typert-protocol@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-typert-registry@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-web@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))):
     dependencies:
@@ -12005,7 +12005,7 @@ snapshots:
 
   stylis@4.4.0: {}
 
-  take-a-number@https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/e6f26ad467bffbf0b05c1c3ae6787e4efe6f2308: {}
+  take-a-number@https://codeload.github.com/chrisjohnson/take-a-number/tar.gz/aeb555d815751ad544db28b8e785e50c63b48474: {}
 
   tiny-inflate@1.0.3: {}
 
