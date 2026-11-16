@@ -565,26 +565,10 @@
     maxResults: !!js process.env.SEARXNG_NUM_RESULTS
     apiKey: !!js process.env.SEARXNG_API_KEY
 
-# Stuck-session signal: a deterministic repetition check over the recent
-# events, plus an LLM adjudication of ambiguous windows (medium-moe through
-# litellm on :4000, thinking switched off with chat_template_kwargs so the
-# one-line verdict is not swallowed by reasoning). Every evaluation appends a
-# line to the ledger; intervention stays off (interventionEnabled defaults to
-# false) and the act/log mode is toggled at runtime by the UI through the mode
-# file. The ledger and mode file paths are relative to $DSH_HOME and keep the
-# existing evaluation history and the toggle; leaving them out would start a
-# new empty ledger and ignore the toggle. Every other key is the package
-# default.
-- id: loop-watchdog
-  config:
-    llmBaseUrl: http://127.0.0.1:4000/v1
-    llmModel: medium-moe
-    llmApiKeyEnv: LOCAL_AI_MACHINE_API_KEY
-    llmExtraBody:
-      chat_template_kwargs:
-        enable_thinking: false
-    ledgerFile: storages/semantic-loop-kicker/evaluations.jsonl
-    modeFile: profiles/web/watchdog-mode.json
+# NOTE: dsh-loop-watchdog is intentionally NOT installed (as of 2026-11-16).
+# It adjudicated stuck sessions via an LLM call that hit litellm :4000 directly,
+# bypassing the take-a-number admission queue. Re-add it (dependency + bundle +
+# this config row) only once it points at the models.* endpoint.
 
 # In-session model switching for the agent itself: `switch_model` (agent picks
 # provider/model) and `switch_model_escalate` (escape hatch, no arguments;
