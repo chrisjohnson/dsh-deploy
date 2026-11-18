@@ -10,7 +10,7 @@
 // under real re-render pressure, so this pass puts some on: reopen a real session
 // that carries workspace/changes events, cycle between sessions, and push a
 // kanban board update, then assert the root is still rendered and nothing crashed.
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
 import { Skip, bodyText, ensureWorkspace, newSession, openLab, openSession, readSessionEvents, sidebarWorkspaces, sleep, waitFor } from '../lib.mjs'
@@ -101,6 +101,22 @@ async function rootRendered(page) {
   })
 }
 
+/**
+ * The dashboardUrl the take-a-number Activity panel iframes, read from the lab's
+ * own cordis.patch.yml so the assertion tracks the deployment's config instead
+ * of a hard-coded host. Falls back to the value this deployment ships.
+ */
+function dashboardUrl(env) {
+  const file = join(env.dshHome, 'profiles', 'web', 'cordis.patch.yml')
+  try {
+    const m = /^\s*dashboardUrl:\s*(\S+)\s*$/m.exec(readFileSync(file, 'utf8'))
+    if (m) return m[1]
+  } catch {
+    // fall through to the shipped default
+  }
+  return 'https://take-a-number.local-ai-machine.johnsonlab.dev'
+}
+
 export async function run(ctx) {
   const { env } = ctx
   const s = await openLab(env)
@@ -173,6 +189,33 @@ export async function run(ctx) {
         return 'rendered'
       })
     }
+
+    // KAN-105: the take-a-number Activity link in the left rail, and the page it
+    // opens. The rail row is matched by aria-label so it holds in both the wide
+    // and the narrow (icon-only) rail. A regression in the plugin's browser half
+    // that crashes the sidebar.panellist slot removes this row entirely (the slot
+    // boundary swallows the throw), so the console gate below is not enough on its
+    // own — assert the row and its iframe page here.
+    await ctx.check('the left rail shows the Activity link', async () => {
+      await s.goto()
+      await waitFor(async () => (await page.locator('button[aria-label="Activity"]').count()) > 0, { timeout: 20_000, what: 'the Activity rail row' })
+      if ((await page.locator('[data-slot-error]').count()) > 0) throw new Error('a [data-slot-error] crash face is in the DOM')
+      const n = await page.locator('button[aria-label="Activity"]').count()
+      await s.shot('ui-activity-row')
+      return `button[aria-label="Activity"] present (${n})`
+    })
+
+    await ctx.check('the Activity page iframes the take-a-number dashboard', async () => {
+      const expected = dashboardUrl(env)
+      await page.locator('button[aria-label="Activity"]').first().click()
+      const frame = page.locator('iframe[title="take-a-number activity"]')
+      await waitFor(async () => (await frame.count()) > 0, { timeout: 20_000, what: 'the take-a-number activity iframe' })
+      const src = await frame.first().getAttribute('src')
+      await s.shot('ui-activity-page')
+      if (!src || !/^https?:\/\//.test(src)) throw new Error(`iframe src is not a URL: ${JSON.stringify(src)}`)
+      if (src !== expected) throw new Error(`iframe src is ${src}, expected the configured dashboardUrl ${expected}`)
+      return `iframe[title="take-a-number activity"] src == ${src}`
+    })
 
     await ctx.check('right-sidebar tools open without errors', async () => {
       await ensureWorkspace(env, page, 'lab-scratch')
